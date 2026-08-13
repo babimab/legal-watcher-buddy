@@ -14,7 +14,194 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      movimentacoes: {
+        Row: {
+          concluida: boolean
+          created_at: string
+          created_by: string | null
+          data_movimentacao: string
+          descricao: string
+          exige_acao: boolean
+          fonte: string
+          id: string
+          id_externo: string | null
+          prazo: string | null
+          processo_id: string
+          tipo: string | null
+          updated_at: string
+        }
+        Insert: {
+          concluida?: boolean
+          created_at?: string
+          created_by?: string | null
+          data_movimentacao?: string
+          descricao: string
+          exige_acao?: boolean
+          fonte?: string
+          id?: string
+          id_externo?: string | null
+          prazo?: string | null
+          processo_id: string
+          tipo?: string | null
+          updated_at?: string
+        }
+        Update: {
+          concluida?: boolean
+          created_at?: string
+          created_by?: string | null
+          data_movimentacao?: string
+          descricao?: string
+          exige_acao?: boolean
+          fonte?: string
+          id?: string
+          id_externo?: string | null
+          prazo?: string | null
+          processo_id?: string
+          tipo?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimentacoes_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      processos: {
+        Row: {
+          classe: string | null
+          cliente: string
+          comarca: string | null
+          created_at: string
+          created_by: string | null
+          fase: string | null
+          fonte: string
+          id: string
+          id_externo: string | null
+          monitorar: boolean
+          numero_cnj: string
+          observacoes: string | null
+          parte_contraria: string | null
+          provedor_externo: string | null
+          responsavel: string | null
+          sincronizado_em: string | null
+          status: string
+          tribunal: string | null
+          ultima_verificacao_em: string | null
+          updated_at: string
+          valor_causa: number | null
+          vara: string | null
+        }
+        Insert: {
+          classe?: string | null
+          cliente: string
+          comarca?: string | null
+          created_at?: string
+          created_by?: string | null
+          fase?: string | null
+          fonte?: string
+          id?: string
+          id_externo?: string | null
+          monitorar?: boolean
+          numero_cnj: string
+          observacoes?: string | null
+          parte_contraria?: string | null
+          provedor_externo?: string | null
+          responsavel?: string | null
+          sincronizado_em?: string | null
+          status?: string
+          tribunal?: string | null
+          ultima_verificacao_em?: string | null
+          updated_at?: string
+          valor_causa?: number | null
+          vara?: string | null
+        }
+        Update: {
+          classe?: string | null
+          cliente?: string
+          comarca?: string | null
+          created_at?: string
+          created_by?: string | null
+          fase?: string | null
+          fonte?: string
+          id?: string
+          id_externo?: string | null
+          monitorar?: boolean
+          numero_cnj?: string
+          observacoes?: string | null
+          parte_contraria?: string | null
+          provedor_externo?: string | null
+          responsavel?: string | null
+          sincronizado_em?: string | null
+          status?: string
+          tribunal?: string | null
+          ultima_verificacao_em?: string | null
+          updated_at?: string
+          valor_causa?: number | null
+          vara?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          nome: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id: string
+          nome?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          nome?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      verificacoes: {
+        Row: {
+          created_at: string
+          executado_em: string
+          executado_por: string | null
+          id: string
+          periodo_fim: string
+          periodo_inicio: string | null
+          tipo: string
+          total_movimentacoes: number
+        }
+        Insert: {
+          created_at?: string
+          executado_em?: string
+          executado_por?: string | null
+          id?: string
+          periodo_fim?: string
+          periodo_inicio?: string | null
+          tipo?: string
+          total_movimentacoes?: number
+        }
+        Update: {
+          created_at?: string
+          executado_em?: string
+          executado_por?: string | null
+          id?: string
+          periodo_fim?: string
+          periodo_inicio?: string | null
+          tipo?: string
+          total_movimentacoes?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
