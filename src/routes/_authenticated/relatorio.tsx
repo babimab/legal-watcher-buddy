@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AlertTriangle, Download, Mail, Play } from "lucide-react";
@@ -80,50 +80,33 @@ const TITULO_POR_ABA: Record<string, string> = {
   pendencias: "Prazos pendentes",
 };
 
-function escaparHtml(valor: string) {
-  return valor.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
+const MAX_ITENS_NO_EMAIL = 30;
 
-function montarHtmlAndamentos(itens: MovimentacaoComProcesso[], titulo: string) {
-  const linhas = itens
-    .map((m) => {
-      const partes =
-        [m.processos?.autor, m.processos?.reu].filter(Boolean).join(" x ") ||
-        m.processos?.parte_contraria ||
-        "";
-      const data = new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR");
-      return `
-        <tr>
-          <td style="padding:6px;border:1px solid #ddd;font-family:monospace;font-size:12px;">${
-            m.processos ? escaparHtml(formatarCNJ(m.processos.numero_cnj)) : ""
-          }</td>
-          <td style="padding:6px;border:1px solid #ddd;">${escaparHtml(m.processos?.cliente ?? "")}</td>
-          <td style="padding:6px;border:1px solid #ddd;">${escaparHtml(partes)}</td>
-          <td style="padding:6px;border:1px solid #ddd;">${escaparHtml(m.tipo ?? "")}</td>
-          <td style="padding:6px;border:1px solid #ddd;">${data}</td>
-          <td style="padding:6px;border:1px solid #ddd;">${escaparHtml(m.descricao)}</td>
-        </tr>`;
-    })
-    .join("");
+function montarMailto(destinatarios: string[], itens: MovimentacaoComProcesso[], titulo: string) {
+  const assunto = `Radar Processual — ${titulo}`;
+  const cortado = itens.length > MAX_ITENS_NO_EMAIL;
+  const linhas = itens.slice(0, MAX_ITENS_NO_EMAIL).map((m, i) => {
+    const partes =
+      [m.processos?.autor, m.processos?.reu].filter(Boolean).join(" x ") ||
+      m.processos?.parte_contraria ||
+      "";
+    const numero = m.processos ? formatarCNJ(m.processos.numero_cnj) : "—";
+    const data = new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR");
+    return `${i + 1}) ${numero} — ${m.processos?.cliente ?? ""}${partes ? ` (${partes})` : ""}\n   ${data}${m.tipo ? ` — ${m.tipo}` : ""}: ${m.descricao}`;
+  });
 
-  return `
-    <div style="font-family:sans-serif;">
-      <h2>${escaparHtml(titulo)}</h2>
-      <p>${itens.length} andamento(s).</p>
-      <table style="border-collapse:collapse;width:100%;font-size:13px;">
-        <thead>
-          <tr style="background:#f3f3f3;">
-            <th style="padding:6px;border:1px solid #ddd;text-align:left;">Número CNJ</th>
-            <th style="padding:6px;border:1px solid #ddd;text-align:left;">Cliente</th>
-            <th style="padding:6px;border:1px solid #ddd;text-align:left;">Partes</th>
-            <th style="padding:6px;border:1px solid #ddd;text-align:left;">Tipo</th>
-            <th style="padding:6px;border:1px solid #ddd;text-align:left;">Data</th>
-            <th style="padding:6px;border:1px solid #ddd;text-align:left;">Descrição</th>
-          </tr>
-        </thead>
-        <tbody>${linhas}</tbody>
-      </table>
-    </div>`;
+  const corpo = [
+    `${titulo} — ${itens.length} andamento(s)`,
+    "",
+    ...linhas,
+    cortado
+      ? `\n... e mais ${itens.length - MAX_ITENS_NO_EMAIL} andamento(s). Use "Exportar Excel" para a lista completa.`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return `mailto:${destinatarios.join(",")}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
 }
 
 function RelatorioPage() {
@@ -189,27 +172,17 @@ function RelatorioPage() {
 
   const [emails, setEmails] = useState("");
 
-  const enviarEmail = useMutation({
-    mutationFn: async () => {
-      const destinatarios = emails
-        .split(",")
-        .map((e) => e.trim())
-        .filter(Boolean);
-      if (destinatarios.length === 0) throw new Error("Informe pelo menos um e-mail.");
-
-      const { data, error } = await supabase.functions.invoke("enviar-relatorio-email", {
-        body: {
-          destinatarios,
-          assunto: `Radar Processual — ${TITULO_POR_ABA[aba]}`,
-          html: montarHtmlAndamentos(itensDaAba, TITULO_POR_ABA[aba]!),
-        },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-    },
-    onSuccess: () => toast.success("E-mail enviado."),
-    onError: (e: Error) => toast.error(e.message),
-  });
+  const abrirEmail = () => {
+    const destinatarios = emails
+      .split(",")
+      .map((e) => e.trim())
+      .filter(Boolean);
+    if (destinatarios.length === 0) {
+      toast.error("Informe pelo menos um e-mail.");
+      return;
+    }
+    window.location.href = montarMailto(destinatarios, itensDaAba, TITULO_POR_ABA[aba]!);
+  };
 
   const rodar = async () => {
     setRodando(true);
@@ -280,12 +253,8 @@ function RelatorioPage() {
           onChange={(e) => setEmails(e.target.value)}
           className="max-w-sm"
         />
-        <Button
-          variant="outline"
-          disabled={itensDaAba.length === 0 || enviarEmail.isPending}
-          onClick={() => enviarEmail.mutate()}
-        >
-          <Mail className="size-4" /> {enviarEmail.isPending ? "Enviando..." : "Enviar por e-mail"}
+        <Button variant="outline" disabled={itensDaAba.length === 0} onClick={abrirEmail}>
+          <Mail className="size-4" /> Enviar por e-mail
         </Button>
       </div>
 
