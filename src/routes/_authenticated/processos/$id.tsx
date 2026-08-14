@@ -47,7 +47,10 @@ function ProcessoDetalhe() {
       .from("movimentacoes")
       .update({ concluida })
       .eq("id", movId);
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     await queryClient.invalidateQueries();
   };
 

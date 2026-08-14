@@ -12,7 +12,10 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedImportarRouteImport } from './routes/_authenticated/importar'
+import { Route as AuthenticatedRelatorioRouteImport } from './routes/_authenticated/relatorio'
 import { Route as AuthenticatedProcessosIndexRouteImport } from './routes/_authenticated/processos/index'
+import { Route as AuthenticatedProcessosIdRouteImport } from './routes/_authenticated/processos/$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,21 +31,43 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedImportarRoute = AuthenticatedImportarRouteImport.update({
+  id: '/importar',
+  path: '/importar',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedRelatorioRoute = AuthenticatedRelatorioRouteImport.update({
+  id: '/relatorio',
+  path: '/relatorio',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedProcessosIndexRoute =
   AuthenticatedProcessosIndexRouteImport.update({
     id: '/processos/',
     path: '/processos/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedProcessosIdRoute =
+  AuthenticatedProcessosIdRouteImport.update({
+    id: '/processos/$id',
+    path: '/processos/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/importar': typeof AuthenticatedImportarRoute
+  '/relatorio': typeof AuthenticatedRelatorioRoute
+  '/processos/$id': typeof AuthenticatedProcessosIdRoute
   '/processos/': typeof AuthenticatedProcessosIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/importar': typeof AuthenticatedImportarRoute
+  '/relatorio': typeof AuthenticatedRelatorioRoute
+  '/processos/$id': typeof AuthenticatedProcessosIdRoute
   '/processos': typeof AuthenticatedProcessosIndexRoute
 }
 export interface FileRoutesById {
@@ -50,18 +75,31 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/importar': typeof AuthenticatedImportarRoute
+  '/_authenticated/relatorio': typeof AuthenticatedRelatorioRoute
+  '/_authenticated/processos/$id': typeof AuthenticatedProcessosIdRoute
   '/_authenticated/processos/': typeof AuthenticatedProcessosIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/processos/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/importar'
+    | '/relatorio'
+    | '/processos/$id'
+    | '/processos/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/processos'
+  to:
+    '/' | '/auth' | '/importar' | '/relatorio' | '/processos/$id' | '/processos'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/importar'
+    | '/_authenticated/relatorio'
+    | '/_authenticated/processos/$id'
     | '/_authenticated/processos/'
   fileRoutesById: FileRoutesById
 }
@@ -94,6 +132,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/importar': {
+      id: '/_authenticated/importar'
+      path: '/importar'
+      fullPath: '/importar'
+      preLoaderRoute: typeof AuthenticatedImportarRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/relatorio': {
+      id: '/_authenticated/relatorio'
+      path: '/relatorio'
+      fullPath: '/relatorio'
+      preLoaderRoute: typeof AuthenticatedRelatorioRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/processos/': {
       id: '/_authenticated/processos/'
       path: '/processos'
@@ -101,14 +153,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProcessosIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/processos/$id': {
+      id: '/_authenticated/processos/$id'
+      path: '/processos/$id'
+      fullPath: '/processos/$id'
+      preLoaderRoute: typeof AuthenticatedProcessosIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedImportarRoute: typeof AuthenticatedImportarRoute
+  AuthenticatedRelatorioRoute: typeof AuthenticatedRelatorioRoute
+  AuthenticatedProcessosIdRoute: typeof AuthenticatedProcessosIdRoute
   AuthenticatedProcessosIndexRoute: typeof AuthenticatedProcessosIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedImportarRoute: AuthenticatedImportarRoute,
+  AuthenticatedRelatorioRoute: AuthenticatedRelatorioRoute,
+  AuthenticatedProcessosIdRoute: AuthenticatedProcessosIdRoute,
   AuthenticatedProcessosIndexRoute: AuthenticatedProcessosIndexRoute,
 }
 
