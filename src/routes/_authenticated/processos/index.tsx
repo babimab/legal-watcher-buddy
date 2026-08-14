@@ -76,8 +76,9 @@ function ProcessosPage() {
   useEffect(() => {
     if (advogadoInicializado.current || !data || data.length === 0) return;
     advogadoInicializado.current = true;
+    if (search.grupo || search.pasta) return;
     if (data.some((p) => ehMeuApelido(p.responsavel))) setAdvogado("eu");
-  }, [data]);
+  }, [data, search.grupo, search.pasta]);
 
   const grupos = useQuery({ queryKey: ["grupos"], queryFn: listarGrupos });
   const pastas = useQuery({ queryKey: ["pastas"], queryFn: listarPastas });
