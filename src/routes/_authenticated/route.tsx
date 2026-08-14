@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, redirect, Link, useRouter } from "@tanstack/react-router";
-import { Copy, FolderKanban, LineChart, LogOut, Upload, Users } from "lucide-react";
+import { FolderKanban, LineChart, LogOut, Upload, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,11 +30,14 @@ function AppLayout() {
             Radar Processual
           </Link>
           <nav className="flex items-center gap-1 text-sm">
-            <NavItem to="/processos" icon={<FolderKanban className="size-4" />} label="Processos" />
+            <NavItem
+              to="/processos"
+              icon={<FolderKanban className="size-4" />}
+              label="Meus processos"
+            />
             <NavItem to="/relatorio" icon={<LineChart className="size-4" />} label="Relatório" />
             <NavItem to="/grupos" icon={<Users className="size-4" />} label="Grupos" />
             <NavItem to="/importar" icon={<Upload className="size-4" />} label="Importar" />
-            <NavItem to="/duplicados" icon={<Copy className="size-4" />} label="Duplicados" />
           </nav>
           <Button
             variant="ghost"

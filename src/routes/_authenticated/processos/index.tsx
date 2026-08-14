@@ -21,12 +21,12 @@ import { listarGrupos, listarPastas } from "@/lib/grupos";
 export const Route = createFileRoute("/_authenticated/processos/")({
   head: () => ({
     meta: [
-      { title: "Processos | Radar Processual" },
+      { title: "Meus processos | Radar Processual" },
       {
         name: "description",
         content: "Carteira de processos judiciais do escritório com busca, status e responsável.",
       },
-      { property: "og:title", content: "Carteira de processos" },
+      { property: "og:title", content: "Meus processos" },
       {
         property: "og:description",
         content: "Carteira de processos judiciais do escritório com busca, status e responsável.",
@@ -114,7 +114,7 @@ function ProcessosPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl font-semibold">Processos</h1>
+          <h1 className="font-serif text-3xl font-semibold">Meus processos</h1>
           <p className="text-muted-foreground">
             Carteira compartilhada do escritório — {data?.length ?? 0} cadastrados.
           </p>

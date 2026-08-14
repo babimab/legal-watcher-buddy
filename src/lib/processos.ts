@@ -144,18 +144,6 @@ export async function ultimaVerificacao() {
   return data;
 }
 
-export async function fundirProcessos(mantidoId: string, removidoId: string): Promise<void> {
-  const { error } = await supabase.rpc("fundir_processos", {
-    _mantido_id: mantidoId,
-    _removido_id: removidoId,
-  });
-  if (error) throw error;
-}
-
-export function digitosCNJ(valor: string) {
-  return valor.replace(/\D/g, "");
-}
-
 export function formatarCNJ(valor: string) {
   const d = valor.replace(/\D/g, "").slice(0, 20);
   if (d.length < 20) return valor;
