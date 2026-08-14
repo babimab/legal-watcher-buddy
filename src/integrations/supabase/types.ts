@@ -25,6 +25,7 @@ export type Database = {
           fonte: string
           id: string
           id_externo: string | null
+          observacao: string | null
           prazo: string | null
           processo_id: string
           tipo: string | null
@@ -40,6 +41,7 @@ export type Database = {
           fonte?: string
           id?: string
           id_externo?: string | null
+          observacao?: string | null
           prazo?: string | null
           processo_id: string
           tipo?: string | null
@@ -55,6 +57,7 @@ export type Database = {
           fonte?: string
           id?: string
           id_externo?: string | null
+          observacao?: string | null
           prazo?: string | null
           processo_id?: string
           tipo?: string | null
@@ -72,6 +75,8 @@ export type Database = {
       }
       processos: {
         Row: {
+          autor: string | null
+          carteira: string | null
           classe: string | null
           cliente: string
           comarca: string | null
@@ -82,20 +87,27 @@ export type Database = {
           id: string
           id_externo: string | null
           monitorar: boolean
+          numero_antigo: string | null
           numero_cnj: string
+          numero_interno: string | null
           observacoes: string | null
           parte_contraria: string | null
           provedor_externo: string | null
           responsavel: string | null
+          reu: string | null
           sincronizado_em: string | null
+          sistema: string | null
           status: string
           tribunal: string | null
+          uf: string | null
           ultima_verificacao_em: string | null
           updated_at: string
           valor_causa: number | null
           vara: string | null
         }
         Insert: {
+          autor?: string | null
+          carteira?: string | null
           classe?: string | null
           cliente: string
           comarca?: string | null
@@ -106,20 +118,27 @@ export type Database = {
           id?: string
           id_externo?: string | null
           monitorar?: boolean
+          numero_antigo?: string | null
           numero_cnj: string
+          numero_interno?: string | null
           observacoes?: string | null
           parte_contraria?: string | null
           provedor_externo?: string | null
           responsavel?: string | null
+          reu?: string | null
           sincronizado_em?: string | null
+          sistema?: string | null
           status?: string
           tribunal?: string | null
+          uf?: string | null
           ultima_verificacao_em?: string | null
           updated_at?: string
           valor_causa?: number | null
           vara?: string | null
         }
         Update: {
+          autor?: string | null
+          carteira?: string | null
           classe?: string | null
           cliente?: string
           comarca?: string | null
@@ -130,14 +149,19 @@ export type Database = {
           id?: string
           id_externo?: string | null
           monitorar?: boolean
+          numero_antigo?: string | null
           numero_cnj?: string
+          numero_interno?: string | null
           observacoes?: string | null
           parte_contraria?: string | null
           provedor_externo?: string | null
           responsavel?: string | null
+          reu?: string | null
           sincronizado_em?: string | null
+          sistema?: string | null
           status?: string
           tribunal?: string | null
+          uf?: string | null
           ultima_verificacao_em?: string | null
           updated_at?: string
           valor_causa?: number | null
