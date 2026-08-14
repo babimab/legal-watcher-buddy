@@ -284,6 +284,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      compartilhar_processo: {
+        Args: { _email: string; _processo_id: string }
+        Returns: string
+      }
       e_dono_processo: { Args: { _processo_id: string }; Returns: boolean }
       has_role: {
         Args: {
@@ -291,6 +295,16 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      listar_acessos_processo: {
+        Args: { _processo_id: string }
+        Returns: {
+          acesso_id: string
+          created_at: string
+          email: string
+          nome: string
+          user_id: string
+        }[]
       }
       pode_acessar_processo: {
         Args: { _processo_id: string }
