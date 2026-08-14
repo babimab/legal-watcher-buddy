@@ -44,6 +44,9 @@ function exportarNovidadesExcel(itens: MovimentacaoComProcesso[]) {
   const linhas = itens.map((m) => ({
     "Número CNJ": m.processos ? formatarCNJ(m.processos.numero_cnj) : "",
     Cliente: m.processos?.cliente ?? "",
+    Autor: m.processos?.autor ?? "",
+    Réu: m.processos?.reu ?? "",
+    "Parte contrária": m.processos?.parte_contraria ?? "",
     Tipo: m.tipo ?? "",
     Data: m.data_movimentacao,
     Descrição: m.descricao,
@@ -185,6 +188,14 @@ function Lista({
               </Link>
             ) : null}
             <span className="font-medium">{m.processos?.cliente}</span>
+            {m.processos?.autor || m.processos?.reu ? (
+              <span className="text-muted-foreground">
+                {m.processos.autor ?? "—"}
+                {m.processos.reu ? ` x ${m.processos.reu}` : ""}
+              </span>
+            ) : m.processos?.parte_contraria ? (
+              <span className="text-muted-foreground">x {m.processos.parte_contraria}</span>
+            ) : null}
             {m.tipo ? <Badge variant="outline">{m.tipo}</Badge> : null}
             {destaque && m.prazo ? (
               <Badge variant="destructive">

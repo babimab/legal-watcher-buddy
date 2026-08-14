@@ -106,7 +106,10 @@ export async function listarMovimentacoes(processoId: string): Promise<Movimenta
 }
 
 export type MovimentacaoComProcesso = Movimentacao & {
-  processos: Pick<Processo, "id" | "numero_cnj" | "cliente" | "tribunal"> | null;
+  processos: Pick<
+    Processo,
+    "id" | "numero_cnj" | "cliente" | "tribunal" | "autor" | "reu" | "parte_contraria"
+  > | null;
 };
 
 export async function listarMovimentacoesDesde(
@@ -114,7 +117,7 @@ export async function listarMovimentacoesDesde(
 ): Promise<MovimentacaoComProcesso[]> {
   let query = supabase
     .from("movimentacoes")
-    .select("*, processos(id, numero_cnj, cliente, tribunal)")
+    .select("*, processos(id, numero_cnj, cliente, tribunal, autor, reu, parte_contraria)")
     .order("created_at", { ascending: false });
   if (desde) query = query.gt("created_at", desde);
   const { data, error } = await query;
@@ -139,7 +142,7 @@ export async function listarUltimasMovimentacoes(): Promise<Map<string, Moviment
 export async function listarPendencias(): Promise<MovimentacaoComProcesso[]> {
   const { data, error } = await supabase
     .from("movimentacoes")
-    .select("*, processos(id, numero_cnj, cliente, tribunal)")
+    .select("*, processos(id, numero_cnj, cliente, tribunal, autor, reu, parte_contraria)")
     .eq("exige_acao", true)
     .eq("concluida", false)
     .order("prazo", { ascending: true, nullsFirst: false });
