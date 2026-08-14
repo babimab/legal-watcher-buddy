@@ -1,8 +1,11 @@
 import { createFileRoute, Outlet, redirect, Link, useRouter } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { FolderKanban, LineChart, LogOut, Upload, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { listarPendencias } from "@/lib/processos";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -16,6 +19,14 @@ export const Route = createFileRoute("/_authenticated")({
 
 function AppLayout() {
   const router = useRouter();
+
+  const pendencias = useQuery({ queryKey: ["pendencias"], queryFn: listarPendencias });
+  const emSeteDias = new Date();
+  emSeteDias.setDate(emSeteDias.getDate() + 7);
+  const emSeteDiasISO = emSeteDias.toISOString().slice(0, 10);
+  const prazosUrgentes = (pendencias.data ?? []).filter(
+    (m) => m.prazo && m.prazo <= emSeteDiasISO,
+  ).length;
 
   const sair = async () => {
     await supabase.auth.signOut();
@@ -39,6 +50,7 @@ function AppLayout() {
               to="/relatorio"
               icon={<LineChart className="size-4" />}
               label="Relatório de novos andamentos"
+              contador={prazosUrgentes}
             />
             <NavItem to="/grupos" icon={<Users className="size-4" />} label="Grupos" />
             <NavItem to="/importar" icon={<Upload className="size-4" />} label="Importar" />
@@ -60,7 +72,17 @@ function AppLayout() {
   );
 }
 
-function NavItem({ to, icon, label }: { to: string; icon: React.ReactNode; label: string }) {
+function NavItem({
+  to,
+  icon,
+  label,
+  contador,
+}: {
+  to: string;
+  icon: React.ReactNode;
+  label: string;
+  contador?: number;
+}) {
   return (
     <Link
       to={to}
@@ -69,6 +91,11 @@ function NavItem({ to, icon, label }: { to: string; icon: React.ReactNode; label
     >
       {icon}
       {label}
+      {contador ? (
+        <Badge variant="destructive" className="px-1.5 py-0 text-xs">
+          {contador}
+        </Badge>
+      ) : null}
     </Link>
   );
 }
