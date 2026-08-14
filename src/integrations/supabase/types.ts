@@ -1,566 +1,578 @@
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15";
-  };
+    PostgrestVersion: "14.15"
+  }
   public: {
     Tables: {
       grupos: {
         Row: {
-          created_at: string;
-          created_by: string | null;
-          id: string;
-          nome: string;
-        };
+          created_at: string
+          created_by: string | null
+          id: string
+          nome: string
+        }
         Insert: {
-          created_at?: string;
-          created_by?: string | null;
-          id?: string;
-          nome: string;
-        };
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome: string
+        }
         Update: {
-          created_at?: string;
-          created_by?: string | null;
-          id?: string;
-          nome?: string;
-        };
-        Relationships: [];
-      };
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
       pastas: {
         Row: {
-          created_at: string;
-          created_by: string | null;
-          grupo_id: string;
-          id: string;
-          nome: string;
-        };
+          created_at: string
+          created_by: string | null
+          grupo_id: string
+          id: string
+          nome: string
+        }
         Insert: {
-          created_at?: string;
-          created_by?: string | null;
-          grupo_id: string;
-          id?: string;
-          nome: string;
-        };
+          created_at?: string
+          created_by?: string | null
+          grupo_id: string
+          id?: string
+          nome: string
+        }
         Update: {
-          created_at?: string;
-          created_by?: string | null;
-          grupo_id?: string;
-          id?: string;
-          nome?: string;
-        };
+          created_at?: string
+          created_by?: string | null
+          grupo_id?: string
+          id?: string
+          nome?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "pastas_grupo_id_fkey";
-            columns: ["grupo_id"];
-            isOneToOne: false;
-            referencedRelation: "grupos";
-            referencedColumns: ["id"];
+            foreignKeyName: "pastas_grupo_id_fkey"
+            columns: ["grupo_id"]
+            isOneToOne: false
+            referencedRelation: "grupos"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       grupo_membros: {
         Row: {
-          created_at: string;
-          created_by: string | null;
-          grupo_id: string;
-          id: string;
-          user_id: string;
-        };
+          created_at: string
+          created_by: string | null
+          grupo_id: string
+          id: string
+          user_id: string
+        }
         Insert: {
-          created_at?: string;
-          created_by?: string | null;
-          grupo_id: string;
-          id?: string;
-          user_id: string;
-        };
+          created_at?: string
+          created_by?: string | null
+          grupo_id: string
+          id?: string
+          user_id: string
+        }
         Update: {
-          created_at?: string;
-          created_by?: string | null;
-          grupo_id?: string;
-          id?: string;
-          user_id?: string;
-        };
+          created_at?: string
+          created_by?: string | null
+          grupo_id?: string
+          id?: string
+          user_id?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "grupo_membros_grupo_id_fkey";
-            columns: ["grupo_id"];
-            isOneToOne: false;
-            referencedRelation: "grupos";
-            referencedColumns: ["id"];
+            foreignKeyName: "grupo_membros_grupo_id_fkey"
+            columns: ["grupo_id"]
+            isOneToOne: false
+            referencedRelation: "grupos"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       movimentacoes: {
         Row: {
-          concluida: boolean;
-          created_at: string;
-          created_by: string | null;
-          data_movimentacao: string;
-          descricao: string;
-          exige_acao: boolean;
-          fonte: string;
-          id: string;
-          id_externo: string | null;
-          observacao: string | null;
-          prazo: string | null;
-          processo_id: string;
-          tipo: string | null;
-          updated_at: string;
-        };
+          concluida: boolean
+          created_at: string
+          created_by: string | null
+          data_movimentacao: string
+          descricao: string
+          exige_acao: boolean
+          fonte: string
+          id: string
+          id_externo: string | null
+          observacao: string | null
+          prazo: string | null
+          processo_id: string
+          tipo: string | null
+          updated_at: string
+        }
         Insert: {
-          concluida?: boolean;
-          created_at?: string;
-          created_by?: string | null;
-          data_movimentacao?: string;
-          descricao: string;
-          exige_acao?: boolean;
-          fonte?: string;
-          id?: string;
-          id_externo?: string | null;
-          observacao?: string | null;
-          prazo?: string | null;
-          processo_id: string;
-          tipo?: string | null;
-          updated_at?: string;
-        };
+          concluida?: boolean
+          created_at?: string
+          created_by?: string | null
+          data_movimentacao?: string
+          descricao: string
+          exige_acao?: boolean
+          fonte?: string
+          id?: string
+          id_externo?: string | null
+          observacao?: string | null
+          prazo?: string | null
+          processo_id: string
+          tipo?: string | null
+          updated_at?: string
+        }
         Update: {
-          concluida?: boolean;
-          created_at?: string;
-          created_by?: string | null;
-          data_movimentacao?: string;
-          descricao?: string;
-          exige_acao?: boolean;
-          fonte?: string;
-          id?: string;
-          id_externo?: string | null;
-          observacao?: string | null;
-          prazo?: string | null;
-          processo_id?: string;
-          tipo?: string | null;
-          updated_at?: string;
-        };
+          concluida?: boolean
+          created_at?: string
+          created_by?: string | null
+          data_movimentacao?: string
+          descricao?: string
+          exige_acao?: boolean
+          fonte?: string
+          id?: string
+          id_externo?: string | null
+          observacao?: string | null
+          prazo?: string | null
+          processo_id?: string
+          tipo?: string | null
+          updated_at?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "movimentacoes_processo_id_fkey";
-            columns: ["processo_id"];
-            isOneToOne: false;
-            referencedRelation: "processos";
-            referencedColumns: ["id"];
+            foreignKeyName: "movimentacoes_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       processo_acessos: {
         Row: {
-          created_at: string;
-          created_by: string | null;
-          id: string;
-          processo_id: string;
-          user_id: string;
-        };
+          created_at: string
+          created_by: string | null
+          id: string
+          processo_id: string
+          user_id: string
+        }
         Insert: {
-          created_at?: string;
-          created_by?: string | null;
-          id?: string;
-          processo_id: string;
-          user_id: string;
-        };
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          processo_id: string
+          user_id: string
+        }
         Update: {
-          created_at?: string;
-          created_by?: string | null;
-          id?: string;
-          processo_id?: string;
-          user_id?: string;
-        };
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          processo_id?: string
+          user_id?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "processo_acessos_processo_id_fkey";
-            columns: ["processo_id"];
-            isOneToOne: false;
-            referencedRelation: "processos";
-            referencedColumns: ["id"];
+            foreignKeyName: "processo_acessos_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       processos: {
         Row: {
-          autor: string | null;
-          carteira: string | null;
-          classe: string | null;
-          cliente: string;
-          comarca: string | null;
-          created_at: string;
-          created_by: string | null;
-          fase: string | null;
-          fonte: string;
-          id: string;
-          id_externo: string | null;
-          monitorar: boolean;
-          numero_antigo: string | null;
-          numero_cnj: string;
-          numero_interno: string | null;
-          observacoes: string | null;
-          parte_contraria: string | null;
-          pasta_id: string | null;
-          processo_pai_id: string | null;
-          provedor_externo: string | null;
-          responsavel: string | null;
-          reu: string | null;
-          sincronizado_em: string | null;
-          sistema: string | null;
-          status: string;
-          tipo_desdobramento: string | null;
-          tribunal: string | null;
-          uf: string | null;
-          ultima_verificacao_em: string | null;
-          updated_at: string;
-          valor_causa: number | null;
-          vara: string | null;
-        };
+          autor: string | null
+          carteira: string | null
+          classe: string | null
+          cliente: string
+          comarca: string | null
+          created_at: string
+          created_by: string | null
+          fase: string | null
+          fonte: string
+          id: string
+          id_externo: string | null
+          monitorar: boolean
+          numero_antigo: string | null
+          numero_cnj: string
+          numero_interno: string | null
+          observacoes: string | null
+          parte_contraria: string | null
+          pasta_id: string | null
+          processo_pai_id: string | null
+          provedor_externo: string | null
+          responsavel: string | null
+          reu: string | null
+          sincronizado_em: string | null
+          sistema: string | null
+          status: string
+          tipo_desdobramento: string | null
+          tribunal: string | null
+          uf: string | null
+          ultima_verificacao_em: string | null
+          updated_at: string
+          valor_causa: number | null
+          vara: string | null
+        }
         Insert: {
-          autor?: string | null;
-          carteira?: string | null;
-          classe?: string | null;
-          cliente: string;
-          comarca?: string | null;
-          created_at?: string;
-          created_by?: string | null;
-          fase?: string | null;
-          fonte?: string;
-          id?: string;
-          id_externo?: string | null;
-          monitorar?: boolean;
-          numero_antigo?: string | null;
-          numero_cnj: string;
-          numero_interno?: string | null;
-          observacoes?: string | null;
-          parte_contraria?: string | null;
-          pasta_id?: string | null;
-          processo_pai_id?: string | null;
-          provedor_externo?: string | null;
-          responsavel?: string | null;
-          reu?: string | null;
-          sincronizado_em?: string | null;
-          sistema?: string | null;
-          status?: string;
-          tipo_desdobramento?: string | null;
-          tribunal?: string | null;
-          uf?: string | null;
-          ultima_verificacao_em?: string | null;
-          updated_at?: string;
-          valor_causa?: number | null;
-          vara?: string | null;
-        };
+          autor?: string | null
+          carteira?: string | null
+          classe?: string | null
+          cliente: string
+          comarca?: string | null
+          created_at?: string
+          created_by?: string | null
+          fase?: string | null
+          fonte?: string
+          id?: string
+          id_externo?: string | null
+          monitorar?: boolean
+          numero_antigo?: string | null
+          numero_cnj: string
+          numero_interno?: string | null
+          observacoes?: string | null
+          parte_contraria?: string | null
+          pasta_id?: string | null
+          processo_pai_id?: string | null
+          provedor_externo?: string | null
+          responsavel?: string | null
+          reu?: string | null
+          sincronizado_em?: string | null
+          sistema?: string | null
+          status?: string
+          tipo_desdobramento?: string | null
+          tribunal?: string | null
+          uf?: string | null
+          ultima_verificacao_em?: string | null
+          updated_at?: string
+          valor_causa?: number | null
+          vara?: string | null
+        }
         Update: {
-          autor?: string | null;
-          carteira?: string | null;
-          classe?: string | null;
-          cliente?: string;
-          comarca?: string | null;
-          created_at?: string;
-          created_by?: string | null;
-          fase?: string | null;
-          fonte?: string;
-          id?: string;
-          id_externo?: string | null;
-          monitorar?: boolean;
-          numero_antigo?: string | null;
-          numero_cnj?: string;
-          numero_interno?: string | null;
-          observacoes?: string | null;
-          parte_contraria?: string | null;
-          pasta_id?: string | null;
-          processo_pai_id?: string | null;
-          provedor_externo?: string | null;
-          responsavel?: string | null;
-          reu?: string | null;
-          sincronizado_em?: string | null;
-          sistema?: string | null;
-          status?: string;
-          tipo_desdobramento?: string | null;
-          tribunal?: string | null;
-          uf?: string | null;
-          ultima_verificacao_em?: string | null;
-          updated_at?: string;
-          valor_causa?: number | null;
-          vara?: string | null;
-        };
+          autor?: string | null
+          carteira?: string | null
+          classe?: string | null
+          cliente?: string
+          comarca?: string | null
+          created_at?: string
+          created_by?: string | null
+          fase?: string | null
+          fonte?: string
+          id?: string
+          id_externo?: string | null
+          monitorar?: boolean
+          numero_antigo?: string | null
+          numero_cnj?: string
+          numero_interno?: string | null
+          observacoes?: string | null
+          parte_contraria?: string | null
+          pasta_id?: string | null
+          processo_pai_id?: string | null
+          provedor_externo?: string | null
+          responsavel?: string | null
+          reu?: string | null
+          sincronizado_em?: string | null
+          sistema?: string | null
+          status?: string
+          tipo_desdobramento?: string | null
+          tribunal?: string | null
+          uf?: string | null
+          ultima_verificacao_em?: string | null
+          updated_at?: string
+          valor_causa?: number | null
+          vara?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: "processos_pasta_id_fkey";
-            columns: ["pasta_id"];
-            isOneToOne: false;
-            referencedRelation: "pastas";
-            referencedColumns: ["id"];
+            foreignKeyName: "processos_pasta_id_fkey"
+            columns: ["pasta_id"]
+            isOneToOne: false
+            referencedRelation: "pastas"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "processos_processo_pai_id_fkey";
-            columns: ["processo_pai_id"];
-            isOneToOne: false;
-            referencedRelation: "processos";
-            referencedColumns: ["id"];
+            foreignKeyName: "processos_processo_pai_id_fkey"
+            columns: ["processo_pai_id"]
+            isOneToOne: false
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       profiles: {
         Row: {
-          created_at: string;
-          email: string | null;
-          id: string;
-          nome: string | null;
-          updated_at: string;
-        };
+          created_at: string
+          email: string | null
+          id: string
+          nome: string | null
+          updated_at: string
+        }
         Insert: {
-          created_at?: string;
-          email?: string | null;
-          id: string;
-          nome?: string | null;
-          updated_at?: string;
-        };
+          created_at?: string
+          email?: string | null
+          id: string
+          nome?: string | null
+          updated_at?: string
+        }
         Update: {
-          created_at?: string;
-          email?: string | null;
-          id?: string;
-          nome?: string | null;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
+          created_at?: string
+          email?: string | null
+          id?: string
+          nome?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
-          created_at: string;
-          id: string;
-          role: Database["public"]["Enums"]["app_role"];
-          user_id: string;
-        };
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
         Insert: {
-          created_at?: string;
-          id?: string;
-          role?: Database["public"]["Enums"]["app_role"];
-          user_id: string;
-        };
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
         Update: {
-          created_at?: string;
-          id?: string;
-          role?: Database["public"]["Enums"]["app_role"];
-          user_id?: string;
-        };
-        Relationships: [];
-      };
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       verificacoes: {
         Row: {
-          created_at: string;
-          executado_em: string;
-          executado_por: string | null;
-          id: string;
-          periodo_fim: string;
-          periodo_inicio: string | null;
-          tipo: string;
-          total_movimentacoes: number;
-        };
+          created_at: string
+          executado_em: string
+          executado_por: string | null
+          id: string
+          periodo_fim: string
+          periodo_inicio: string | null
+          tipo: string
+          total_movimentacoes: number
+        }
         Insert: {
-          created_at?: string;
-          executado_em?: string;
-          executado_por?: string | null;
-          id?: string;
-          periodo_fim?: string;
-          periodo_inicio?: string | null;
-          tipo?: string;
-          total_movimentacoes?: number;
-        };
+          created_at?: string
+          executado_em?: string
+          executado_por?: string | null
+          id?: string
+          periodo_fim?: string
+          periodo_inicio?: string | null
+          tipo?: string
+          total_movimentacoes?: number
+        }
         Update: {
-          created_at?: string;
-          executado_em?: string;
-          executado_por?: string | null;
-          id?: string;
-          periodo_fim?: string;
-          periodo_inicio?: string | null;
-          tipo?: string;
-          total_movimentacoes?: number;
-        };
-        Relationships: [];
-      };
-    };
+          created_at?: string
+          executado_em?: string
+          executado_por?: string | null
+          id?: string
+          periodo_fim?: string
+          periodo_inicio?: string | null
+          tipo?: string
+          total_movimentacoes?: number
+        }
+        Relationships: []
+      }
+    }
     Views: {
-      [_ in never]: never;
-    };
+      [_ in never]: never
+    }
     Functions: {
       adicionar_membro_grupo: {
-        Args: { _email: string; _grupo_id: string };
-        Returns: string;
-      };
+        Args: { _email: string; _grupo_id: string }
+        Returns: string
+      }
       compartilhar_processo: {
-        Args: { _email: string; _processo_id: string };
-        Returns: string;
-      };
+        Args: { _email: string; _processo_id: string }
+        Returns: string
+      }
       fundir_processos: {
-        Args: { _mantido_id: string; _removido_id: string };
-        Returns: undefined;
-      };
-      e_dono_grupo: { Args: { _grupo_id: string }; Returns: boolean };
-      e_dono_processo: { Args: { _processo_id: string }; Returns: boolean };
+        Args: { _mantido_id: string; _removido_id: string }
+        Returns: undefined
+      }
+      e_dono_grupo: { Args: { _grupo_id: string }; Returns: boolean }
+      e_dono_processo: { Args: { _processo_id: string }; Returns: boolean }
       has_role: {
         Args: {
-          _role: Database["public"]["Enums"]["app_role"];
-          _user_id: string;
-        };
-        Returns: boolean;
-      };
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       listar_acessos_processo: {
-        Args: { _processo_id: string };
+        Args: { _processo_id: string }
         Returns: {
-          acesso_id: string;
-          created_at: string;
-          email: string;
-          nome: string;
-          user_id: string;
-        }[];
-      };
+          acesso_id: string
+          created_at: string
+          email: string
+          nome: string
+          user_id: string
+        }[]
+      }
       listar_membros_grupo: {
-        Args: { _grupo_id: string };
+        Args: { _grupo_id: string }
         Returns: {
-          created_at: string;
-          email: string;
-          membro_id: string;
-          nome: string;
-          user_id: string;
-        }[];
-      };
-      membro_do_grupo: { Args: { _grupo_id: string }; Returns: boolean };
+          created_at: string
+          email: string
+          membro_id: string
+          nome: string
+          user_id: string
+        }[]
+      }
+      membro_do_grupo: { Args: { _grupo_id: string }; Returns: boolean }
       membro_do_grupo_do_processo: {
-        Args: { _processo_id: string };
-        Returns: boolean;
-      };
+        Args: { _processo_id: string }
+        Returns: boolean
+      }
       pode_acessar_processo: {
-        Args: { _processo_id: string };
-        Returns: boolean;
-      };
+        Args: { _processo_id: string }
+        Returns: boolean
+      }
       pode_visualizar_processo: {
-        Args: { _processo_id: string };
-        Returns: boolean;
-      };
-    };
+        Args: { _processo_id: string }
+        Returns: boolean
+      }
+    }
     Enums: {
-      app_role: "admin" | "member";
-    };
+      app_role: "admin" | "member"
+    }
     CompositeTypes: {
-      [_ in never]: never;
-    };
-  };
-};
+      [_ in never]: never
+    }
+  }
+}
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">;
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">];
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
       DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R;
+      Row: infer R
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] & DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R;
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
       }
       ? R
       : never
-    : never;
+    : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I;
+      Insert: infer I
     }
     ? I
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I;
+        Insert: infer I
       }
       ? I
       : never
-    : never;
+    : never
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U;
+      Update: infer U
     }
     ? U
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U;
+        Update: infer U
       }
       ? U
       : never
-    : never;
+    : never
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never;
+    : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    keyof DefaultSchema["CompositeTypes"] | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never) = never,
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never;
+    : never
 
 export const Constants = {
   public: {
@@ -568,4 +580,4 @@ export const Constants = {
       app_role: ["admin", "member"],
     },
   },
-} as const;
+} as const
