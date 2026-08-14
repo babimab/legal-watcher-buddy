@@ -2,7 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Play } from "lucide-react";
+import { AlertTriangle, Download, Play } from "lucide-react";
+import * as XLSX from "xlsx";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,13 +21,13 @@ import {
 export const Route = createFileRoute("/_authenticated/relatorio")({
   head: () => ({
     meta: [
-      { title: "Relatório de novidades | Radar Processual" },
+      { title: "Relatório de novos andamentos | Radar Processual" },
       {
         name: "description",
         content:
           "Resumo das movimentações registradas desde a última verificação e prazos pendentes.",
       },
-      { property: "og:title", content: "Relatório de novidades" },
+      { property: "og:title", content: "Relatório de novos andamentos" },
       {
         property: "og:description",
         content:
@@ -38,6 +39,21 @@ export const Route = createFileRoute("/_authenticated/relatorio")({
   }),
   component: RelatorioPage,
 });
+
+function exportarNovidadesExcel(itens: MovimentacaoComProcesso[]) {
+  const linhas = itens.map((m) => ({
+    "Número CNJ": m.processos ? formatarCNJ(m.processos.numero_cnj) : "",
+    Cliente: m.processos?.cliente ?? "",
+    Tipo: m.tipo ?? "",
+    Data: m.data_movimentacao,
+    Descrição: m.descricao,
+    Observação: m.observacao ?? "",
+  }));
+  const planilha = XLSX.utils.json_to_sheet(linhas);
+  const livro = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(livro, planilha, "Novos andamentos");
+  XLSX.writeFile(livro, `novos-andamentos-${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
 
 function RelatorioPage() {
   const queryClient = useQueryClient();
@@ -82,16 +98,25 @@ function RelatorioPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl font-semibold">Relatório</h1>
+          <h1 className="font-serif text-3xl font-semibold">Relatório de novos andamentos</h1>
           <p className="text-muted-foreground">
             {desde
               ? `Última verificação em ${new Date(desde).toLocaleString("pt-BR")}.`
               : "Nenhuma verificação registrada ainda."}
           </p>
         </div>
-        <Button onClick={rodar} disabled={rodando}>
-          <Play className="size-4" /> {rodando ? "Registrando..." : "Marcar como verificado"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            disabled={(novidades.data ?? []).length === 0}
+            onClick={() => exportarNovidadesExcel(novidades.data ?? [])}
+          >
+            <Download className="size-4" /> Exportar Excel
+          </Button>
+          <Button onClick={rodar} disabled={rodando}>
+            <Play className="size-4" /> {rodando ? "Registrando..." : "Marcar como verificado"}
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="novidades">

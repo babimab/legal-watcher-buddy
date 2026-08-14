@@ -122,6 +122,20 @@ export async function listarMovimentacoesDesde(
   return (data ?? []) as unknown as MovimentacaoComProcesso[];
 }
 
+export async function listarUltimasMovimentacoes(): Promise<Map<string, Movimentacao>> {
+  const { data, error } = await supabase
+    .from("movimentacoes")
+    .select("*")
+    .order("data_movimentacao", { ascending: false })
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  const ultimas = new Map<string, Movimentacao>();
+  for (const m of (data ?? []) as Movimentacao[]) {
+    if (!ultimas.has(m.processo_id)) ultimas.set(m.processo_id, m);
+  }
+  return ultimas;
+}
+
 export async function listarPendencias(): Promise<MovimentacaoComProcesso[]> {
   const { data, error } = await supabase
     .from("movimentacoes")

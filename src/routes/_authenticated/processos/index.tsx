@@ -15,7 +15,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ProcessoDialog } from "@/components/ProcessoDialog";
-import { listarProcessos, formatarCNJ, STATUS_OPCOES } from "@/lib/processos";
+import {
+  listarProcessos,
+  listarUltimasMovimentacoes,
+  formatarCNJ,
+  STATUS_OPCOES,
+} from "@/lib/processos";
 import { listarGrupos, listarPastas } from "@/lib/grupos";
 
 type ProcessosSearch = { grupo?: string; pasta?: string };
@@ -75,6 +80,11 @@ function ProcessosPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["processos"],
     queryFn: listarProcessos,
+  });
+
+  const ultimasMovimentacoes = useQuery({
+    queryKey: ["ultimas-movimentacoes"],
+    queryFn: listarUltimasMovimentacoes,
   });
 
   useEffect(() => {
@@ -341,6 +351,17 @@ function ProcessosPage() {
               <p className="text-sm text-muted-foreground">
                 {[p.comarca, p.uf, p.vara, p.sistema].filter(Boolean).join(" · ")}
               </p>
+              {ultimasMovimentacoes.data?.get(p.id) ? (
+                <p className="mt-2 line-clamp-1 text-sm">
+                  <span className="text-muted-foreground">
+                    {new Date(
+                      `${ultimasMovimentacoes.data.get(p.id)!.data_movimentacao}T12:00:00`,
+                    ).toLocaleDateString("pt-BR")}
+                    {" — "}
+                  </span>
+                  {ultimasMovimentacoes.data.get(p.id)!.descricao}
+                </p>
+              ) : null}
             </Link>
           ))}
         </div>

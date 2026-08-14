@@ -590,6 +590,7 @@ function ImportarPage() {
                       <th className="p-2 text-left">Autor</th>
                       <th className="p-2 text-left">Réu</th>
                       <th className="p-2 text-left">Andamentos</th>
+                      <th className="p-2 text-left">Último andamento</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -600,6 +601,9 @@ function ImportarPage() {
                         <td className="p-2">{p.autor ?? "—"}</td>
                         <td className="p-2">{p.reu ?? "—"}</td>
                         <td className="p-2">{p.movimentacoes.length}</td>
+                        <td className="max-w-64 truncate p-2 text-xs text-muted-foreground">
+                          {p.movimentacoes[0]?.descricao ?? "—"}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
