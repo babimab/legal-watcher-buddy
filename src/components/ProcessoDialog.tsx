@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { STATUS_OPCOES, TIPOS_DESDOBRAMENTO, type Processo } from "@/lib/processos";
+import { STATUS_OPCOES, TIPOS_DESDOBRAMENTO, UF_OPCOES, type Processo } from "@/lib/processos";
 import { listarGrupos, listarPastas } from "@/lib/grupos";
 
 type Props = {
@@ -66,6 +66,10 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
       tribunal: String(form.get("tribunal") ?? "").trim() || null,
       vara: String(form.get("vara") ?? "").trim() || null,
       comarca: String(form.get("comarca") ?? "").trim() || null,
+      uf: (() => {
+        const v = String(form.get("uf") ?? "").trim();
+        return v && v !== "nenhum" ? v : null;
+      })(),
       classe: String(form.get("classe") ?? "").trim() || null,
       fase: String(form.get("fase") ?? "").trim() || null,
       responsavel: String(form.get("responsavel") ?? "").trim() || null,
@@ -160,6 +164,22 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
             name="comarca"
             defaultValue={processo?.comarca ?? iniciais?.comarca ?? ""}
           />
+          <div className="space-y-2">
+            <Label>Estado (UF)</Label>
+            <Select name="uf" defaultValue={processo?.uf ?? iniciais?.uf ?? "nenhum"}>
+              <SelectTrigger>
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nenhum">Não informado</SelectItem>
+                {UF_OPCOES.map((u) => (
+                  <SelectItem key={u} value={u}>
+                    {u}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <Campo label="Classe / Assunto" name="classe" defaultValue={processo?.classe ?? ""} />
           <Campo label="Fase" name="fase" defaultValue={processo?.fase ?? ""} />
           <Campo

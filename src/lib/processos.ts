@@ -47,6 +47,36 @@ export type Movimentacao = {
 
 export const STATUS_OPCOES = ["ativo", "suspenso", "arquivado", "baixado", "encerrado"] as const;
 
+export const UF_OPCOES = [
+  "AC",
+  "AL",
+  "AP",
+  "AM",
+  "BA",
+  "CE",
+  "DF",
+  "ES",
+  "GO",
+  "MA",
+  "MT",
+  "MS",
+  "MG",
+  "PA",
+  "PB",
+  "PR",
+  "PE",
+  "PI",
+  "RJ",
+  "RN",
+  "RS",
+  "RO",
+  "RR",
+  "SC",
+  "SP",
+  "SE",
+  "TO",
+] as const;
+
 // Apelidos que contam como "meus processos" no filtro de Advogado. Ajuste
 // aqui se a pessoa aparecer na base sob outros nomes.
 const MEUS_APELIDOS = ["bdr", "barbara"];
