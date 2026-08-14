@@ -144,6 +144,10 @@ function ProcessoDetalhe() {
         </CardContent>
       </Card>
 
+      <AcessosProcesso processoId={p.id} />
+
+
+
       <div>
         <h2 className="mb-3 font-serif text-xl font-semibold">Movimentações</h2>
         {movs.isLoading ? (
