@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CalendarClock, Pencil, Plus } from "lucide-react";
+import { ArrowLeft, CalendarClock, ExternalLink, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import { ProcessoDialog } from "@/components/ProcessoDialog";
 import { MovimentacaoDialog } from "@/components/MovimentacaoDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { buscarProcesso, listarMovimentacoes, formatarCNJ } from "@/lib/processos";
+import { linkTribunal } from "@/lib/tribunais";
+import { AcessosProcesso } from "@/components/AcessosProcesso";
 
 export const Route = createFileRoute("/_authenticated/processos/$id")({
   head: () => ({
@@ -59,6 +61,7 @@ function ProcessoDetalhe() {
     return <p className="text-muted-foreground">Processo não encontrado.</p>;
 
   const p = processo.data;
+  const link = linkTribunal(p);
 
   return (
     <div className="space-y-6">
