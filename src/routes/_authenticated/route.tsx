@@ -35,7 +35,11 @@ function AppLayout() {
               icon={<FolderKanban className="size-4" />}
               label="Meus processos"
             />
-            <NavItem to="/relatorio" icon={<LineChart className="size-4" />} label="Relatório" />
+            <NavItem
+              to="/relatorio"
+              icon={<LineChart className="size-4" />}
+              label="Relatório de novos andamentos"
+            />
             <NavItem to="/grupos" icon={<Users className="size-4" />} label="Grupos" />
             <NavItem to="/importar" icon={<Upload className="size-4" />} label="Importar" />
           </nav>
