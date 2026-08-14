@@ -21,6 +21,7 @@ import {
   formatarCNJ,
   STATUS_OPCOES,
   ehMeuApelido,
+  OUTROS_ADVOGADOS_CONHECIDOS,
 } from "@/lib/processos";
 import { listarGrupos, listarPastas } from "@/lib/grupos";
 
@@ -106,7 +107,10 @@ function ProcessosPage() {
 
   const advogados = useMemo(() => {
     const valores = [
-      ...new Set((data ?? []).map((p) => p.responsavel).filter(Boolean) as string[]),
+      ...new Set([
+        ...(data ?? []).map((p) => p.responsavel).filter(Boolean),
+        ...OUTROS_ADVOGADOS_CONHECIDOS,
+      ] as string[]),
     ];
     return {
       temMeus: valores.some((v) => ehMeuApelido(v)),

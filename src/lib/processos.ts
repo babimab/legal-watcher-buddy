@@ -63,6 +63,10 @@ export function ehMeuApelido(responsavel: string | null | undefined) {
   return !!responsavel && MEUS_APELIDOS.includes(normalizarNome(responsavel));
 }
 
+// Siglas dos outros advogados do escritório, pra já aparecerem no filtro
+// de Advogado mesmo antes de eles terem processo cadastrado.
+export const OUTROS_ADVOGADOS_CONHECIDOS = ["BBS", "MLV", "JGV", "ELV"];
+
 export const TIPOS_DESDOBRAMENTO = [
   "Recurso",
   "Cumprimento de sentenca",

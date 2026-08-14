@@ -23,6 +23,7 @@ import {
   listarPendencias,
   ultimaVerificacao,
   ehMeuApelido,
+  OUTROS_ADVOGADOS_CONHECIDOS,
   type MovimentacaoComProcesso,
 } from "@/lib/processos";
 
@@ -102,7 +103,10 @@ function RelatorioPage() {
       ...(pendencias.data ?? []),
     ];
     const valores = [
-      ...new Set(todosItens.map((m) => m.processos?.responsavel).filter(Boolean) as string[]),
+      ...new Set([
+        ...todosItens.map((m) => m.processos?.responsavel).filter(Boolean),
+        ...OUTROS_ADVOGADOS_CONHECIDOS,
+      ] as string[]),
     ];
     return {
       temMeus: valores.some((v) => ehMeuApelido(v)),
