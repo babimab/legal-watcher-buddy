@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -167,9 +167,11 @@ function GrupoCard({ grupo, pastas }: { grupo: Grupo; pastas: Pasta[] }) {
               <span className="text-sm text-muted-foreground">Nenhuma pasta ainda.</span>
             ) : (
               pastas.map((p) => (
-                <Badge key={p.id} variant="outline">
-                  {p.nome}
-                </Badge>
+                <Link key={p.id} to="/processos" search={{ grupo: grupo.id, pasta: p.id }}>
+                  <Badge variant="outline" className="cursor-pointer hover:border-primary">
+                    {p.nome}
+                  </Badge>
+                </Link>
               ))
             )}
           </div>

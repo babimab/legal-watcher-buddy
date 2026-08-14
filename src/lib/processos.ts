@@ -49,8 +49,8 @@ export const STATUS_OPCOES = ["ativo", "suspenso", "arquivado", "baixado", "ence
 
 export const TIPOS_DESDOBRAMENTO = [
   "Recurso",
-  "Cumprimento de sentença",
-  "Execução",
+  "Cumprimento de sentenca",
+  "Execucao",
   "Embargos",
   "Agravo",
   "Outro",

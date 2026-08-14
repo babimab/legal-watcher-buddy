@@ -18,7 +18,13 @@ import { ProcessoDialog } from "@/components/ProcessoDialog";
 import { listarProcessos, formatarCNJ, STATUS_OPCOES } from "@/lib/processos";
 import { listarGrupos, listarPastas } from "@/lib/grupos";
 
+type ProcessosSearch = { grupo?: string; pasta?: string };
+
 export const Route = createFileRoute("/_authenticated/processos/")({
+  validateSearch: (search: Record<string, unknown>): ProcessosSearch => ({
+    ...(typeof search["grupo"] === "string" ? { grupo: search["grupo"] } : {}),
+    ...(typeof search["pasta"] === "string" ? { pasta: search["pasta"] } : {}),
+  }),
   head: () => ({
     meta: [
       { title: "Meus processos | Radar Processual" },
@@ -39,13 +45,14 @@ export const Route = createFileRoute("/_authenticated/processos/")({
 });
 
 function ProcessosPage() {
+  const search = Route.useSearch();
   const [busca, setBusca] = useState("");
   const [status, setStatus] = useState("todos");
   const [carteira, setCarteira] = useState("todas");
   const [uf, setUf] = useState("todas");
   const [sistema, setSistema] = useState("todos");
-  const [grupoId, setGrupoId] = useState("todos");
-  const [pastaId, setPastaId] = useState("todas");
+  const [grupoId, setGrupoId] = useState(search.grupo ?? "todos");
+  const [pastaId, setPastaId] = useState(search.pasta ?? "todas");
 
   const { data, isLoading } = useQuery({
     queryKey: ["processos"],
