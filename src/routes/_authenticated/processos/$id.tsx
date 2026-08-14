@@ -76,7 +76,13 @@ function ProcessoDetalhe() {
             {p.fase ? <Badge variant="secondary">{p.fase}</Badge> : null}
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" asChild>
+            <a href={link.url} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="size-4" /> {link.rotulo}
+            </a>
+          </Button>
+
           <ProcessoDialog
             processo={p}
             trigger={
