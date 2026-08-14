@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, redirect, Link, useRouter } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { FolderKanban, LineChart, LogOut, Upload, User, Users } from "lucide-react";
+import { FolderKanban, List, LineChart, LogOut, Upload, User, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +45,9 @@ function AppLayout() {
               to="/processos"
               icon={<FolderKanban className="size-4" />}
               label="Meus processos"
+              search={{ advogado: "eu" }}
             />
+            <NavItem to="/processos" icon={<List className="size-4" />} label="Processos" />
             <NavItem
               to="/relatorio"
               icon={<LineChart className="size-4" />}
@@ -87,15 +89,19 @@ function NavItem({
   icon,
   label,
   contador,
+  search,
 }: {
   to: string;
   icon: React.ReactNode;
   label: string;
   contador?: number;
+  search?: Record<string, string>;
 }) {
   return (
     <Link
       to={to}
+      search={search ?? {}}
+      activeOptions={{ exact: true, includeSearch: true }}
       className="flex items-center gap-2 rounded-md px-3 py-1.5 transition-colors hover:bg-sidebar-accent"
       activeProps={{ className: "bg-sidebar-accent font-semibold" }}
     >

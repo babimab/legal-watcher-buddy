@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -26,21 +26,22 @@ import {
 } from "@/lib/processos";
 import { listarGrupos, listarPastas } from "@/lib/grupos";
 
-type ProcessosSearch = { grupo?: string; pasta?: string };
+type ProcessosSearch = { grupo?: string; pasta?: string; advogado?: string };
 
 export const Route = createFileRoute("/_authenticated/processos/")({
   validateSearch: (search: Record<string, unknown>): ProcessosSearch => ({
     ...(typeof search["grupo"] === "string" ? { grupo: search["grupo"] } : {}),
     ...(typeof search["pasta"] === "string" ? { pasta: search["pasta"] } : {}),
+    ...(typeof search["advogado"] === "string" ? { advogado: search["advogado"] } : {}),
   }),
   head: () => ({
     meta: [
-      { title: "Meus processos | Radar Processual" },
+      { title: "Processos | Radar Processual" },
       {
         name: "description",
         content: "Carteira de processos judiciais do escritório com busca, status e responsável.",
       },
-      { property: "og:title", content: "Meus processos" },
+      { property: "og:title", content: "Processos" },
       {
         property: "og:description",
         content: "Carteira de processos judiciais do escritório com busca, status e responsável.",
@@ -61,9 +62,9 @@ function ProcessosPage() {
   const [sistema, setSistema] = useState("todos");
   const [grupoId, setGrupoId] = useState(search.grupo ?? "todos");
   const [pastaId, setPastaId] = useState(search.pasta ?? "todas");
-  const [advogado, setAdvogado] = useState("todos");
+  const [advogado, setAdvogado] = useState(search.advogado ?? "todos");
   const [socio, setSocio] = useState("todos");
-  const advogadoInicializado = useRef(false);
+  const somenteMeus = search.advogado === "eu";
 
   const { data, isLoading } = useQuery({
     queryKey: ["processos"],
@@ -74,13 +75,6 @@ function ProcessosPage() {
     queryKey: ["ultimas-movimentacoes"],
     queryFn: listarUltimasMovimentacoes,
   });
-
-  useEffect(() => {
-    if (advogadoInicializado.current || !data || data.length === 0) return;
-    advogadoInicializado.current = true;
-    if (search.grupo || search.pasta) return;
-    if (data.some((p) => ehMeuApelido(p.responsavel))) setAdvogado("eu");
-  }, [data, search.grupo, search.pasta]);
 
   const grupos = useQuery({ queryKey: ["grupos"], queryFn: listarGrupos });
   const pastas = useQuery({ queryKey: ["pastas"], queryFn: listarPastas });
@@ -180,9 +174,13 @@ function ProcessosPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl font-semibold">Meus processos</h1>
+          <h1 className="font-serif text-3xl font-semibold">
+            {somenteMeus ? "Meus processos" : "Processos"}
+          </h1>
           <p className="text-muted-foreground">
-            Carteira compartilhada do escritório — {data?.length ?? 0} cadastrados.
+            {somenteMeus
+              ? "Só os processos seus (BDR / Bárbara)."
+              : `Carteira compartilhada do escritório — ${data?.length ?? 0} cadastrados.`}
           </p>
         </div>
         <ProcessoDialog
