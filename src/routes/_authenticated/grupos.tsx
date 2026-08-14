@@ -2,12 +2,23 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Folder, Plus, Trash2, UserPlus, Users } from "lucide-react";
+import { Folder, Plus, Trash2, UserPlus, Users, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   adicionarMembroGrupo,
   criarGrupo,
@@ -15,7 +26,9 @@ import {
   listarGrupos,
   listarMembrosGrupo,
   listarPastas,
+  removerGrupo,
   removerMembroGrupo,
+  removerPasta,
   type Grupo,
   type Pasta,
 } from "@/lib/grupos";
@@ -149,13 +162,67 @@ function GrupoCard({ grupo, pastas }: { grupo: Grupo; pastas: Pasta[] }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const excluirGrupo = useMutation({
+    mutationFn: () => removerGrupo(grupo.id),
+    onSuccess: async () => {
+      toast.success("Grupo excluído.");
+      await queryClient.invalidateQueries({ queryKey: ["grupos"] });
+      await queryClient.invalidateQueries({ queryKey: ["pastas"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const excluirPasta = useMutation({
+    mutationFn: (pastaId: string) => removerPasta(pastaId),
+    onSuccess: async () => {
+      toast.success("Pasta excluída.");
+      await queryClient.invalidateQueries({ queryKey: ["pastas"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="font-serif text-lg">{grupo.nome}</CardTitle>
-        <CardDescription>
-          {pastas.length} pasta(s) · {membros.data?.length ?? 0} pessoa(s) com acesso ao grupo
-        </CardDescription>
+      <CardHeader className="flex flex-row items-start justify-between gap-3">
+        <div>
+          <CardTitle className="font-serif text-lg">{grupo.nome}</CardTitle>
+          <CardDescription>
+            {pastas.length} pasta(s) · {membros.data?.length ?? 0} pessoa(s) com acesso ao grupo
+          </CardDescription>
+        </div>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Excluir grupo"
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir o grupo "{grupo.nome}"?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Todas as pastas dele também serão excluídas. Os processos que estavam nessas pastas
+                não são apagados, só ficam sem pasta.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  excluirGrupo.mutate();
+                }}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Excluir grupo
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardHeader>
       <CardContent className="space-y-5">
         <div>
@@ -167,11 +234,24 @@ function GrupoCard({ grupo, pastas }: { grupo: Grupo; pastas: Pasta[] }) {
               <span className="text-sm text-muted-foreground">Nenhuma pasta ainda.</span>
             ) : (
               pastas.map((p) => (
-                <Link key={p.id} to="/processos" search={{ grupo: grupo.id, pasta: p.id }}>
-                  <Badge variant="outline" className="cursor-pointer hover:border-primary">
-                    {p.nome}
-                  </Badge>
-                </Link>
+                <span
+                  key={p.id}
+                  className="inline-flex items-center gap-1 rounded-full border border-border pl-1 pr-2 py-0.5"
+                >
+                  <Link to="/processos" search={{ grupo: grupo.id, pasta: p.id }}>
+                    <Badge variant="outline" className="cursor-pointer border-0 hover:text-primary">
+                      {p.nome}
+                    </Badge>
+                  </Link>
+                  <button
+                    type="button"
+                    aria-label={`Excluir pasta ${p.nome}`}
+                    className="text-muted-foreground hover:text-destructive"
+                    onClick={() => excluirPasta.mutate(p.id)}
+                  >
+                    <X className="size-3" />
+                  </button>
+                </span>
               ))
             )}
           </div>

@@ -51,6 +51,16 @@ export async function criarPasta(grupoId: string, nome: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function removerGrupo(grupoId: string): Promise<void> {
+  const { error } = await supabase.from("grupos").delete().eq("id", grupoId);
+  if (error) throw error;
+}
+
+export async function removerPasta(pastaId: string): Promise<void> {
+  const { error } = await supabase.from("pastas").delete().eq("id", pastaId);
+  if (error) throw error;
+}
+
 export async function listarMembrosGrupo(grupoId: string): Promise<MembroGrupo[]> {
   const { data, error } = await supabase.rpc("listar_membros_grupo", { _grupo_id: grupoId });
   if (error) throw error;
