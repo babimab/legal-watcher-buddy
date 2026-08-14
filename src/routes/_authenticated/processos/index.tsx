@@ -118,7 +118,23 @@ function ProcessosPage() {
             ))}
           </SelectContent>
         </Select>
+        {carteiras.length > 0 ? (
+          <Select value={carteira} onValueChange={setCarteira}>
+            <SelectTrigger className="w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas as carteiras</SelectItem>
+              {carteiras.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
       </div>
+
 
       {isLoading ? (
         <p className="text-muted-foreground">Carregando...</p>
