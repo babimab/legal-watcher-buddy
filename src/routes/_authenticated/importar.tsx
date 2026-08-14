@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
@@ -17,7 +17,8 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { formatarCNJ } from "@/lib/processos";
+import { formatarCNJ, OUTROS_ADVOGADOS_CONHECIDOS } from "@/lib/processos";
+import { listarGrupos, listarPastas } from "@/lib/grupos";
 
 export const Route = createFileRoute("/_authenticated/importar")({
   head: () => ({
@@ -329,7 +330,17 @@ function ImportarPage() {
   const [abas, setAbas] = useState<Aba[]>([]);
   const [mapas, setMapas] = useState<Record<string, Record<string, Campo | "">>>({});
   const [importando, setImportando] = useState(false);
+  const [grupoId, setGrupoId] = useState("");
+  const [pastaId, setPastaId] = useState("");
+  const [responsavel, setResponsavel] = useState("");
   const queryClient = useQueryClient();
+
+  const grupos = useQuery({ queryKey: ["grupos"], queryFn: listarGrupos });
+  const pastas = useQuery({ queryKey: ["pastas"], queryFn: listarPastas });
+  const pastasDoGrupo = useMemo(
+    () => (pastas.data ?? []).filter((p) => p.grupo_id === grupoId),
+    [pastas.data, grupoId],
+  );
 
   const { processos, erros } = useMemo(() => montar(abas, mapas), [abas, mapas]);
   const totalMovs = processos.reduce((soma, p) => soma + p.movimentacoes.length, 0);
@@ -399,6 +410,8 @@ function ImportarPage() {
               sistema: p.sistema,
               carteira: p.carteira,
               valor_causa: p.valor_causa,
+              ...(pastaId ? { pasta_id: pastaId } : {}),
+              ...(responsavel.trim() ? { responsavel: responsavel.trim() } : {}),
               status: "ativo",
               created_by: criador,
             },
@@ -507,6 +520,72 @@ function ImportarPage() {
               if (f) void ler(f);
             }}
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-serif text-lg">Pasta e responsável</CardTitle>
+          <CardDescription>
+            Opcional: já deixa todos os processos desta planilha organizados numa pasta e com o
+            advogado responsável certo, sem precisar ajustar depois um por um.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Grupo</Label>
+            <Select
+              value={grupoId}
+              onValueChange={(v) => {
+                setGrupoId(v);
+                setPastaId("");
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Sem grupo" />
+              </SelectTrigger>
+              <SelectContent>
+                {(grupos.data ?? []).map((g) => (
+                  <SelectItem key={g.id} value={g.id}>
+                    {g.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Pasta</Label>
+            <Select value={pastaId} onValueChange={setPastaId} disabled={!grupoId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sem pasta" />
+              </SelectTrigger>
+              <SelectContent>
+                {pastasDoGrupo.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground" htmlFor="responsavel-import">
+              Advogado responsável
+            </Label>
+            <Input
+              id="responsavel-import"
+              list="advogados-sugeridos"
+              placeholder="Ex.: BDR"
+              value={responsavel}
+              onChange={(e) => setResponsavel(e.target.value)}
+            />
+            <datalist id="advogados-sugeridos">
+              <option value="BDR" />
+              {OUTROS_ADVOGADOS_CONHECIDOS.map((a) => (
+                <option key={a} value={a} />
+              ))}
+            </datalist>
+          </div>
         </CardContent>
       </Card>
 
