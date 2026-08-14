@@ -147,6 +147,36 @@ function ProcessosPage() {
             </SelectContent>
           </Select>
         ) : null}
+        {ufs.length > 0 ? (
+          <Select value={uf} onValueChange={setUf}>
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todos os estados</SelectItem>
+              {ufs.map((u) => (
+                <SelectItem key={u} value={u}>
+                  {u}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+        {sistemas.length > 0 ? (
+          <Select value={sistema} onValueChange={setSistema}>
+            <SelectTrigger className="w-52">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os sistemas</SelectItem>
+              {sistemas.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
       </div>
 
 
