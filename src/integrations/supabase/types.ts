@@ -248,6 +248,7 @@ export type Database = {
           reu: string | null
           sincronizado_em: string | null
           sistema: string | null
+          socio: string | null
           status: string
           tipo_desdobramento: string | null
           tribunal: string | null
@@ -282,6 +283,7 @@ export type Database = {
           reu?: string | null
           sincronizado_em?: string | null
           sistema?: string | null
+          socio?: string | null
           status?: string
           tipo_desdobramento?: string | null
           tribunal?: string | null
@@ -316,6 +318,7 @@ export type Database = {
           reu?: string | null
           sincronizado_em?: string | null
           sistema?: string | null
+          socio?: string | null
           status?: string
           tipo_desdobramento?: string | null
           tribunal?: string | null

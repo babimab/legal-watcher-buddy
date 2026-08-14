@@ -23,6 +23,7 @@ export type Processo = {
   status: string;
   valor_causa: number | null;
   responsavel: string | null;
+  socio: string | null;
   observacoes: string | null;
   ultima_verificacao_em: string | null;
   fonte: string;
@@ -96,6 +97,10 @@ export function ehMeuApelido(responsavel: string | null | undefined) {
 // Siglas dos outros advogados do escritório, pra já aparecerem no filtro
 // de Advogado mesmo antes de eles terem processo cadastrado.
 export const OUTROS_ADVOGADOS_CONHECIDOS = ["BBS", "MLV", "JGV", "ELV"];
+
+// Sócios conhecidos, pra já aparecerem no filtro de Sócio mesmo antes de
+// ter processo com esse sócio cadastrado.
+export const SOCIOS_CONHECIDOS = ["ELV", "GFC"];
 
 export const TIPOS_DESDOBRAMENTO = [
   "Recurso",

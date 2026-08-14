@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { formatarCNJ, OUTROS_ADVOGADOS_CONHECIDOS } from "@/lib/processos";
+import { formatarCNJ, OUTROS_ADVOGADOS_CONHECIDOS, SOCIOS_CONHECIDOS } from "@/lib/processos";
 import { listarGrupos, listarPastas } from "@/lib/grupos";
 
 export const Route = createFileRoute("/_authenticated/importar")({
@@ -333,6 +333,7 @@ function ImportarPage() {
   const [grupoId, setGrupoId] = useState("");
   const [pastaId, setPastaId] = useState("");
   const [responsavel, setResponsavel] = useState("");
+  const [socio, setSocio] = useState("");
   const queryClient = useQueryClient();
 
   const grupos = useQuery({ queryKey: ["grupos"], queryFn: listarGrupos });
@@ -412,6 +413,7 @@ function ImportarPage() {
               valor_causa: p.valor_causa,
               ...(pastaId ? { pasta_id: pastaId } : {}),
               ...(responsavel.trim() ? { responsavel: responsavel.trim() } : {}),
+              ...(socio.trim() ? { socio: socio.trim() } : {}),
               status: "ativo",
               created_by: criador,
             },
@@ -525,13 +527,13 @@ function ImportarPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-serif text-lg">Pasta e responsável</CardTitle>
+          <CardTitle className="font-serif text-lg">Pasta, responsável e sócio</CardTitle>
           <CardDescription>
             Opcional: já deixa todos os processos desta planilha organizados numa pasta e com o
-            advogado responsável certo, sem precisar ajustar depois um por um.
+            advogado responsável e o sócio certos, sem precisar ajustar depois um por um.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-3">
+        <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Grupo</Label>
             <Select
@@ -583,6 +585,23 @@ function ImportarPage() {
               <option value="BDR" />
               {OUTROS_ADVOGADOS_CONHECIDOS.map((a) => (
                 <option key={a} value={a} />
+              ))}
+            </datalist>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground" htmlFor="socio-import">
+              Sócio
+            </Label>
+            <Input
+              id="socio-import"
+              list="socios-sugeridos"
+              placeholder="Ex.: ELV"
+              value={socio}
+              onChange={(e) => setSocio(e.target.value)}
+            />
+            <datalist id="socios-sugeridos">
+              {SOCIOS_CONHECIDOS.map((s) => (
+                <option key={s} value={s} />
               ))}
             </datalist>
           </div>

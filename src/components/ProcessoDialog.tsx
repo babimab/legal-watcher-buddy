@@ -23,7 +23,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { STATUS_OPCOES, TIPOS_DESDOBRAMENTO, UF_OPCOES, type Processo } from "@/lib/processos";
+import {
+  STATUS_OPCOES,
+  TIPOS_DESDOBRAMENTO,
+  UF_OPCOES,
+  SOCIOS_CONHECIDOS,
+  type Processo,
+} from "@/lib/processos";
 import { listarGrupos, listarPastas } from "@/lib/grupos";
 
 type Props = {
@@ -73,6 +79,7 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
       classe: String(form.get("classe") ?? "").trim() || null,
       fase: String(form.get("fase") ?? "").trim() || null,
       responsavel: String(form.get("responsavel") ?? "").trim() || null,
+      socio: String(form.get("socio") ?? "").trim() || null,
       status: String(form.get("status") ?? "ativo"),
       valor_causa: valor ? Number(valor) : null,
       observacoes: String(form.get("observacoes") ?? "").trim() || null,
@@ -187,6 +194,20 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
             name="responsavel"
             defaultValue={processo?.responsavel ?? iniciais?.responsavel ?? ""}
           />
+          <div className="space-y-2">
+            <Label htmlFor="socio">Sócio</Label>
+            <Input
+              id="socio"
+              name="socio"
+              list="socios-sugeridos"
+              defaultValue={processo?.socio ?? iniciais?.socio ?? ""}
+            />
+            <datalist id="socios-sugeridos">
+              {SOCIOS_CONHECIDOS.map((s) => (
+                <option key={s} value={s} />
+              ))}
+            </datalist>
+          </div>
           <Campo
             label="Valor da causa"
             name="valor_causa"

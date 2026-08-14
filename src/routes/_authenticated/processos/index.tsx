@@ -22,6 +22,7 @@ import {
   STATUS_OPCOES,
   ehMeuApelido,
   OUTROS_ADVOGADOS_CONHECIDOS,
+  SOCIOS_CONHECIDOS,
 } from "@/lib/processos";
 import { listarGrupos, listarPastas } from "@/lib/grupos";
 
@@ -61,6 +62,7 @@ function ProcessosPage() {
   const [grupoId, setGrupoId] = useState(search.grupo ?? "todos");
   const [pastaId, setPastaId] = useState(search.pasta ?? "todas");
   const [advogado, setAdvogado] = useState("todos");
+  const [socio, setSocio] = useState("todos");
   const advogadoInicializado = useRef(false);
 
   const { data, isLoading } = useQuery({
@@ -119,6 +121,17 @@ function ProcessosPage() {
     };
   }, [data]);
 
+  const socios = useMemo(
+    () =>
+      [
+        ...new Set([
+          ...(data ?? []).map((p) => p.socio).filter(Boolean),
+          ...SOCIOS_CONHECIDOS,
+        ] as string[]),
+      ].sort(),
+    [data],
+  );
+
   const lista = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     return (data ?? []).filter((p) => {
@@ -132,6 +145,7 @@ function ProcessosPage() {
       const casaAdvogado =
         advogado === "todos" ||
         (advogado === "eu" ? ehMeuApelido(p.responsavel) : p.responsavel === advogado);
+      const casaSocio = socio === "todos" || p.socio === socio;
       const casaBusca =
         !termo ||
         [
@@ -156,10 +170,11 @@ function ProcessosPage() {
         casaGrupo &&
         casaPasta &&
         casaAdvogado &&
+        casaSocio &&
         casaBusca
       );
     });
-  }, [data, busca, status, carteira, uf, sistema, grupoId, pastaId, advogado, pastaPorId]);
+  }, [data, busca, status, carteira, uf, sistema, grupoId, pastaId, advogado, socio, pastaPorId]);
 
   return (
     <div className="space-y-6">
@@ -258,6 +273,21 @@ function ProcessosPage() {
               {advogados.outros.map((a) => (
                 <SelectItem key={a} value={a}>
                   {a}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+        {socios.length > 0 ? (
+          <Select value={socio} onValueChange={setSocio}>
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os sócios</SelectItem>
+              {socios.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
                 </SelectItem>
               ))}
             </SelectContent>
