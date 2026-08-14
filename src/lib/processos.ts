@@ -5,6 +5,13 @@ export type Processo = {
   numero_cnj: string;
   cliente: string;
   parte_contraria: string | null;
+  numero_interno: string | null;
+  numero_antigo: string | null;
+  autor: string | null;
+  reu: string | null;
+  uf: string | null;
+  sistema: string | null;
+  carteira: string | null;
   tribunal: string | null;
   vara: string | null;
   comarca: string | null;
