@@ -19,6 +19,7 @@ import {
 import { linkTribunal } from "@/lib/tribunais";
 import { AcessosProcesso } from "@/components/AcessosProcesso";
 import { ExcluirProcessoDialog } from "@/components/ExcluirProcessoDialog";
+import { VincularDesdobramentoDialog } from "@/components/VincularDesdobramentoDialog";
 
 export const Route = createFileRoute("/_authenticated/processos/$id")({
   head: () => ({
@@ -177,24 +178,27 @@ function ProcessoDetalhe() {
       <div>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-serif text-xl font-semibold">Desdobramentos</h2>
-          <ProcessoDialog
-            paiId={p.id}
-            iniciais={{
-              cliente: p.cliente,
-              parte_contraria: p.parte_contraria,
-              tribunal: p.tribunal,
-              vara: p.vara,
-              comarca: p.comarca,
-              uf: p.uf,
-              responsavel: p.responsavel,
-              pasta_id: p.pasta_id,
-            }}
-            trigger={
-              <Button variant="outline" size="sm">
-                <Plus className="size-4" /> Novo desdobramento
-              </Button>
-            }
-          />
+          <div className="flex flex-wrap gap-2">
+            <VincularDesdobramentoDialog paiId={p.id} paiPossivelmenteFilhoDe={p.processo_pai_id} />
+            <ProcessoDialog
+              paiId={p.id}
+              iniciais={{
+                cliente: p.cliente,
+                parte_contraria: p.parte_contraria,
+                tribunal: p.tribunal,
+                vara: p.vara,
+                comarca: p.comarca,
+                uf: p.uf,
+                responsavel: p.responsavel,
+                pasta_id: p.pasta_id,
+              }}
+              trigger={
+                <Button variant="outline" size="sm">
+                  <Plus className="size-4" /> Novo desdobramento
+                </Button>
+              }
+            />
+          </div>
         </div>
         {desdobramentos.isLoading ? (
           <p className="text-muted-foreground">Carregando...</p>
