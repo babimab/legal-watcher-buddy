@@ -81,30 +81,50 @@ const TITULO_POR_ABA: Record<string, string> = {
 };
 
 const MAX_ITENS_NO_EMAIL = 30;
+const COL_PROCESSO = 27;
+const COL_CLIENTE = 22;
+const COL_DATA = 12;
+
+function saudacao() {
+  const hora = new Date().getHours();
+  if (hora < 12) return "bom dia";
+  if (hora < 18) return "boa tarde";
+  return "boa noite";
+}
+
+function linhaTabela(processo: string, cliente: string, data: string, andamento: string) {
+  return (
+    processo.padEnd(COL_PROCESSO) + cliente.padEnd(COL_CLIENTE) + data.padEnd(COL_DATA) + andamento
+  );
+}
 
 function montarMailto(destinatarios: string[], itens: MovimentacaoComProcesso[], titulo: string) {
   const assunto = `Radar Processual — ${titulo}`;
   const cortado = itens.length > MAX_ITENS_NO_EMAIL;
-  const linhas = itens.slice(0, MAX_ITENS_NO_EMAIL).map((m, i) => {
-    const partes =
-      [m.processos?.autor, m.processos?.reu].filter(Boolean).join(" x ") ||
-      m.processos?.parte_contraria ||
-      "";
-    const numero = m.processos ? formatarCNJ(m.processos.numero_cnj) : "—";
-    const data = new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR");
-    return `${i + 1}) ${numero} — ${m.processos?.cliente ?? ""}${partes ? ` (${partes})` : ""}\n   ${data}${m.tipo ? ` — ${m.tipo}` : ""}: ${m.descricao}`;
-  });
+  const visiveis = itens.slice(0, MAX_ITENS_NO_EMAIL);
 
-  const corpo = [
-    `${titulo} — ${itens.length} andamento(s)`,
-    "",
-    ...linhas,
-    cortado
-      ? `\n... e mais ${itens.length - MAX_ITENS_NO_EMAIL} andamento(s). Use "Exportar Excel" para a lista completa.`
-      : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const cabecalho = linhaTabela("Processo", "Cliente", "Data", "Andamento");
+  const separador = "-".repeat(COL_PROCESSO + COL_CLIENTE + COL_DATA + 20);
+  const linhas = visiveis.map((m) => {
+    const numero = m.processos ? formatarCNJ(m.processos.numero_cnj) : "—";
+    const cliente = (m.processos?.cliente ?? "").slice(0, COL_CLIENTE - 2);
+    const data = new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR");
+    return linhaTabela(numero, cliente, data, m.descricao);
+  });
+  const linhaCortado = cortado
+    ? `\n... e mais ${itens.length - MAX_ITENS_NO_EMAIL} andamento(s). Veja a lista completa em "Exportar Excel".`
+    : "";
+
+  const corpo = `Olá, ${saudacao()}.
+
+Seguem os andamentos novos — ${titulo}:
+
+${cabecalho}
+${separador}
+${linhas.join("\n")}
+${linhaCortado}
+
+Abs.,`;
 
   return `mailto:${destinatarios.join(",")}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
 }
