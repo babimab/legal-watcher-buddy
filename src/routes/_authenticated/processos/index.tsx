@@ -46,18 +46,35 @@ function ProcessosPage() {
     queryFn: listarProcessos,
   });
 
+  const carteiras = useMemo(
+    () => [...new Set((data ?? []).map((p) => p.carteira).filter(Boolean) as string[])].sort(),
+    [data],
+  );
+
   const lista = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     return (data ?? []).filter((p) => {
       const casaStatus = status === "todos" || p.status === status;
+      const casaCarteira = carteira === "todas" || p.carteira === carteira;
       const casaBusca =
         !termo ||
-        [p.numero_cnj, p.cliente, p.parte_contraria, p.tribunal, p.responsavel]
+        [
+          p.numero_cnj,
+          p.numero_interno,
+          p.numero_antigo,
+          p.cliente,
+          p.autor,
+          p.reu,
+          p.parte_contraria,
+          p.tribunal,
+          p.comarca,
+          p.responsavel,
+        ]
           .filter(Boolean)
           .some((v) => String(v).toLowerCase().includes(termo));
-      return casaStatus && casaBusca;
+      return casaStatus && casaCarteira && casaBusca;
     });
-  }, [data, busca, status]);
+  }, [data, busca, status, carteira]);
 
   return (
     <div className="space-y-6">
