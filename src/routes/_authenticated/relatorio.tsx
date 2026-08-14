@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AlertTriangle, Download, Play } from "lucide-react";
 import * as XLSX from "xlsx";
@@ -9,12 +9,20 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import {
   formatarCNJ,
   listarMovimentacoesDesde,
   listarPendencias,
   ultimaVerificacao,
+  ehMeuApelido,
   type MovimentacaoComProcesso,
 } from "@/lib/processos";
 
@@ -80,18 +88,47 @@ function RelatorioPage() {
 
   const semana = useQuery({
     queryKey: ["semana"],
-    queryFn: () =>
-      listarMovimentacoesDesde(new Date(Date.now() - 7 * 864e5).toISOString()),
+    queryFn: () => listarMovimentacoesDesde(new Date(Date.now() - 7 * 864e5).toISOString()),
   });
 
   const pendencias = useQuery({ queryKey: ["pendencias"], queryFn: listarPendencias });
 
+  const [advogado, setAdvogado] = useState("todos");
+
+  const advogados = useMemo(() => {
+    const todosItens = [
+      ...(novidades.data ?? []),
+      ...(semana.data ?? []),
+      ...(pendencias.data ?? []),
+    ];
+    const valores = [
+      ...new Set(todosItens.map((m) => m.processos?.responsavel).filter(Boolean) as string[]),
+    ];
+    return {
+      temMeus: valores.some((v) => ehMeuApelido(v)),
+      outros: valores.filter((v) => !ehMeuApelido(v)).sort(),
+    };
+  }, [novidades.data, semana.data, pendencias.data]);
+
+  const filtrarPorAdvogado = (itens: MovimentacaoComProcesso[]) =>
+    advogado === "todos"
+      ? itens
+      : itens.filter((m) =>
+          advogado === "eu"
+            ? ehMeuApelido(m.processos?.responsavel)
+            : m.processos?.responsavel === advogado,
+        );
+
+  const novidadesFiltradas = filtrarPorAdvogado(novidades.data ?? []);
+  const semanaFiltrada = filtrarPorAdvogado(semana.data ?? []);
+  const pendenciasFiltradas = filtrarPorAdvogado(pendencias.data ?? []);
+
   const itensDaAba =
     aba === "semana"
-      ? (semana.data ?? [])
+      ? semanaFiltrada
       : aba === "pendencias"
-        ? (pendencias.data ?? [])
-        : (novidades.data ?? []);
+        ? pendenciasFiltradas
+        : novidadesFiltradas;
 
   const rodar = async () => {
     setRodando(true);
@@ -123,6 +160,24 @@ function RelatorioPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {advogados.temMeus || advogados.outros.length > 0 ? (
+            <Select value={advogado} onValueChange={setAdvogado}>
+              <SelectTrigger className="w-52">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os advogados</SelectItem>
+                {advogados.temMeus ? (
+                  <SelectItem value="eu">BDR / Bárbara (meus)</SelectItem>
+                ) : null}
+                {advogados.outros.map((a) => (
+                  <SelectItem key={a} value={a}>
+                    {a}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
           <Button
             variant="outline"
             disabled={itensDaAba.length === 0}
@@ -138,23 +193,19 @@ function RelatorioPage() {
 
       <Tabs value={aba} onValueChange={setAba}>
         <TabsList>
-          <TabsTrigger value="novidades">
-            Novidades ({novidades.data?.length ?? 0})
-          </TabsTrigger>
-          <TabsTrigger value="semana">Semana ({semana.data?.length ?? 0})</TabsTrigger>
-          <TabsTrigger value="pendencias">
-            Prazos ({pendencias.data?.length ?? 0})
-          </TabsTrigger>
+          <TabsTrigger value="novidades">Novidades ({novidadesFiltradas.length})</TabsTrigger>
+          <TabsTrigger value="semana">Semana ({semanaFiltrada.length})</TabsTrigger>
+          <TabsTrigger value="pendencias">Prazos ({pendenciasFiltradas.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="novidades" className="mt-4">
-          <Lista itens={novidades.data ?? []} vazio="Nada novo desde a última verificação." />
+          <Lista itens={novidadesFiltradas} vazio="Nada novo desde a última verificação." />
         </TabsContent>
         <TabsContent value="semana" className="mt-4">
-          <Lista itens={semana.data ?? []} vazio="Nenhuma movimentação nos últimos 7 dias." />
+          <Lista itens={semanaFiltrada} vazio="Nenhuma movimentação nos últimos 7 dias." />
         </TabsContent>
         <TabsContent value="pendencias" className="mt-4">
-          <Lista itens={pendencias.data ?? []} vazio="Nenhuma providência em aberto." destaque />
+          <Lista itens={pendenciasFiltradas} vazio="Nenhuma providência em aberto." destaque />
         </TabsContent>
       </Tabs>
 

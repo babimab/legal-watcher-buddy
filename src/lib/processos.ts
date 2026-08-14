@@ -47,6 +47,22 @@ export type Movimentacao = {
 
 export const STATUS_OPCOES = ["ativo", "suspenso", "arquivado", "baixado", "encerrado"] as const;
 
+// Apelidos que contam como "meus processos" no filtro de Advogado. Ajuste
+// aqui se a pessoa aparecer na base sob outros nomes.
+const MEUS_APELIDOS = ["bdr", "barbara"];
+
+export function normalizarNome(valor: string) {
+  return valor
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+}
+
+export function ehMeuApelido(responsavel: string | null | undefined) {
+  return !!responsavel && MEUS_APELIDOS.includes(normalizarNome(responsavel));
+}
+
 export const TIPOS_DESDOBRAMENTO = [
   "Recurso",
   "Cumprimento de sentenca",
@@ -108,7 +124,14 @@ export async function listarMovimentacoes(processoId: string): Promise<Movimenta
 export type MovimentacaoComProcesso = Movimentacao & {
   processos: Pick<
     Processo,
-    "id" | "numero_cnj" | "cliente" | "tribunal" | "autor" | "reu" | "parte_contraria"
+    | "id"
+    | "numero_cnj"
+    | "cliente"
+    | "tribunal"
+    | "autor"
+    | "reu"
+    | "parte_contraria"
+    | "responsavel"
   > | null;
 };
 
@@ -117,7 +140,9 @@ export async function listarMovimentacoesDesde(
 ): Promise<MovimentacaoComProcesso[]> {
   let query = supabase
     .from("movimentacoes")
-    .select("*, processos(id, numero_cnj, cliente, tribunal, autor, reu, parte_contraria)")
+    .select(
+      "*, processos(id, numero_cnj, cliente, tribunal, autor, reu, parte_contraria, responsavel)",
+    )
     .order("created_at", { ascending: false });
   if (desde) query = query.gt("created_at", desde);
   const { data, error } = await query;
@@ -142,7 +167,9 @@ export async function listarUltimasMovimentacoes(): Promise<Map<string, Moviment
 export async function listarPendencias(): Promise<MovimentacaoComProcesso[]> {
   const { data, error } = await supabase
     .from("movimentacoes")
-    .select("*, processos(id, numero_cnj, cliente, tribunal, autor, reu, parte_contraria)")
+    .select(
+      "*, processos(id, numero_cnj, cliente, tribunal, autor, reu, parte_contraria, responsavel)",
+    )
     .eq("exige_acao", true)
     .eq("concluida", false)
     .order("prazo", { ascending: true, nullsFirst: false });

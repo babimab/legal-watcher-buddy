@@ -20,26 +20,11 @@ import {
   listarUltimasMovimentacoes,
   formatarCNJ,
   STATUS_OPCOES,
+  ehMeuApelido,
 } from "@/lib/processos";
 import { listarGrupos, listarPastas } from "@/lib/grupos";
 
 type ProcessosSearch = { grupo?: string; pasta?: string };
-
-// Apelidos que contam como "meus processos" no filtro de Advogado. Ajuste
-// aqui se a pessoa aparecer na base sob outros nomes.
-const MEUS_APELIDOS = ["bdr", "barbara"];
-
-function normalizarNome(valor: string) {
-  return valor
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "");
-}
-
-function ehMeuApelido(responsavel: string | null) {
-  return !!responsavel && MEUS_APELIDOS.includes(normalizarNome(responsavel));
-}
 
 export const Route = createFileRoute("/_authenticated/processos/")({
   validateSearch: (search: Record<string, unknown>): ProcessosSearch => ({
