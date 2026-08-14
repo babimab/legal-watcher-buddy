@@ -37,6 +37,7 @@ export type Movimentacao = {
   exige_acao: boolean;
   prazo: string | null;
   concluida: boolean;
+  observacao: string | null;
   fonte: string;
   created_at: string;
 };
