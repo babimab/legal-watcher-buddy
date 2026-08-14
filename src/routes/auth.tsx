@@ -56,6 +56,10 @@ function AuthPage() {
 
   const cadastrar = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim().toLowerCase().endsWith("@bcw.com.br")) {
+      toast.error("Só é possível criar conta com um e-mail @bcw.com.br.");
+      return;
+    }
     setCarregando(true);
     const { error } = await supabase.auth.signUp({
       email,
@@ -152,9 +156,13 @@ function AuthPage() {
                       id="email-novo"
                       type="email"
                       required
+                      placeholder="voce@bcw.com.br"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Só e-mails @bcw.com.br podem criar conta.
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="senha-nova">Senha</Label>
@@ -175,7 +183,8 @@ function AuthPage() {
             </Tabs>
 
             <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="h-px flex-1 bg-border" /> ou <span className="h-px flex-1 bg-border" />
+              <span className="h-px flex-1 bg-border" /> ou{" "}
+              <span className="h-px flex-1 bg-border" />
             </div>
             <Button variant="outline" className="w-full" onClick={entrarComGoogle}>
               Entrar com Google

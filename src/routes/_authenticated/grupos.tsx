@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Folder, Plus, Trash2, UserPlus, Users, X } from "lucide-react";
+import { Folder, Mail, Plus, Trash2, UserPlus, Users, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,9 +23,11 @@ import {
   adicionarMembroGrupo,
   criarGrupo,
   criarPasta,
+  listarConvitesGrupo,
   listarGrupos,
   listarMembrosGrupo,
   listarPastas,
+  removerConviteGrupo,
   removerGrupo,
   removerMembroGrupo,
   removerPasta,
@@ -133,6 +135,12 @@ function GrupoCard({ grupo, pastas }: { grupo: Grupo; pastas: Pasta[] }) {
     retry: false,
   });
 
+  const convites = useQuery({
+    queryKey: ["convites-grupo", grupo.id],
+    queryFn: () => listarConvitesGrupo(grupo.id),
+    retry: false,
+  });
+
   const novaPasta = useMutation({
     mutationFn: (nome: string) => criarPasta(grupo.id, nome),
     onSuccess: async () => {
@@ -145,10 +153,15 @@ function GrupoCard({ grupo, pastas }: { grupo: Grupo; pastas: Pasta[] }) {
 
   const adicionarMembro = useMutation({
     mutationFn: (valor: string) => adicionarMembroGrupo(grupo.id, valor),
-    onSuccess: async () => {
+    onSuccess: async ({ pendente }) => {
       setEmail("");
-      toast.success("Acesso ao grupo liberado.");
+      toast.success(
+        pendente
+          ? "Convite registrado. Assim que essa pessoa criar a conta com esse e-mail, o acesso ao grupo é liberado automaticamente."
+          : "Acesso ao grupo liberado.",
+      );
       await queryClient.invalidateQueries({ queryKey: ["membros-grupo", grupo.id] });
+      await queryClient.invalidateQueries({ queryKey: ["convites-grupo", grupo.id] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -158,6 +171,15 @@ function GrupoCard({ grupo, pastas }: { grupo: Grupo; pastas: Pasta[] }) {
     onSuccess: async () => {
       toast.success("Acesso removido.");
       await queryClient.invalidateQueries({ queryKey: ["membros-grupo", grupo.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const cancelarConvite = useMutation({
+    mutationFn: (conviteId: string) => removerConviteGrupo(conviteId),
+    onSuccess: async () => {
+      toast.success("Convite cancelado.");
+      await queryClient.invalidateQueries({ queryKey: ["convites-grupo", grupo.id] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -282,7 +304,8 @@ function GrupoCard({ grupo, pastas }: { grupo: Grupo; pastas: Pasta[] }) {
             </p>
             <p className="mb-2 text-sm text-muted-foreground">
               Libere a consulta a todos os processos deste grupo (todas as pastas) para alguém da
-              equipe — ela precisa já ter cadastro no sistema com o e-mail informado.
+              equipe, digitando o e-mail @bcw.com.br dela. Se a pessoa ainda não tiver conta, fica
+              um convite pendente e o acesso é liberado sozinho assim que ela se cadastrar.
             </p>
             <form
               className="mb-2 flex flex-wrap gap-2"
@@ -294,15 +317,41 @@ function GrupoCard({ grupo, pastas }: { grupo: Grupo; pastas: Pasta[] }) {
             >
               <Input
                 type="email"
-                placeholder="e-mail da pessoa"
+                placeholder="e-mail@bcw.com.br"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="max-w-xs"
               />
               <Button type="submit" size="sm" disabled={adicionarMembro.isPending}>
-                <UserPlus className="size-4" /> Liberar acesso
+                <UserPlus className="size-4" /> Convidar / liberar acesso
               </Button>
             </form>
+
+            {!convites.isError && (convites.data ?? []).length > 0 ? (
+              <ul className="mb-3 divide-y divide-border rounded-lg border border-dashed border-border">
+                {(convites.data ?? []).map((c) => (
+                  <li key={c.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Mail className="size-4 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{c.email}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Convite pendente — aguardando cadastro
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Cancelar convite"
+                      onClick={() => cancelarConvite.mutate(c.id)}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
 
             {membros.isLoading ? (
               <p className="text-sm text-muted-foreground">Carregando...</p>

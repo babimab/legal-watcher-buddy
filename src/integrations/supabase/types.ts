@@ -99,6 +99,38 @@ export type Database = {
           },
         ]
       }
+      convites_grupo: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          email: string
+          grupo_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          email: string
+          grupo_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          grupo_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "convites_grupo_grupo_id_fkey"
+            columns: ["grupo_id"]
+            isOneToOne: false
+            referencedRelation: "grupos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       movimentacoes: {
         Row: {
           concluida: boolean
@@ -395,7 +427,7 @@ export type Database = {
     Functions: {
       adicionar_membro_grupo: {
         Args: { _email: string; _grupo_id: string }
-        Returns: string
+        Returns: { id: string; pendente: boolean }[]
       }
       compartilhar_processo: {
         Args: { _email: string; _processo_id: string }
@@ -423,6 +455,10 @@ export type Database = {
           nome: string
           user_id: string
         }[]
+      }
+      listar_convites_grupo: {
+        Args: { _grupo_id: string }
+        Returns: { created_at: string; email: string; id: string }[]
       }
       listar_membros_grupo: {
         Args: { _grupo_id: string }

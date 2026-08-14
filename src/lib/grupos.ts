@@ -23,6 +23,12 @@ export type MembroGrupo = {
   created_at: string;
 };
 
+export type ConviteGrupo = {
+  id: string;
+  email: string;
+  created_at: string;
+};
+
 export async function listarGrupos(): Promise<Grupo[]> {
   const { data, error } = await supabase.from("grupos").select("*").order("nome");
   if (error) throw error;
@@ -67,16 +73,31 @@ export async function listarMembrosGrupo(grupoId: string): Promise<MembroGrupo[]
   return data ?? [];
 }
 
-export async function adicionarMembroGrupo(grupoId: string, email: string): Promise<void> {
-  const { error } = await supabase.rpc("adicionar_membro_grupo", {
+export async function adicionarMembroGrupo(
+  grupoId: string,
+  email: string,
+): Promise<{ pendente: boolean }> {
+  const { data, error } = await supabase.rpc("adicionar_membro_grupo", {
     _grupo_id: grupoId,
     _email: email,
   });
   if (error) throw error;
+  return { pendente: data?.[0]?.pendente ?? false };
 }
 
 export async function removerMembroGrupo(membroId: string): Promise<void> {
   const { error } = await supabase.from("grupo_membros").delete().eq("id", membroId);
+  if (error) throw error;
+}
+
+export async function listarConvitesGrupo(grupoId: string): Promise<ConviteGrupo[]> {
+  const { data, error } = await supabase.rpc("listar_convites_grupo", { _grupo_id: grupoId });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function removerConviteGrupo(conviteId: string): Promise<void> {
+  const { error } = await supabase.from("convites_grupo").delete().eq("id", conviteId);
   if (error) throw error;
 }
 
