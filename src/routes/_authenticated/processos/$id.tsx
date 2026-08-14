@@ -164,6 +164,12 @@ function ProcessoDetalhe() {
                   ) : null}
                 </div>
                 <p className="mt-2 whitespace-pre-wrap text-sm">{m.descricao}</p>
+                {m.observacao ? (
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                    Obs.: {m.observacao}
+                  </p>
+                ) : null}
+
                 {m.exige_acao ? (
                   <label className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
                     <Checkbox
