@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,22 @@ import { listarProcessos, formatarCNJ, STATUS_OPCOES } from "@/lib/processos";
 import { listarGrupos, listarPastas } from "@/lib/grupos";
 
 type ProcessosSearch = { grupo?: string; pasta?: string };
+
+// Apelidos que contam como "meus processos" no filtro de Advogado. Ajuste
+// aqui se a pessoa aparecer na base sob outros nomes.
+const MEUS_APELIDOS = ["bdr", "barbara"];
+
+function normalizarNome(valor: string) {
+  return valor
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+}
+
+function ehMeuApelido(responsavel: string | null) {
+  return !!responsavel && MEUS_APELIDOS.includes(normalizarNome(responsavel));
+}
 
 export const Route = createFileRoute("/_authenticated/processos/")({
   validateSearch: (search: Record<string, unknown>): ProcessosSearch => ({
@@ -53,11 +69,19 @@ function ProcessosPage() {
   const [sistema, setSistema] = useState("todos");
   const [grupoId, setGrupoId] = useState(search.grupo ?? "todos");
   const [pastaId, setPastaId] = useState(search.pasta ?? "todas");
+  const [advogado, setAdvogado] = useState("todos");
+  const advogadoInicializado = useRef(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["processos"],
     queryFn: listarProcessos,
   });
+
+  useEffect(() => {
+    if (advogadoInicializado.current || !data || data.length === 0) return;
+    advogadoInicializado.current = true;
+    if (data.some((p) => ehMeuApelido(p.responsavel))) setAdvogado("eu");
+  }, [data]);
 
   const grupos = useQuery({ queryKey: ["grupos"], queryFn: listarGrupos });
   const pastas = useQuery({ queryKey: ["pastas"], queryFn: listarPastas });
@@ -85,6 +109,16 @@ function ProcessosPage() {
     [data],
   );
 
+  const advogados = useMemo(() => {
+    const valores = [
+      ...new Set((data ?? []).map((p) => p.responsavel).filter(Boolean) as string[]),
+    ];
+    return {
+      temMeus: valores.some((v) => ehMeuApelido(v)),
+      outros: valores.filter((v) => !ehMeuApelido(v)).sort(),
+    };
+  }, [data]);
+
   const lista = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     return (data ?? []).filter((p) => {
@@ -95,6 +129,9 @@ function ProcessosPage() {
       const pastaDoProcesso = p.pasta_id ? pastaPorId.get(p.pasta_id) : undefined;
       const casaGrupo = grupoId === "todos" || pastaDoProcesso?.grupo_id === grupoId;
       const casaPasta = pastaId === "todas" || p.pasta_id === pastaId;
+      const casaAdvogado =
+        advogado === "todos" ||
+        (advogado === "eu" ? ehMeuApelido(p.responsavel) : p.responsavel === advogado);
       const casaBusca =
         !termo ||
         [
@@ -112,10 +149,17 @@ function ProcessosPage() {
           .filter(Boolean)
           .some((v) => String(v).toLowerCase().includes(termo));
       return (
-        casaStatus && casaCarteira && casaUf && casaSistema && casaGrupo && casaPasta && casaBusca
+        casaStatus &&
+        casaCarteira &&
+        casaUf &&
+        casaSistema &&
+        casaGrupo &&
+        casaPasta &&
+        casaAdvogado &&
+        casaBusca
       );
     });
-  }, [data, busca, status, carteira, uf, sistema, grupoId, pastaId, pastaPorId]);
+  }, [data, busca, status, carteira, uf, sistema, grupoId, pastaId, advogado, pastaPorId]);
 
   return (
     <div className="space-y-6">
@@ -198,6 +242,22 @@ function ProcessosPage() {
               {sistemas.map((s) => (
                 <SelectItem key={s} value={s}>
                   {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+        {advogados.temMeus || advogados.outros.length > 0 ? (
+          <Select value={advogado} onValueChange={setAdvogado}>
+            <SelectTrigger className="w-52">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os advogados</SelectItem>
+              {advogados.temMeus ? <SelectItem value="eu">BDR / Bárbara (meus)</SelectItem> : null}
+              {advogados.outros.map((a) => (
+                <SelectItem key={a} value={a}>
+                  {a}
                 </SelectItem>
               ))}
             </SelectContent>
