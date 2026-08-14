@@ -157,9 +157,9 @@ function Campo({
 }: {
   label: string;
   name: string;
-  defaultValue?: string;
-  required?: boolean;
-  placeholder?: string;
+  defaultValue?: string | undefined;
+  required?: boolean | undefined;
+  placeholder?: string | undefined;
 }) {
   return (
     <div className="space-y-2">
