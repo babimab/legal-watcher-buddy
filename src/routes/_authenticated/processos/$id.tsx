@@ -101,11 +101,17 @@ function ProcessoDetalhe() {
           <CardTitle className="font-serif text-lg">Dados do processo</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-3">
-          <Dado rotulo="Parte contrária" valor={p.parte_contraria} />
+          <Dado rotulo="Autor" valor={p.autor} />
+          <Dado rotulo="Réu" valor={p.reu} />
+          <Dado rotulo="Carteira" valor={p.carteira} />
+          <Dado rotulo="Nº do caso" valor={p.numero_interno} />
+          <Dado rotulo="Número antigo" valor={p.numero_antigo} />
+          <Dado rotulo="Sistema" valor={p.sistema} />
           <Dado rotulo="Vara" valor={p.vara} />
-          <Dado rotulo="Comarca" valor={p.comarca} />
+          <Dado rotulo="Comarca" valor={[p.comarca, p.uf].filter(Boolean).join(" / ") || null} />
           <Dado rotulo="Classe / Assunto" valor={p.classe} />
           <Dado rotulo="Responsável" valor={p.responsavel} />
+
           <Dado
             rotulo="Valor da causa"
             valor={
