@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { buscarProcesso, listarMovimentacoes, formatarCNJ } from "@/lib/processos";
 import { linkTribunal } from "@/lib/tribunais";
 import { AcessosProcesso } from "@/components/AcessosProcesso";
+import { ExcluirProcessoDialog } from "@/components/ExcluirProcessoDialog";
 
 export const Route = createFileRoute("/_authenticated/processos/$id")({
   head: () => ({
@@ -101,6 +102,11 @@ function ProcessoDetalhe() {
                 <Plus className="size-4" /> Movimentação
               </Button>
             }
+          />
+          <ExcluirProcessoDialog
+            processoId={p.id}
+            numeroCnj={p.numero_cnj}
+            cliente={p.cliente}
           />
         </div>
       </div>
