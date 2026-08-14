@@ -156,14 +156,20 @@ function ProcessosPage() {
               <div className="flex flex-wrap items-center gap-3">
                 <span className="font-mono text-sm">{formatarCNJ(p.numero_cnj)}</span>
                 <Badge variant={p.status === "ativo" ? "default" : "secondary"}>{p.status}</Badge>
+                {p.carteira ? <Badge variant="outline">{p.carteira}</Badge> : null}
+                {p.numero_interno ? (
+                  <span className="text-xs text-muted-foreground">caso {p.numero_interno}</span>
+                ) : null}
                 {p.monitorar ? <Badge variant="outline">monitorado</Badge> : null}
               </div>
-              <p className="mt-1 font-serif text-lg">{p.cliente}</p>
-              <p className="text-sm text-muted-foreground">
-                {[p.parte_contraria && `x ${p.parte_contraria}`, p.tribunal, p.vara, p.comarca]
-                  .filter(Boolean)
-                  .join(" · ")}
+              <p className="mt-1 font-serif text-lg">
+                {p.autor ?? p.cliente}
+                {p.reu ? <span className="text-muted-foreground"> x {p.reu}</span> : null}
               </p>
+              <p className="text-sm text-muted-foreground">
+                {[p.comarca, p.uf, p.vara, p.sistema].filter(Boolean).join(" · ")}
+              </p>
+
             </Link>
           ))}
         </div>
