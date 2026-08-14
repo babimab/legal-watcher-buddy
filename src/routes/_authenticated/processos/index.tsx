@@ -41,6 +41,8 @@ function ProcessosPage() {
   const [busca, setBusca] = useState("");
   const [status, setStatus] = useState("todos");
   const [carteira, setCarteira] = useState("todas");
+  const [uf, setUf] = useState("todas");
+  const [sistema, setSistema] = useState("todos");
 
   const { data, isLoading } = useQuery({
     queryKey: ["processos"],
@@ -52,11 +54,23 @@ function ProcessosPage() {
     [data],
   );
 
+  const ufs = useMemo(
+    () => [...new Set((data ?? []).map((p) => p.uf).filter(Boolean) as string[])].sort(),
+    [data],
+  );
+
+  const sistemas = useMemo(
+    () => [...new Set((data ?? []).map((p) => p.sistema).filter(Boolean) as string[])].sort(),
+    [data],
+  );
+
   const lista = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     return (data ?? []).filter((p) => {
       const casaStatus = status === "todos" || p.status === status;
       const casaCarteira = carteira === "todas" || p.carteira === carteira;
+      const casaUf = uf === "todas" || p.uf === uf;
+      const casaSistema = sistema === "todos" || p.sistema === sistema;
       const casaBusca =
         !termo ||
         [
@@ -73,9 +87,9 @@ function ProcessosPage() {
         ]
           .filter(Boolean)
           .some((v) => String(v).toLowerCase().includes(termo));
-      return casaStatus && casaCarteira && casaBusca;
+      return casaStatus && casaCarteira && casaUf && casaSistema && casaBusca;
     });
-  }, [data, busca, status, carteira]);
+  }, [data, busca, status, carteira, uf, sistema]);
 
   return (
     <div className="space-y-6">
