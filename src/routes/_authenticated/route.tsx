@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, redirect, Link, useRouter } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { FolderKanban, LineChart, LogOut, Upload, Users } from "lucide-react";
+import { FolderKanban, LineChart, LogOut, Upload, User, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -55,14 +55,24 @@ function AppLayout() {
             <NavItem to="/grupos" icon={<Users className="size-4" />} label="Grupos" />
             <NavItem to="/importar" icon={<Upload className="size-4" />} label="Importar" />
           </nav>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={sair}
-            className="ml-auto text-sidebar-foreground hover:bg-sidebar-accent"
-          >
-            <LogOut className="size-4" /> Sair
-          </Button>
+          <div className="ml-auto flex items-center gap-1">
+            <Link
+              to="/perfil"
+              aria-label="Meu perfil"
+              className="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
+              activeProps={{ className: "bg-sidebar-accent font-semibold" }}
+            >
+              <User className="size-4" /> Perfil
+            </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={sair}
+              className="text-sidebar-foreground hover:bg-sidebar-accent"
+            >
+              <LogOut className="size-4" /> Sair
+            </Button>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-8">
