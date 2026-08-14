@@ -40,7 +40,7 @@ export const Route = createFileRoute("/_authenticated/relatorio")({
   component: RelatorioPage,
 });
 
-function exportarNovidadesExcel(itens: MovimentacaoComProcesso[]) {
+function exportarAndamentosExcel(itens: MovimentacaoComProcesso[], nomeArquivo: string) {
   const linhas = itens.map((m) => ({
     "Número CNJ": m.processos ? formatarCNJ(m.processos.numero_cnj) : "",
     Cliente: m.processos?.cliente ?? "",
@@ -54,13 +54,20 @@ function exportarNovidadesExcel(itens: MovimentacaoComProcesso[]) {
   }));
   const planilha = XLSX.utils.json_to_sheet(linhas);
   const livro = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(livro, planilha, "Novos andamentos");
-  XLSX.writeFile(livro, `novos-andamentos-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  XLSX.utils.book_append_sheet(livro, planilha, "Andamentos");
+  XLSX.writeFile(livro, `${nomeArquivo}-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
+
+const NOME_ARQUIVO_POR_ABA: Record<string, string> = {
+  novidades: "novidades",
+  semana: "andamentos-da-semana",
+  pendencias: "prazos-pendentes",
+};
 
 function RelatorioPage() {
   const queryClient = useQueryClient();
   const [rodando, setRodando] = useState(false);
+  const [aba, setAba] = useState("novidades");
 
   const verificacao = useQuery({ queryKey: ["verificacao"], queryFn: ultimaVerificacao });
   const desde = verificacao.data?.executado_em ?? null;
@@ -78,6 +85,13 @@ function RelatorioPage() {
   });
 
   const pendencias = useQuery({ queryKey: ["pendencias"], queryFn: listarPendencias });
+
+  const itensDaAba =
+    aba === "semana"
+      ? (semana.data ?? [])
+      : aba === "pendencias"
+        ? (pendencias.data ?? [])
+        : (novidades.data ?? []);
 
   const rodar = async () => {
     setRodando(true);
@@ -111,8 +125,8 @@ function RelatorioPage() {
         <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
-            disabled={(novidades.data ?? []).length === 0}
-            onClick={() => exportarNovidadesExcel(novidades.data ?? [])}
+            disabled={itensDaAba.length === 0}
+            onClick={() => exportarAndamentosExcel(itensDaAba, NOME_ARQUIVO_POR_ABA[aba]!)}
           >
             <Download className="size-4" /> Exportar Excel
           </Button>
@@ -122,7 +136,7 @@ function RelatorioPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="novidades">
+      <Tabs value={aba} onValueChange={setAba}>
         <TabsList>
           <TabsTrigger value="novidades">
             Novidades ({novidades.data?.length ?? 0})
