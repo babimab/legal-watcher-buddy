@@ -1,12 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Download, Play } from "lucide-react";
+import { AlertTriangle, Download, Mail, Play } from "lucide-react";
 import * as XLSX from "xlsx";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -73,6 +74,58 @@ const NOME_ARQUIVO_POR_ABA: Record<string, string> = {
   pendencias: "prazos-pendentes",
 };
 
+const TITULO_POR_ABA: Record<string, string> = {
+  novidades: "Novidades desde a última verificação",
+  semana: "Andamentos da última semana",
+  pendencias: "Prazos pendentes",
+};
+
+function escaparHtml(valor: string) {
+  return valor.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function montarHtmlAndamentos(itens: MovimentacaoComProcesso[], titulo: string) {
+  const linhas = itens
+    .map((m) => {
+      const partes =
+        [m.processos?.autor, m.processos?.reu].filter(Boolean).join(" x ") ||
+        m.processos?.parte_contraria ||
+        "";
+      const data = new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR");
+      return `
+        <tr>
+          <td style="padding:6px;border:1px solid #ddd;font-family:monospace;font-size:12px;">${
+            m.processos ? escaparHtml(formatarCNJ(m.processos.numero_cnj)) : ""
+          }</td>
+          <td style="padding:6px;border:1px solid #ddd;">${escaparHtml(m.processos?.cliente ?? "")}</td>
+          <td style="padding:6px;border:1px solid #ddd;">${escaparHtml(partes)}</td>
+          <td style="padding:6px;border:1px solid #ddd;">${escaparHtml(m.tipo ?? "")}</td>
+          <td style="padding:6px;border:1px solid #ddd;">${data}</td>
+          <td style="padding:6px;border:1px solid #ddd;">${escaparHtml(m.descricao)}</td>
+        </tr>`;
+    })
+    .join("");
+
+  return `
+    <div style="font-family:sans-serif;">
+      <h2>${escaparHtml(titulo)}</h2>
+      <p>${itens.length} andamento(s).</p>
+      <table style="border-collapse:collapse;width:100%;font-size:13px;">
+        <thead>
+          <tr style="background:#f3f3f3;">
+            <th style="padding:6px;border:1px solid #ddd;text-align:left;">Número CNJ</th>
+            <th style="padding:6px;border:1px solid #ddd;text-align:left;">Cliente</th>
+            <th style="padding:6px;border:1px solid #ddd;text-align:left;">Partes</th>
+            <th style="padding:6px;border:1px solid #ddd;text-align:left;">Tipo</th>
+            <th style="padding:6px;border:1px solid #ddd;text-align:left;">Data</th>
+            <th style="padding:6px;border:1px solid #ddd;text-align:left;">Descrição</th>
+          </tr>
+        </thead>
+        <tbody>${linhas}</tbody>
+      </table>
+    </div>`;
+}
+
 function RelatorioPage() {
   const queryClient = useQueryClient();
   const [rodando, setRodando] = useState(false);
@@ -134,6 +187,30 @@ function RelatorioPage() {
         ? pendenciasFiltradas
         : novidadesFiltradas;
 
+  const [emails, setEmails] = useState("");
+
+  const enviarEmail = useMutation({
+    mutationFn: async () => {
+      const destinatarios = emails
+        .split(",")
+        .map((e) => e.trim())
+        .filter(Boolean);
+      if (destinatarios.length === 0) throw new Error("Informe pelo menos um e-mail.");
+
+      const { data, error } = await supabase.functions.invoke("enviar-relatorio-email", {
+        body: {
+          destinatarios,
+          assunto: `Radar Processual — ${TITULO_POR_ABA[aba]}`,
+          html: montarHtmlAndamentos(itensDaAba, TITULO_POR_ABA[aba]!),
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+    },
+    onSuccess: () => toast.success("E-mail enviado."),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const rodar = async () => {
     setRodando(true);
     const { data: userData } = await supabase.auth.getUser();
@@ -193,6 +270,23 @@ function RelatorioPage() {
             <Play className="size-4" /> {rodando ? "Registrando..." : "Marcar como verificado"}
           </Button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          type="text"
+          placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br"
+          value={emails}
+          onChange={(e) => setEmails(e.target.value)}
+          className="max-w-sm"
+        />
+        <Button
+          variant="outline"
+          disabled={itensDaAba.length === 0 || enviarEmail.isPending}
+          onClick={() => enviarEmail.mutate()}
+        >
+          <Mail className="size-4" /> {enviarEmail.isPending ? "Enviando..." : "Enviar por e-mail"}
+        </Button>
       </div>
 
       <Tabs value={aba} onValueChange={setAba}>
