@@ -40,24 +40,42 @@ export const Route = createFileRoute("/_authenticated/processos/")({
 function ProcessosPage() {
   const [busca, setBusca] = useState("");
   const [status, setStatus] = useState("todos");
+  const [carteira, setCarteira] = useState("todas");
 
   const { data, isLoading } = useQuery({
     queryKey: ["processos"],
     queryFn: listarProcessos,
   });
 
+  const carteiras = useMemo(
+    () => [...new Set((data ?? []).map((p) => p.carteira).filter(Boolean) as string[])].sort(),
+    [data],
+  );
+
   const lista = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     return (data ?? []).filter((p) => {
       const casaStatus = status === "todos" || p.status === status;
+      const casaCarteira = carteira === "todas" || p.carteira === carteira;
       const casaBusca =
         !termo ||
-        [p.numero_cnj, p.cliente, p.parte_contraria, p.tribunal, p.responsavel]
+        [
+          p.numero_cnj,
+          p.numero_interno,
+          p.numero_antigo,
+          p.cliente,
+          p.autor,
+          p.reu,
+          p.parte_contraria,
+          p.tribunal,
+          p.comarca,
+          p.responsavel,
+        ]
           .filter(Boolean)
           .some((v) => String(v).toLowerCase().includes(termo));
-      return casaStatus && casaBusca;
+      return casaStatus && casaCarteira && casaBusca;
     });
-  }, [data, busca, status]);
+  }, [data, busca, status, carteira]);
 
   return (
     <div className="space-y-6">
@@ -100,7 +118,23 @@ function ProcessosPage() {
             ))}
           </SelectContent>
         </Select>
+        {carteiras.length > 0 ? (
+          <Select value={carteira} onValueChange={setCarteira}>
+            <SelectTrigger className="w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas as carteiras</SelectItem>
+              {carteiras.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
       </div>
+
 
       {isLoading ? (
         <p className="text-muted-foreground">Carregando...</p>
@@ -122,14 +156,20 @@ function ProcessosPage() {
               <div className="flex flex-wrap items-center gap-3">
                 <span className="font-mono text-sm">{formatarCNJ(p.numero_cnj)}</span>
                 <Badge variant={p.status === "ativo" ? "default" : "secondary"}>{p.status}</Badge>
+                {p.carteira ? <Badge variant="outline">{p.carteira}</Badge> : null}
+                {p.numero_interno ? (
+                  <span className="text-xs text-muted-foreground">caso {p.numero_interno}</span>
+                ) : null}
                 {p.monitorar ? <Badge variant="outline">monitorado</Badge> : null}
               </div>
-              <p className="mt-1 font-serif text-lg">{p.cliente}</p>
-              <p className="text-sm text-muted-foreground">
-                {[p.parte_contraria && `x ${p.parte_contraria}`, p.tribunal, p.vara, p.comarca]
-                  .filter(Boolean)
-                  .join(" · ")}
+              <p className="mt-1 font-serif text-lg">
+                {p.autor ?? p.cliente}
+                {p.reu ? <span className="text-muted-foreground"> x {p.reu}</span> : null}
               </p>
+              <p className="text-sm text-muted-foreground">
+                {[p.comarca, p.uf, p.vara, p.sistema].filter(Boolean).join(" · ")}
+              </p>
+
             </Link>
           ))}
         </div>
