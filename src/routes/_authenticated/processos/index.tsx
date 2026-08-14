@@ -40,6 +40,7 @@ export const Route = createFileRoute("/_authenticated/processos/")({
 function ProcessosPage() {
   const [busca, setBusca] = useState("");
   const [status, setStatus] = useState("todos");
+  const [carteira, setCarteira] = useState("todas");
 
   const { data, isLoading } = useQuery({
     queryKey: ["processos"],
