@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { ProcessoDialog } from "@/components/ProcessoDialog";
 import { listarProcessos, formatarCNJ, STATUS_OPCOES } from "@/lib/processos";
+import { listarGrupos, listarPastas } from "@/lib/grupos";
 
 export const Route = createFileRoute("/_authenticated/processos/")({
   head: () => ({
@@ -43,11 +44,24 @@ function ProcessosPage() {
   const [carteira, setCarteira] = useState("todas");
   const [uf, setUf] = useState("todas");
   const [sistema, setSistema] = useState("todos");
+  const [grupoId, setGrupoId] = useState("todos");
+  const [pastaId, setPastaId] = useState("todas");
 
   const { data, isLoading } = useQuery({
     queryKey: ["processos"],
     queryFn: listarProcessos,
   });
+
+  const grupos = useQuery({ queryKey: ["grupos"], queryFn: listarGrupos });
+  const pastas = useQuery({ queryKey: ["pastas"], queryFn: listarPastas });
+  const pastaPorId = useMemo(
+    () => new Map((pastas.data ?? []).map((p) => [p.id, p])),
+    [pastas.data],
+  );
+  const pastasDoGrupoSelecionado = useMemo(
+    () => (pastas.data ?? []).filter((p) => grupoId === "todos" || p.grupo_id === grupoId),
+    [pastas.data, grupoId],
+  );
 
   const carteiras = useMemo(
     () => [...new Set((data ?? []).map((p) => p.carteira).filter(Boolean) as string[])].sort(),
@@ -71,6 +85,9 @@ function ProcessosPage() {
       const casaCarteira = carteira === "todas" || p.carteira === carteira;
       const casaUf = uf === "todas" || p.uf === uf;
       const casaSistema = sistema === "todos" || p.sistema === sistema;
+      const pastaDoProcesso = p.pasta_id ? pastaPorId.get(p.pasta_id) : undefined;
+      const casaGrupo = grupoId === "todos" || pastaDoProcesso?.grupo_id === grupoId;
+      const casaPasta = pastaId === "todas" || p.pasta_id === pastaId;
       const casaBusca =
         !termo ||
         [
@@ -87,9 +104,11 @@ function ProcessosPage() {
         ]
           .filter(Boolean)
           .some((v) => String(v).toLowerCase().includes(termo));
-      return casaStatus && casaCarteira && casaUf && casaSistema && casaBusca;
+      return (
+        casaStatus && casaCarteira && casaUf && casaSistema && casaGrupo && casaPasta && casaBusca
+      );
     });
-  }, [data, busca, status, carteira, uf, sistema]);
+  }, [data, busca, status, carteira, uf, sistema, grupoId, pastaId, pastaPorId]);
 
   return (
     <div className="space-y-6">
@@ -177,8 +196,43 @@ function ProcessosPage() {
             </SelectContent>
           </Select>
         ) : null}
+        {(grupos.data ?? []).length > 0 ? (
+          <Select
+            value={grupoId}
+            onValueChange={(v) => {
+              setGrupoId(v);
+              setPastaId("todas");
+            }}
+          >
+            <SelectTrigger className="w-52">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os grupos</SelectItem>
+              {(grupos.data ?? []).map((g) => (
+                <SelectItem key={g.id} value={g.id}>
+                  {g.nome}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+        {pastasDoGrupoSelecionado.length > 0 ? (
+          <Select value={pastaId} onValueChange={setPastaId}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas as pastas</SelectItem>
+              {pastasDoGrupoSelecionado.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.nome}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
       </div>
-
 
       {isLoading ? (
         <p className="text-muted-foreground">Carregando...</p>
@@ -200,7 +254,14 @@ function ProcessosPage() {
               <div className="flex flex-wrap items-center gap-3">
                 <span className="font-mono text-sm">{formatarCNJ(p.numero_cnj)}</span>
                 <Badge variant={p.status === "ativo" ? "default" : "secondary"}>{p.status}</Badge>
-                {p.carteira ? <Badge variant="outline">{p.carteira}</Badge> : null}
+                {p.pasta_id && pastaPorId.get(p.pasta_id) ? (
+                  <Badge variant="outline">{pastaPorId.get(p.pasta_id)!.nome}</Badge>
+                ) : p.carteira ? (
+                  <Badge variant="outline">{p.carteira}</Badge>
+                ) : null}
+                {p.tipo_desdobramento ? (
+                  <Badge variant="secondary">{p.tipo_desdobramento}</Badge>
+                ) : null}
                 {p.numero_interno ? (
                   <span className="text-xs text-muted-foreground">caso {p.numero_interno}</span>
                 ) : null}
@@ -213,7 +274,6 @@ function ProcessosPage() {
               <p className="text-sm text-muted-foreground">
                 {[p.comarca, p.uf, p.vara, p.sistema].filter(Boolean).join(" · ")}
               </p>
-
             </Link>
           ))}
         </div>

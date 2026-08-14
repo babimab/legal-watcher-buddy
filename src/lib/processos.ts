@@ -17,6 +17,9 @@ export type Processo = {
   comarca: string | null;
   classe: string | null;
   fase: string | null;
+  pasta_id: string | null;
+  processo_pai_id: string | null;
+  tipo_desdobramento: string | null;
   status: string;
   valor_causa: number | null;
   responsavel: string | null;
@@ -42,12 +45,15 @@ export type Movimentacao = {
   created_at: string;
 };
 
-export const STATUS_OPCOES = [
-  "ativo",
-  "suspenso",
-  "arquivado",
-  "baixado",
-  "encerrado",
+export const STATUS_OPCOES = ["ativo", "suspenso", "arquivado", "baixado", "encerrado"] as const;
+
+export const TIPOS_DESDOBRAMENTO = [
+  "Recurso",
+  "Cumprimento de sentença",
+  "Execução",
+  "Embargos",
+  "Agravo",
+  "Outro",
 ] as const;
 
 export const TIPOS_MOVIMENTACAO = [
@@ -72,14 +78,20 @@ export async function listarProcessos(): Promise<Processo[]> {
 }
 
 export async function buscarProcesso(id: string): Promise<Processo> {
-  const { data, error } = await supabase
-    .from("processos")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+  const { data, error } = await supabase.from("processos").select("*").eq("id", id).maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("Processo não encontrado");
   return data as Processo;
+}
+
+export async function listarDesdobramentos(processoId: string): Promise<Processo[]> {
+  const { data, error } = await supabase
+    .from("processos")
+    .select("*")
+    .eq("processo_pai_id", processoId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as Processo[];
 }
 
 export async function listarMovimentacoes(processoId: string): Promise<Movimentacao[]> {
@@ -130,6 +142,18 @@ export async function ultimaVerificacao() {
     .maybeSingle();
   if (error) throw error;
   return data;
+}
+
+export async function fundirProcessos(mantidoId: string, removidoId: string): Promise<void> {
+  const { error } = await supabase.rpc("fundir_processos", {
+    _mantido_id: mantidoId,
+    _removido_id: removidoId,
+  });
+  if (error) throw error;
+}
+
+export function digitosCNJ(valor: string) {
+  return valor.replace(/\D/g, "");
 }
 
 export function formatarCNJ(valor: string) {

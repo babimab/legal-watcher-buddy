@@ -1,5 +1,5 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -23,19 +23,42 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { STATUS_OPCOES, type Processo } from "@/lib/processos";
+import { STATUS_OPCOES, TIPOS_DESDOBRAMENTO, type Processo } from "@/lib/processos";
+import { listarGrupos, listarPastas } from "@/lib/grupos";
 
-type Props = { processo?: Processo; trigger: ReactNode };
+type Props = {
+  processo?: Processo;
+  trigger: ReactNode;
+  /** Ao criar um desdobramento (recurso, cumprimento de sentença...), id do processo principal. */
+  paiId?: string;
+  /** Valores para pré-preencher um desdobramento novo (partes, vara, comarca...). */
+  iniciais?: Partial<Processo>;
+};
 
-export function ProcessoDialog({ processo, trigger }: Props) {
+export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
   const [aberto, setAberto] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const [grupoId, setGrupoId] = useState<string>("");
   const queryClient = useQueryClient();
+
+  const grupos = useQuery({ queryKey: ["grupos"], queryFn: listarGrupos, enabled: aberto });
+  const pastas = useQuery({ queryKey: ["pastas"], queryFn: listarPastas, enabled: aberto });
+
+  const pastaAtualId = processo?.pasta_id ?? iniciais?.pasta_id ?? "";
+  const grupoSelecionado =
+    grupoId || (pastas.data ?? []).find((p) => p.id === pastaAtualId)?.grupo_id || "";
+  const pastasDoGrupo = useMemo(
+    () => (pastas.data ?? []).filter((p) => p.grupo_id === grupoSelecionado),
+    [pastas.data, grupoSelecionado],
+  );
 
   const salvar = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
-    const valor = String(form.get("valor_causa") ?? "").replace(/\./g, "").replace(",", ".");
+    const valor = String(form.get("valor_causa") ?? "")
+      .replace(/\./g, "")
+      .replace(",", ".");
+    const pastaId = String(form.get("pasta_id") ?? "");
     const payload = {
       numero_cnj: String(form.get("numero_cnj") ?? "").trim(),
       cliente: String(form.get("cliente") ?? "").trim(),
@@ -49,6 +72,13 @@ export function ProcessoDialog({ processo, trigger }: Props) {
       status: String(form.get("status") ?? "ativo"),
       valor_causa: valor ? Number(valor) : null,
       observacoes: String(form.get("observacoes") ?? "").trim() || null,
+      pasta_id: pastaId && pastaId !== "nenhuma" ? pastaId : null,
+      ...(paiId && !processo
+        ? {
+            processo_pai_id: paiId,
+            tipo_desdobramento: String(form.get("tipo_desdobramento") ?? "").trim() || null,
+          }
+        : {}),
     };
 
     setSalvando(true);
@@ -77,13 +107,30 @@ export function ProcessoDialog({ processo, trigger }: Props) {
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="font-serif">
-            {processo ? "Editar processo" : "Novo processo"}
+            {processo ? "Editar processo" : paiId ? "Novo desdobramento" : "Novo processo"}
           </DialogTitle>
           <DialogDescription>
             Os dados ficam visíveis para toda a equipe do escritório.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={salvar} className="grid gap-4 sm:grid-cols-2">
+          {paiId && !processo ? (
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Tipo de desdobramento</Label>
+              <Select name="tipo_desdobramento" defaultValue={TIPOS_DESDOBRAMENTO[0]} required>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TIPOS_DESDOBRAMENTO.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
           <Campo
             label="Número CNJ"
             name="numero_cnj"
@@ -91,21 +138,34 @@ export function ProcessoDialog({ processo, trigger }: Props) {
             defaultValue={processo?.numero_cnj}
             placeholder="0000000-00.0000.0.00.0000"
           />
-          <Campo label="Cliente" name="cliente" required defaultValue={processo?.cliente} />
+          <Campo
+            label="Cliente"
+            name="cliente"
+            required
+            defaultValue={processo?.cliente ?? iniciais?.cliente ?? ""}
+          />
           <Campo
             label="Parte contrária"
             name="parte_contraria"
-            defaultValue={processo?.parte_contraria ?? ""}
+            defaultValue={processo?.parte_contraria ?? iniciais?.parte_contraria ?? ""}
           />
-          <Campo label="Tribunal" name="tribunal" defaultValue={processo?.tribunal ?? ""} />
-          <Campo label="Vara" name="vara" defaultValue={processo?.vara ?? ""} />
-          <Campo label="Comarca" name="comarca" defaultValue={processo?.comarca ?? ""} />
+          <Campo
+            label="Tribunal"
+            name="tribunal"
+            defaultValue={processo?.tribunal ?? iniciais?.tribunal ?? ""}
+          />
+          <Campo label="Vara" name="vara" defaultValue={processo?.vara ?? iniciais?.vara ?? ""} />
+          <Campo
+            label="Comarca"
+            name="comarca"
+            defaultValue={processo?.comarca ?? iniciais?.comarca ?? ""}
+          />
           <Campo label="Classe / Assunto" name="classe" defaultValue={processo?.classe ?? ""} />
           <Campo label="Fase" name="fase" defaultValue={processo?.fase ?? ""} />
           <Campo
             label="Advogado responsável"
             name="responsavel"
-            defaultValue={processo?.responsavel ?? ""}
+            defaultValue={processo?.responsavel ?? iniciais?.responsavel ?? ""}
           />
           <Campo
             label="Valor da causa"
@@ -123,6 +183,42 @@ export function ProcessoDialog({ processo, trigger }: Props) {
                 {STATUS_OPCOES.map((s) => (
                   <SelectItem key={s} value={s} className="capitalize">
                     {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Grupo</Label>
+            <Select value={grupoSelecionado} onValueChange={setGrupoId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sem grupo" />
+              </SelectTrigger>
+              <SelectContent>
+                {(grupos.data ?? []).map((g) => (
+                  <SelectItem key={g.id} value={g.id}>
+                    {g.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Pasta</Label>
+            <Select
+              key={grupoSelecionado || "sem-grupo"}
+              name="pasta_id"
+              defaultValue={pastaAtualId || "nenhuma"}
+              disabled={!grupoSelecionado}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Sem pasta" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nenhuma">Sem pasta</SelectItem>
+                {pastasDoGrupo.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.nome}
                   </SelectItem>
                 ))}
               </SelectContent>

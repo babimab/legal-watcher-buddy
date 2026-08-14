@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedDuplicadosRouteImport } from './routes/_authenticated/duplicados'
+import { Route as AuthenticatedGruposRouteImport } from './routes/_authenticated/grupos'
 import { Route as AuthenticatedImportarRouteImport } from './routes/_authenticated/importar'
 import { Route as AuthenticatedRelatorioRouteImport } from './routes/_authenticated/relatorio'
 import { Route as AuthenticatedProcessosIndexRouteImport } from './routes/_authenticated/processos/index'
@@ -30,6 +32,16 @@ const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedDuplicadosRoute = AuthenticatedDuplicadosRouteImport.update({
+  id: '/duplicados',
+  path: '/duplicados',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedGruposRoute = AuthenticatedGruposRouteImport.update({
+  id: '/grupos',
+  path: '/grupos',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedImportarRoute = AuthenticatedImportarRouteImport.update({
   id: '/importar',
@@ -57,6 +69,8 @@ const AuthenticatedProcessosIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/duplicados': typeof AuthenticatedDuplicadosRoute
+  '/grupos': typeof AuthenticatedGruposRoute
   '/importar': typeof AuthenticatedImportarRoute
   '/relatorio': typeof AuthenticatedRelatorioRoute
   '/processos/$id': typeof AuthenticatedProcessosIdRoute
@@ -65,6 +79,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/duplicados': typeof AuthenticatedDuplicadosRoute
+  '/grupos': typeof AuthenticatedGruposRoute
   '/importar': typeof AuthenticatedImportarRoute
   '/relatorio': typeof AuthenticatedRelatorioRoute
   '/processos/$id': typeof AuthenticatedProcessosIdRoute
@@ -75,6 +91,8 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/duplicados': typeof AuthenticatedDuplicadosRoute
+  '/_authenticated/grupos': typeof AuthenticatedGruposRoute
   '/_authenticated/importar': typeof AuthenticatedImportarRoute
   '/_authenticated/relatorio': typeof AuthenticatedRelatorioRoute
   '/_authenticated/processos/$id': typeof AuthenticatedProcessosIdRoute
@@ -85,18 +103,29 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/duplicados'
+    | '/grupos'
     | '/importar'
     | '/relatorio'
     | '/processos/$id'
     | '/processos/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/' | '/auth' | '/importar' | '/relatorio' | '/processos/$id' | '/processos'
+    | '/'
+    | '/auth'
+    | '/duplicados'
+    | '/grupos'
+    | '/importar'
+    | '/relatorio'
+    | '/processos/$id'
+    | '/processos'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/duplicados'
+    | '/_authenticated/grupos'
     | '/_authenticated/importar'
     | '/_authenticated/relatorio'
     | '/_authenticated/processos/$id'
@@ -132,6 +161,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/duplicados': {
+      id: '/_authenticated/duplicados'
+      path: '/duplicados'
+      fullPath: '/duplicados'
+      preLoaderRoute: typeof AuthenticatedDuplicadosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/grupos': {
+      id: '/_authenticated/grupos'
+      path: '/grupos'
+      fullPath: '/grupos'
+      preLoaderRoute: typeof AuthenticatedGruposRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/importar': {
       id: '/_authenticated/importar'
       path: '/importar'
@@ -164,6 +207,8 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedDuplicadosRoute: typeof AuthenticatedDuplicadosRoute
+  AuthenticatedGruposRoute: typeof AuthenticatedGruposRoute
   AuthenticatedImportarRoute: typeof AuthenticatedImportarRoute
   AuthenticatedRelatorioRoute: typeof AuthenticatedRelatorioRoute
   AuthenticatedProcessosIdRoute: typeof AuthenticatedProcessosIdRoute
@@ -171,6 +216,8 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedDuplicadosRoute: AuthenticatedDuplicadosRoute,
+  AuthenticatedGruposRoute: AuthenticatedGruposRoute,
   AuthenticatedImportarRoute: AuthenticatedImportarRoute,
   AuthenticatedRelatorioRoute: AuthenticatedRelatorioRoute,
   AuthenticatedProcessosIdRoute: AuthenticatedProcessosIdRoute,

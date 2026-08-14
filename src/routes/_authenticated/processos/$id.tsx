@@ -10,7 +10,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ProcessoDialog } from "@/components/ProcessoDialog";
 import { MovimentacaoDialog } from "@/components/MovimentacaoDialog";
 import { supabase } from "@/integrations/supabase/client";
-import { buscarProcesso, listarMovimentacoes, formatarCNJ } from "@/lib/processos";
+import {
+  buscarProcesso,
+  listarDesdobramentos,
+  listarMovimentacoes,
+  formatarCNJ,
+} from "@/lib/processos";
 import { linkTribunal } from "@/lib/tribunais";
 import { AcessosProcesso } from "@/components/AcessosProcesso";
 import { ExcluirProcessoDialog } from "@/components/ExcluirProcessoDialog";
@@ -44,12 +49,18 @@ function ProcessoDetalhe() {
     queryKey: ["movimentacoes", id],
     queryFn: () => listarMovimentacoes(id),
   });
+  const desdobramentos = useQuery({
+    queryKey: ["desdobramentos", id],
+    queryFn: () => listarDesdobramentos(id),
+  });
+  const processoPai = useQuery({
+    queryKey: ["processo", processo.data?.processo_pai_id],
+    queryFn: () => buscarProcesso(processo.data!.processo_pai_id!),
+    enabled: !!processo.data?.processo_pai_id,
+  });
 
   const alternarConcluida = async (movId: string, concluida: boolean) => {
-    const { error } = await supabase
-      .from("movimentacoes")
-      .update({ concluida })
-      .eq("id", movId);
+    const { error } = await supabase.from("movimentacoes").update({ concluida }).eq("id", movId);
     if (error) {
       toast.error(error.message);
       return;
@@ -66,7 +77,10 @@ function ProcessoDetalhe() {
 
   return (
     <div className="space-y-6">
-      <Link to="/processos" className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+      <Link
+        to="/processos"
+        className="inline-flex items-center gap-2 text-sm text-muted-foreground"
+      >
         <ArrowLeft className="size-4" /> Voltar para a carteira
       </Link>
 
@@ -78,7 +92,19 @@ function ProcessoDetalhe() {
             <Badge>{p.status}</Badge>
             {p.tribunal ? <Badge variant="outline">{p.tribunal}</Badge> : null}
             {p.fase ? <Badge variant="secondary">{p.fase}</Badge> : null}
+            {p.tipo_desdobramento ? (
+              <Badge variant="secondary">{p.tipo_desdobramento}</Badge>
+            ) : null}
           </div>
+          {p.processo_pai_id && processoPai.data ? (
+            <Link
+              to="/processos/$id"
+              params={{ id: p.processo_pai_id }}
+              className="mt-2 inline-block text-sm text-muted-foreground underline-offset-4 hover:underline"
+            >
+              Desdobramento do processo {formatarCNJ(processoPai.data.numero_cnj)}
+            </Link>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" asChild>
@@ -103,11 +129,7 @@ function ProcessoDetalhe() {
               </Button>
             }
           />
-          <ExcluirProcessoDialog
-            processoId={p.id}
-            numeroCnj={p.numero_cnj}
-            cliente={p.cliente}
-          />
+          <ExcluirProcessoDialog processoId={p.id} numeroCnj={p.numero_cnj} cliente={p.cliente} />
         </div>
       </div>
 
@@ -152,7 +174,57 @@ function ProcessoDetalhe() {
 
       <AcessosProcesso processoId={p.id} />
 
-
+      <div>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-serif text-xl font-semibold">Desdobramentos</h2>
+          <ProcessoDialog
+            paiId={p.id}
+            iniciais={{
+              cliente: p.cliente,
+              parte_contraria: p.parte_contraria,
+              tribunal: p.tribunal,
+              vara: p.vara,
+              comarca: p.comarca,
+              uf: p.uf,
+              responsavel: p.responsavel,
+              pasta_id: p.pasta_id,
+            }}
+            trigger={
+              <Button variant="outline" size="sm">
+                <Plus className="size-4" /> Novo desdobramento
+              </Button>
+            }
+          />
+        </div>
+        {desdobramentos.isLoading ? (
+          <p className="text-muted-foreground">Carregando...</p>
+        ) : (desdobramentos.data ?? []).length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              Nenhum recurso, cumprimento de sentença ou outro desdobramento vinculado.
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-3">
+            {(desdobramentos.data ?? []).map((d) => (
+              <Link
+                key={d.id}
+                to="/processos/$id"
+                params={{ id: d.id }}
+                className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-sm">{formatarCNJ(d.numero_cnj)}</span>
+                  <Badge variant={d.status === "ativo" ? "default" : "secondary"}>{d.status}</Badge>
+                  {d.tipo_desdobramento ? (
+                    <Badge variant="outline">{d.tipo_desdobramento}</Badge>
+                  ) : null}
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div>
         <h2 className="mb-3 font-serif text-xl font-semibold">Movimentações</h2>
