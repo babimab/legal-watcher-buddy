@@ -23,7 +23,8 @@ import {
   listarMovimentacoesDesde,
   listarPendencias,
   ultimaVerificacao,
-  ehMeuApelido,
+  ehResponsavelDaSigla,
+  useSiglaAtual,
   OUTROS_ADVOGADOS_CONHECIDOS,
   type MovimentacaoComProcesso,
 } from "@/lib/processos";
@@ -151,6 +152,7 @@ function RelatorioPage() {
   const pendencias = useQuery({ queryKey: ["pendencias"], queryFn: listarPendencias });
 
   const [advogado, setAdvogado] = useState("todos");
+  const minhaSigla = useSiglaAtual();
 
   const advogados = useMemo(() => {
     const todosItens = [
@@ -165,17 +167,17 @@ function RelatorioPage() {
       ] as string[]),
     ];
     return {
-      temMeus: valores.some((v) => ehMeuApelido(v)),
-      outros: valores.filter((v) => !ehMeuApelido(v)).sort(),
+      temMeus: !!minhaSigla,
+      outros: valores.filter((v) => !ehResponsavelDaSigla(v, minhaSigla)).sort(),
     };
-  }, [novidades.data, semana.data, pendencias.data]);
+  }, [novidades.data, semana.data, pendencias.data, minhaSigla]);
 
   const filtrarPorAdvogado = (itens: MovimentacaoComProcesso[]) =>
     advogado === "todos"
       ? itens
       : itens.filter((m) =>
           advogado === "eu"
-            ? ehMeuApelido(m.processos?.responsavel)
+            ? ehResponsavelDaSigla(m.processos?.responsavel, minhaSigla)
             : m.processos?.responsavel === advogado,
         );
 
@@ -241,9 +243,7 @@ function RelatorioPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos os advogados</SelectItem>
-                {advogados.temMeus ? (
-                  <SelectItem value="eu">BDR / Bárbara (meus)</SelectItem>
-                ) : null}
+                {advogados.temMeus ? <SelectItem value="eu">{minhaSigla} (meus)</SelectItem> : null}
                 {advogados.outros.map((a) => (
                   <SelectItem key={a} value={a}>
                     {a}

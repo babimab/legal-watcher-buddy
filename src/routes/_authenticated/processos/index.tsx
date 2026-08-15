@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,8 @@ import {
   listarUltimasMovimentacoes,
   formatarCNJ,
   STATUS_OPCOES,
-  ehMeuApelido,
+  ehResponsavelDaSigla,
+  useSiglaAtual,
   OUTROS_ADVOGADOS_CONHECIDOS,
   SOCIOS_CONHECIDOS,
 } from "@/lib/processos";
@@ -65,6 +66,16 @@ function ProcessosPage() {
   const [advogado, setAdvogado] = useState(search.advogado ?? "todos");
   const [socio, setSocio] = useState("todos");
   const somenteMeus = search.advogado === "eu";
+  const minhaSigla = useSiglaAtual();
+
+  // O componente não remonta ao trocar de "Processos" para "Meus
+  // processos" (é a mesma rota, só muda a busca na URL) — sem isso, o
+  // filtro guardado no estado local ficava desatualizado.
+  useEffect(() => {
+    setGrupoId(search.grupo ?? "todos");
+    setPastaId(search.pasta ?? "todas");
+    setAdvogado(search.advogado ?? "todos");
+  }, [search.grupo, search.pasta, search.advogado]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["processos"],
@@ -110,10 +121,10 @@ function ProcessosPage() {
       ] as string[]),
     ];
     return {
-      temMeus: valores.some((v) => ehMeuApelido(v)),
-      outros: valores.filter((v) => !ehMeuApelido(v)).sort(),
+      temMeus: !!minhaSigla,
+      outros: valores.filter((v) => !ehResponsavelDaSigla(v, minhaSigla)).sort(),
     };
-  }, [data]);
+  }, [data, minhaSigla]);
 
   const socios = useMemo(
     () =>
@@ -138,7 +149,9 @@ function ProcessosPage() {
       const casaPasta = pastaId === "todas" || p.pasta_id === pastaId;
       const casaAdvogado =
         advogado === "todos" ||
-        (advogado === "eu" ? ehMeuApelido(p.responsavel) : p.responsavel === advogado);
+        (advogado === "eu"
+          ? ehResponsavelDaSigla(p.responsavel, minhaSigla)
+          : p.responsavel === advogado);
       const casaSocio = socio === "todos" || (socio === "nenhum" ? !p.socio : p.socio === socio);
       const casaBusca =
         !termo ||
@@ -168,7 +181,20 @@ function ProcessosPage() {
         casaBusca
       );
     });
-  }, [data, busca, status, carteira, uf, sistema, grupoId, pastaId, advogado, socio, pastaPorId]);
+  }, [
+    data,
+    busca,
+    status,
+    carteira,
+    uf,
+    sistema,
+    grupoId,
+    pastaId,
+    advogado,
+    minhaSigla,
+    socio,
+    pastaPorId,
+  ]);
 
   return (
     <div className="space-y-6">
@@ -179,7 +205,7 @@ function ProcessosPage() {
           </h1>
           <p className="text-muted-foreground">
             {somenteMeus
-              ? `${lista.length} processo(s) seus (BDR / Bárbara).`
+              ? `${lista.length} processo(s) seus${minhaSigla ? ` (${minhaSigla})` : ""}.`
               : `Carteira compartilhada do escritório — ${data?.length ?? 0} cadastrados.`}
           </p>
         </div>
@@ -267,7 +293,7 @@ function ProcessosPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os advogados</SelectItem>
-              {advogados.temMeus ? <SelectItem value="eu">BDR / Bárbara (meus)</SelectItem> : null}
+              {advogados.temMeus ? <SelectItem value="eu">{minhaSigla} (meus)</SelectItem> : null}
               {advogados.outros.map((a) => (
                 <SelectItem key={a} value={a}>
                   {a}

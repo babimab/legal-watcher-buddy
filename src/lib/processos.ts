@@ -1,3 +1,5 @@
+import { useQuery } from "@tanstack/react-query";
+
 import { supabase } from "@/integrations/supabase/client";
 
 export type Processo = {
@@ -78,10 +80,6 @@ export const UF_OPCOES = [
   "TO",
 ] as const;
 
-// Apelidos que contam como "meus processos" no filtro de Advogado. Ajuste
-// aqui se a pessoa aparecer na base sob outros nomes.
-const MEUS_APELIDOS = ["bdr", "barbara"];
-
 export function normalizarNome(valor: string) {
   return valor
     .trim()
@@ -90,8 +88,40 @@ export function normalizarNome(valor: string) {
     .replace(/\p{Diacritic}/gu, "");
 }
 
-export function ehMeuApelido(responsavel: string | null | undefined) {
-  return !!responsavel && MEUS_APELIDOS.includes(normalizarNome(responsavel));
+// A sigla de cada pessoa é o começo do e-mail dela (ex.: bbs@bcw.com.br
+// -> "BBS"), então "meus processos" funciona pra qualquer um que entrar,
+// sem precisar cadastrar nada.
+export function siglaDoEmail(email: string | null | undefined): string | null {
+  if (!email) return null;
+  const local = email.split("@")[0]?.trim();
+  return local ? local.toUpperCase() : null;
+}
+
+// Apelidos antigos que devem contar como a mesma pessoa mesmo quando o
+// responsavel no banco não é exatamente igual à sigla (ex.: processos
+// antigos com "Bárbara" em vez de "BDR").
+const APELIDOS_ANTIGOS: Record<string, string[]> = {
+  BDR: ["barbara"],
+};
+
+export function ehResponsavelDaSigla(responsavel: string | null | undefined, sigla: string | null) {
+  if (!responsavel || !sigla) return false;
+  const respNormalizado = normalizarNome(responsavel);
+  if (respNormalizado === normalizarNome(sigla)) return true;
+  return (APELIDOS_ANTIGOS[sigla] ?? []).some((a) => normalizarNome(a) === respNormalizado);
+}
+
+// Sigla da pessoa logada agora, derivada do e-mail da sessão atual.
+export function useSiglaAtual(): string | null {
+  const { data } = useQuery({
+    queryKey: ["usuario-atual"],
+    queryFn: async () => {
+      const { data } = await supabase.auth.getUser();
+      return data.user?.email ?? null;
+    },
+    staleTime: Infinity,
+  });
+  return siglaDoEmail(data ?? null);
 }
 
 // Siglas dos outros advogados do escritório, pra já aparecerem no filtro
