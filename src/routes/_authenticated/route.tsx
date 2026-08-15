@@ -55,7 +55,7 @@ function AppLayout() {
             <NavItem
               to="/relatorio"
               icon={<LineChart className="size-4" />}
-              label="Relatório de novos andamentos"
+              label="Relatórios"
               contador={prazosUrgentes}
             />
             <NavItem to="/grupos" icon={<Users className="size-4" />} label="Grupos" />

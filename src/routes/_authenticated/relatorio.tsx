@@ -39,13 +39,13 @@ import {
 export const Route = createFileRoute("/_authenticated/relatorio")({
   head: () => ({
     meta: [
-      { title: "Relatório de novos andamentos | FaroLex" },
+      { title: "Relatórios | FaroLex" },
       {
         name: "description",
         content:
           "Resumo das movimentações registradas desde a última verificação e prazos pendentes.",
       },
-      { property: "og:title", content: "Relatório de novos andamentos" },
+      { property: "og:title", content: "Relatórios" },
       {
         property: "og:description",
         content:
@@ -283,7 +283,7 @@ function RelatorioPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl font-semibold">Relatório de novos andamentos</h1>
+          <h1 className="font-serif text-3xl font-semibold">Relatórios</h1>
           <p className="text-muted-foreground">
             {desde
               ? `Última verificação em ${new Date(desde).toLocaleString("pt-BR")}.`
