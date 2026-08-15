@@ -57,7 +57,7 @@ function AppLayout() {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-sidebar text-sidebar-foreground">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3">
-          <Link to="/processos" className="flex items-center">
+          <Link to="/painel" className="flex items-center">
             <img src="/faro-logo-white.png" alt="FaroLex" className="h-7 w-auto" />
           </Link>
           <nav className="flex items-center gap-1 text-sm">

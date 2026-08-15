@@ -38,7 +38,7 @@ function AuthPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) router.navigate({ to: "/processos", search: { advogado: "eu" } });
+      if (data.session) router.navigate({ to: "/painel" });
     });
   }, [router]);
 
@@ -51,7 +51,7 @@ function AuthPage() {
       toast.error(error.message);
       return;
     }
-    router.navigate({ to: "/processos", search: { advogado: "eu" } });
+    router.navigate({ to: "/painel" });
   };
 
   const cadastrar = async (e: React.FormEvent) => {
@@ -66,7 +66,7 @@ function AuthPage() {
       password: senha,
       options: {
         data: { nome, sigla: sigla.trim().toUpperCase() || null },
-        emailRedirectTo: `${window.location.origin}/processos`,
+        emailRedirectTo: `${window.location.origin}/painel`,
       },
     });
     setCarregando(false);
@@ -75,7 +75,7 @@ function AuthPage() {
       return;
     }
     toast.success("Conta criada! Se o e-mail exigir confirmação, verifique sua caixa de entrada.");
-    router.navigate({ to: "/processos", search: { advogado: "eu" } });
+    router.navigate({ to: "/painel" });
   };
 
   const entrarComGoogle = async () => {
@@ -87,7 +87,7 @@ function AuthPage() {
       return;
     }
     if (result.redirected) return;
-    router.navigate({ to: "/processos", search: { advogado: "eu" } });
+    router.navigate({ to: "/painel" });
   };
 
   return (
