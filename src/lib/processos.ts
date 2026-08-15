@@ -52,6 +52,7 @@ export type Movimentacao = {
   concluida: boolean;
   observacao: string | null;
   fonte: string;
+  validado: boolean;
   created_at: string;
 };
 

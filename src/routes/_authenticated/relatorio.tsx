@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Download, Mail, Play } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, Mail, Play } from "lucide-react";
 import ExcelJS from "exceljs";
 
 import { Button } from "@/components/ui/button";
@@ -670,6 +670,17 @@ function Lista({
   vazio: string;
   destaque?: boolean;
 }) {
+  const queryClient = useQueryClient();
+
+  const validar = async (id: string) => {
+    const { error } = await supabase.from("movimentacoes").update({ validado: true }).eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    await queryClient.invalidateQueries();
+  };
+
   if (itens.length === 0)
     return (
       <Card>
@@ -680,7 +691,10 @@ function Lista({
   return (
     <ol className="space-y-3">
       {itens.map((m) => (
-        <li key={m.id} className="rounded-lg border border-border bg-card p-4">
+        <li
+          key={m.id}
+          className={`rounded-lg border p-4 ${m.validado ? "border-border bg-card" : "border-amber-500/50 bg-amber-50/50"}`}
+        >
           <div className="flex flex-wrap items-center gap-2 text-sm">
             {m.processos ? (
               <Link
@@ -701,6 +715,7 @@ function Lista({
               <span className="text-muted-foreground">x {m.processos.parte_contraria}</span>
             ) : null}
             {m.tipo ? <Badge variant="outline">{m.tipo}</Badge> : null}
+            {!m.validado ? <Badge variant="secondary">Sugerido — não validado</Badge> : null}
             {destaque && m.prazo ? (
               <Badge variant="destructive">
                 <AlertTriangle className="size-3" />
@@ -709,9 +724,16 @@ function Lista({
             ) : null}
           </div>
           <p className="mt-2 whitespace-pre-wrap text-sm">{m.descricao}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR")}
-          </p>
+          <div className="mt-1 flex items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
+              {new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR")}
+            </p>
+            {!m.validado ? (
+              <Button type="button" size="sm" variant="outline" onClick={() => validar(m.id)}>
+                <CheckCircle2 className="size-3.5" /> Marcar como validado
+              </Button>
+            ) : null}
+          </div>
         </li>
       ))}
     </ol>

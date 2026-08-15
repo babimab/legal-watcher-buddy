@@ -173,6 +173,7 @@ export type Database = {
           processo_id: string;
           tipo: string | null;
           updated_at: string;
+          validado: boolean;
         };
         Insert: {
           concluida?: boolean;
@@ -189,6 +190,7 @@ export type Database = {
           processo_id: string;
           tipo?: string | null;
           updated_at?: string;
+          validado?: boolean;
         };
         Update: {
           concluida?: boolean;
@@ -205,6 +207,7 @@ export type Database = {
           processo_id?: string;
           tipo?: string | null;
           updated_at?: string;
+          validado?: boolean;
         };
         Relationships: [
           {

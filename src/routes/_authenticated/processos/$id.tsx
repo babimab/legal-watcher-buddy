@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CalendarClock, ExternalLink, Pencil, Plus } from "lucide-react";
+import { ArrowLeft, CalendarClock, CheckCircle2, ExternalLink, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -64,6 +64,18 @@ function ProcessoDetalhe() {
 
   const alternarConcluida = async (movId: string, concluida: boolean) => {
     const { error } = await supabase.from("movimentacoes").update({ concluida }).eq("id", movId);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    await queryClient.invalidateQueries();
+  };
+
+  const validarMovimentacao = async (movId: string) => {
+    const { error } = await supabase
+      .from("movimentacoes")
+      .update({ validado: true })
+      .eq("id", movId);
     if (error) {
       toast.error(error.message);
       return;
@@ -251,12 +263,16 @@ function ProcessoDetalhe() {
         ) : (
           <ol className="space-y-3">
             {(movs.data ?? []).map((m) => (
-              <li key={m.id} className="rounded-lg border border-border bg-card p-4">
+              <li
+                key={m.id}
+                className={`rounded-lg border p-4 ${m.validado ? "border-border bg-card" : "border-amber-500/50 bg-amber-50/50"}`}
+              >
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="font-medium">
                     {new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR")}
                   </span>
                   {m.tipo ? <Badge variant="outline">{m.tipo}</Badge> : null}
+                  {!m.validado ? <Badge variant="secondary">Sugerido — não validado</Badge> : null}
                   {m.exige_acao ? (
                     <Badge variant={m.concluida ? "secondary" : "destructive"}>
                       <CalendarClock className="size-3" />
@@ -273,15 +289,29 @@ function ProcessoDetalhe() {
                   </p>
                 ) : null}
 
-                {m.exige_acao ? (
-                  <label className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-                    <Checkbox
-                      checked={m.concluida}
-                      onCheckedChange={(v) => alternarConcluida(m.id, v === true)}
-                    />
-                    Providência concluída
-                  </label>
-                ) : null}
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                  {m.exige_acao ? (
+                    <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Checkbox
+                        checked={m.concluida}
+                        onCheckedChange={(v) => alternarConcluida(m.id, v === true)}
+                      />
+                      Providência concluída
+                    </label>
+                  ) : (
+                    <span />
+                  )}
+                  {!m.validado ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => validarMovimentacao(m.id)}
+                    >
+                      <CheckCircle2 className="size-3.5" /> Marcar como validado
+                    </Button>
+                  ) : null}
+                </div>
               </li>
             ))}
           </ol>

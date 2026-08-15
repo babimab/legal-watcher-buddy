@@ -7,6 +7,7 @@ import {
   List,
   LineChart,
   LogOut,
+  Newspaper,
   Upload,
   User,
   Users,
@@ -88,6 +89,11 @@ function AppLayout() {
               icon={<Archive className="size-4" />}
               label="Encerramento"
               search={{ aba: "encerramento" }}
+            />
+            <NavItem
+              to="/publicacoes"
+              icon={<Newspaper className="size-4" />}
+              label="Publicações"
             />
             <NavItem to="/importar" icon={<Upload className="size-4" />} label="Importar" />
           </nav>
