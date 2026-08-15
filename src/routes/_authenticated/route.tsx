@@ -36,7 +36,7 @@ function AppLayout() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-sidebar text-sidebar-foreground">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-4 py-3">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3">
           <Link to="/processos" className="flex items-center">
             <img src="/faro-logo-white.png" alt="Faro Processual" className="h-7 w-auto" />
           </Link>
@@ -81,9 +81,18 @@ function AppLayout() {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-8">
-        <Outlet />
-      </main>
+      <div className="mx-auto flex max-w-7xl gap-6 px-4 py-8">
+        <aside className="hidden w-52 shrink-0 lg:block">
+          <img
+            src="/faro-advogada.jpg"
+            alt="Faro Processual"
+            className="sticky top-8 rounded-xl border border-border shadow-sm"
+          />
+        </aside>
+        <main className="min-w-0 flex-1">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }
