@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -75,18 +74,6 @@ function AuthPage() {
       return;
     }
     toast.success("Conta criada! Se o e-mail exigir confirmação, verifique sua caixa de entrada.");
-    router.navigate({ to: "/painel" });
-  };
-
-  const entrarComGoogle = async () => {
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
-    if (result.error) {
-      toast.error("Não foi possível entrar com o Google.");
-      return;
-    }
-    if (result.redirected) return;
     router.navigate({ to: "/painel" });
   };
 
@@ -196,14 +183,6 @@ function AuthPage() {
                 </form>
               </TabsContent>
             </Tabs>
-
-            <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="h-px flex-1 bg-border" /> ou{" "}
-              <span className="h-px flex-1 bg-border" />
-            </div>
-            <Button variant="outline" className="w-full" onClick={entrarComGoogle}>
-              Entrar com Google
-            </Button>
           </CardContent>
         </Card>
       </div>
