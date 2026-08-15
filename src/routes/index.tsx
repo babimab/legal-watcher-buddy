@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CalendarClock, FolderKanban, PawPrint, Upload } from "lucide-react";
+import { CalendarClock, FolderKanban, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -29,17 +29,20 @@ function Index() {
   return (
     <div className="min-h-screen bg-secondary">
       <header className="mx-auto flex max-w-5xl items-center justify-between px-4 py-6">
-        <span className="flex items-center gap-2 text-primary">
-          <PawPrint className="size-5" />
-          <span className="font-serif text-xl font-semibold">Faro Processual</span>
-        </span>
+        <img src="/faro-logo-navy.png" alt="Faro Processual" className="h-9 w-auto" />
         <Button asChild size="sm">
           <Link to="/auth">Entrar</Link>
         </Button>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 pb-20 pt-10">
-        <h1 className="max-w-2xl font-serif text-4xl font-semibold leading-tight sm:text-5xl">
+      <main className="mx-auto max-w-5xl px-4 pb-20 pt-4">
+        <img
+          src="/faro-capa.jpg"
+          alt="Faro Processual — acompanhamento processual"
+          className="w-full rounded-xl border border-border shadow-sm"
+        />
+
+        <h1 className="mt-12 max-w-2xl font-serif text-4xl font-semibold leading-tight sm:text-5xl">
           O faro certo para cada processo do escritório.
         </h1>
         <p className="mt-4 max-w-xl text-lg text-muted-foreground">

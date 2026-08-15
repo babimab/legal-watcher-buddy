@@ -1,7 +1,6 @@
 import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { PawPrint } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,9 +92,8 @@ function AuthPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-secondary px-4 py-12">
       <div className="w-full max-w-md">
-        <Link to="/" className="mb-6 flex items-center justify-center gap-2 text-primary">
-          <PawPrint className="size-5" />
-          <span className="font-serif text-xl font-semibold">Faro Processual</span>
+        <Link to="/" className="mb-6 flex items-center justify-center">
+          <img src="/faro-logo-navy.png" alt="Faro Processual" className="h-10 w-auto" />
         </Link>
         <Card>
           <CardHeader>
