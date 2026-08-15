@@ -77,7 +77,14 @@ async function exportarProcessosExcel(processos: Processo[]) {
   await baixarPlanilha(workbook, "processos");
 }
 
-type ProcessosSearch = { grupo?: string; pasta?: string; advogado?: string; socio?: string };
+type ProcessosSearch = {
+  grupo?: string;
+  pasta?: string;
+  advogado?: string;
+  socio?: string;
+  fase?: string;
+  cliente?: string;
+};
 
 export const Route = createFileRoute("/_authenticated/processos/")({
   validateSearch: (search: Record<string, unknown>): ProcessosSearch => ({
@@ -85,6 +92,8 @@ export const Route = createFileRoute("/_authenticated/processos/")({
     ...(typeof search["pasta"] === "string" ? { pasta: search["pasta"] } : {}),
     ...(typeof search["advogado"] === "string" ? { advogado: search["advogado"] } : {}),
     ...(typeof search["socio"] === "string" ? { socio: search["socio"] } : {}),
+    ...(typeof search["fase"] === "string" ? { fase: search["fase"] } : {}),
+    ...(typeof search["cliente"] === "string" ? { cliente: search["cliente"] } : {}),
   }),
   head: () => ({
     meta: [
@@ -109,8 +118,8 @@ function ProcessosPage() {
   const search = Route.useSearch();
   const [busca, setBusca] = useState("");
   const [status, setStatus] = useState("todos");
-  const [fase, setFase] = useState("todas");
-  const [cliente, setCliente] = useState("todos");
+  const [fase, setFase] = useState(search.fase ?? "todas");
+  const [cliente, setCliente] = useState(search.cliente ?? "todos");
   const [carteira, setCarteira] = useState("todas");
   const [uf, setUf] = useState("todas");
   const [sistema, setSistema] = useState("todos");
@@ -129,7 +138,9 @@ function ProcessosPage() {
     setPastaId(search.pasta ?? "todas");
     setAdvogado(search.advogado ?? "todos");
     setSocio(search.socio ?? "todos");
-  }, [search.grupo, search.pasta, search.advogado, search.socio]);
+    setFase(search.fase ?? "todas");
+    setCliente(search.cliente ?? "todos");
+  }, [search.grupo, search.pasta, search.advogado, search.socio, search.fase, search.cliente]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["processos"],

@@ -324,6 +324,23 @@ function RelatorioPage() {
         </div>
       </div>
 
+      <Card>
+        <CardContent className="flex flex-wrap items-center gap-3 py-4">
+          <span className="text-sm font-medium text-muted-foreground">Atalhos:</span>
+          <Link
+            to="/processos"
+            search={{ fase: "Encerramento" }}
+            className="inline-flex items-center gap-1 text-sm text-primary underline-offset-4 hover:underline"
+          >
+            Relatório de Encerramento
+          </Link>
+          <span className="text-xs text-muted-foreground">
+            (abre "Todos os processos" já filtrado por fase — dá pra combinar com o filtro de
+            Cliente lá)
+          </span>
+        </CardContent>
+      </Card>
+
       <div className="flex flex-wrap items-center gap-2">
         <Input
           type="text"
