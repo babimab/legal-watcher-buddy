@@ -1,11 +1,20 @@
 import { createFileRoute, Outlet, redirect, Link, useRouter } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { FolderKanban, List, LineChart, LogOut, Upload, User, Users } from "lucide-react";
+import {
+  AlertTriangle,
+  FolderKanban,
+  List,
+  LineChart,
+  LogOut,
+  Upload,
+  User,
+  Users,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { listarPendencias } from "@/lib/processos";
+import { listarPendencias, ehResponsavelDaSigla, useSiglaAtual } from "@/lib/processos";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -21,11 +30,18 @@ function AppLayout() {
   const router = useRouter();
 
   const pendencias = useQuery({ queryKey: ["pendencias"], queryFn: listarPendencias });
+  const minhaSigla = useSiglaAtual();
   const emSeteDias = new Date();
   emSeteDias.setDate(emSeteDias.getDate() + 7);
   const emSeteDiasISO = emSeteDias.toISOString().slice(0, 10);
   const prazosUrgentes = (pendencias.data ?? []).filter(
     (m) => m.prazo && m.prazo <= emSeteDiasISO,
+  ).length;
+  const meusPrazosUrgentes = (pendencias.data ?? []).filter(
+    (m) =>
+      m.prazo &&
+      m.prazo <= emSeteDiasISO &&
+      ehResponsavelDaSigla(m.processos?.responsavel, minhaSigla),
   ).length;
 
   const sair = async () => {
@@ -57,6 +73,13 @@ function AppLayout() {
               icon={<LineChart className="size-4" />}
               label="Relatórios"
               contador={prazosUrgentes}
+            />
+            <NavItem
+              to="/relatorio"
+              icon={<AlertTriangle className="size-4" />}
+              label="Meus prazos"
+              search={{ aba: "pendencias", advogado: "eu" }}
+              contador={meusPrazosUrgentes}
             />
             <NavItem to="/grupos" icon={<Users className="size-4" />} label="Grupos" />
             <NavItem to="/importar" icon={<Upload className="size-4" />} label="Importar" />

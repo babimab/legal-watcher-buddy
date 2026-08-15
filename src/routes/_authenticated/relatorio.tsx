@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AlertTriangle, Download, Mail, Play } from "lucide-react";
 import ExcelJS from "exceljs";
@@ -22,21 +22,30 @@ import {
   formatarCNJ,
   listarMovimentacoesDesde,
   listarPendencias,
+  listarProcessos,
   ultimaVerificacao,
   ehResponsavelDaSigla,
   useSiglaAtual,
   OUTROS_ADVOGADOS_CONHECIDOS,
   exibir,
   type MovimentacaoComProcesso,
+  type Processo,
 } from "@/lib/processos";
 import {
   estilizarCabecalho,
   centralizarLinhas,
   finalizarPlanilha,
   baixarPlanilha,
+  exportarProcessosExcel,
 } from "@/lib/excel";
 
+type RelatorioSearch = { aba?: string; advogado?: string };
+
 export const Route = createFileRoute("/_authenticated/relatorio")({
+  validateSearch: (search: Record<string, unknown>): RelatorioSearch => ({
+    ...(typeof search["aba"] === "string" ? { aba: search["aba"] } : {}),
+    ...(typeof search["advogado"] === "string" ? { advogado: search["advogado"] } : {}),
+  }),
   head: () => ({
     meta: [
       { title: "Relatórios | FaroLex" },
@@ -176,9 +185,10 @@ Abs.,`;
 }
 
 function RelatorioPage() {
+  const search = Route.useSearch();
   const queryClient = useQueryClient();
   const [rodando, setRodando] = useState(false);
-  const [aba, setAba] = useState("novidades");
+  const [aba, setAba] = useState(search.aba ?? "novidades");
 
   const verificacao = useQuery({ queryKey: ["verificacao"], queryFn: ultimaVerificacao });
   const desde = verificacao.data?.executado_em ?? null;
@@ -209,8 +219,20 @@ function RelatorioPage() {
 
   const pendencias = useQuery({ queryKey: ["pendencias"], queryFn: listarPendencias });
 
-  const [advogado, setAdvogado] = useState("todos");
+  // Relatório pré-programado: processos em fase de Encerramento, pra
+  // decidir quais já podem ser baixados.
+  const processos = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
+  const encerramento = (processos.data ?? []).filter((p) => p.fase === "Encerramento");
+
+  const [advogado, setAdvogado] = useState(search.advogado ?? "todos");
   const minhaSigla = useSiglaAtual();
+
+  // O componente não remonta ao trocar de aba/filtro via link (ex.: atalho
+  // "Meus prazos" no menu) — sem isso, o estado local ficava desatualizado.
+  useEffect(() => {
+    setAba(search.aba ?? "novidades");
+    setAdvogado(search.advogado ?? "todos");
+  }, [search.aba, search.advogado]);
 
   const advogados = useMemo(() => {
     const todosItens = [
@@ -247,6 +269,15 @@ function RelatorioPage() {
   const ultimosFiltrados = filtrarPorAdvogado(ultimos.data ?? []);
   const pendenciasFiltradas = filtrarPorAdvogado(pendencias.data ?? []);
 
+  const encerramentoFiltrado =
+    advogado === "todos"
+      ? encerramento
+      : encerramento.filter((p) =>
+          advogado === "eu"
+            ? ehResponsavelDaSigla(p.responsavel, minhaSigla)
+            : p.responsavel === advogado,
+        );
+
   const itensDaAba =
     aba === "semana"
       ? semanaFiltrada
@@ -256,7 +287,9 @@ function RelatorioPage() {
           ? ultimosFiltrados
           : aba === "pendencias"
             ? pendenciasFiltradas
-            : novidadesFiltradas;
+            : aba === "encerramento"
+              ? []
+              : novidadesFiltradas;
 
   const [emails, setEmails] = useState("");
 
@@ -320,8 +353,16 @@ function RelatorioPage() {
           ) : null}
           <Button
             variant="outline"
-            disabled={itensDaAba.length === 0}
+            disabled={
+              aba === "encerramento" ? encerramentoFiltrado.length === 0 : itensDaAba.length === 0
+            }
             onClick={() => {
+              if (aba === "encerramento") {
+                void exportarProcessosExcel(encerramentoFiltrado, "processos-encerramento").catch(
+                  () => toast.error("Não consegui gerar o Excel."),
+                );
+                return;
+              }
               void exportarAndamentosExcel(itensDaAba, NOME_ARQUIVO_POR_ABA[aba]!).catch(() =>
                 toast.error("Não consegui gerar o Excel."),
               );
@@ -360,7 +401,11 @@ function RelatorioPage() {
           onChange={(e) => setEmails(e.target.value)}
           className="max-w-sm"
         />
-        <Button variant="outline" disabled={itensDaAba.length === 0} onClick={abrirEmail}>
+        <Button
+          variant="outline"
+          disabled={aba === "encerramento" || itensDaAba.length === 0}
+          onClick={abrirEmail}
+        >
           <Mail className="size-4" /> Enviar por e-mail
         </Button>
       </div>
@@ -372,6 +417,9 @@ function RelatorioPage() {
           <TabsTrigger value="mes">Mês ({mesFiltrado.length})</TabsTrigger>
           <TabsTrigger value="ultimos">Últimos andamentos ({ultimosFiltrados.length})</TabsTrigger>
           <TabsTrigger value="pendencias">Prazos ({pendenciasFiltradas.length})</TabsTrigger>
+          <TabsTrigger value="encerramento">
+            Encerramento ({encerramentoFiltrado.length})
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="novidades" className="mt-4">
@@ -388,6 +436,12 @@ function RelatorioPage() {
         </TabsContent>
         <TabsContent value="pendencias" className="mt-4">
           <Lista itens={pendenciasFiltradas} vazio="Nenhuma providência em aberto." destaque />
+        </TabsContent>
+        <TabsContent value="encerramento" className="mt-4">
+          <ListaProcessos
+            processos={encerramentoFiltrado}
+            vazio="Nenhum processo em fase de Encerramento."
+          />
         </TabsContent>
       </Tabs>
 
@@ -455,6 +509,41 @@ function Lista({
           <p className="mt-1 text-xs text-muted-foreground">
             {new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR")}
           </p>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function ListaProcessos({ processos, vazio }: { processos: Processo[]; vazio: string }) {
+  if (processos.length === 0)
+    return (
+      <Card>
+        <CardContent className="py-10 text-center text-muted-foreground">{vazio}</CardContent>
+      </Card>
+    );
+
+  return (
+    <ol className="space-y-3">
+      {processos.map((p) => (
+        <li key={p.id} className="rounded-lg border border-border bg-card p-4">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <Link
+              to="/processos/$id"
+              params={{ id: p.id }}
+              className="font-mono text-xs underline-offset-4 hover:underline"
+            >
+              {formatarCNJ(p.numero_cnj)}
+            </Link>
+            <span className="font-medium">{exibir(p.cliente)}</span>
+            {p.comarca || p.uf ? (
+              <span className="text-muted-foreground">
+                {[p.comarca, p.uf].filter(Boolean).join(" / ")}
+              </span>
+            ) : null}
+            {p.responsavel ? <Badge variant="outline">{p.responsavel}</Badge> : null}
+            {p.socio ? <Badge variant="outline">sócio {p.socio}</Badge> : null}
+          </div>
         </li>
       ))}
     </ol>

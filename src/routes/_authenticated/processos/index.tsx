@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Download, Plus, Search } from "lucide-react";
-import ExcelJS from "exceljs";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,52 +29,9 @@ import {
   OUTROS_ADVOGADOS_CONHECIDOS,
   SOCIOS_CONHECIDOS,
   exibir,
-  type Processo,
 } from "@/lib/processos";
 import { listarGrupos, listarPastas } from "@/lib/grupos";
-import {
-  estilizarCabecalho,
-  centralizarLinhas,
-  finalizarPlanilha,
-  baixarPlanilha,
-} from "@/lib/excel";
-
-async function exportarProcessosExcel(processos: Processo[]) {
-  const workbook = new ExcelJS.Workbook();
-  const planilha = workbook.addWorksheet("Processos");
-
-  planilha.columns = [
-    { header: "Número CNJ", key: "numero_cnj", width: 22 },
-    { header: "Cliente", key: "cliente", width: 26 },
-    { header: "Nº do cliente", key: "numero_cliente", width: 14 },
-    { header: "Comarca", key: "comarca", width: 22 },
-    { header: "UF", key: "uf", width: 10 },
-    { header: "Responsável", key: "responsavel", width: 14 },
-    { header: "Sócio", key: "socio", width: 10 },
-    { header: "Fase", key: "fase", width: 16 },
-    { header: "Status", key: "status", width: 14 },
-  ];
-
-  for (const p of processos) {
-    planilha.addRow({
-      numero_cnj: formatarCNJ(p.numero_cnj),
-      cliente: exibir(p.cliente) ?? "",
-      numero_cliente: p.numero_cliente ?? "",
-      comarca: p.comarca ?? "",
-      uf: p.uf ?? "",
-      responsavel: p.responsavel ?? "",
-      socio: p.socio ?? "",
-      fase: p.fase ?? "",
-      status: p.status,
-    });
-  }
-
-  estilizarCabecalho(planilha);
-  centralizarLinhas(planilha, new Set());
-  finalizarPlanilha(planilha);
-
-  await baixarPlanilha(workbook, "processos");
-}
+import { exportarProcessosExcel } from "@/lib/excel";
 
 type ProcessosSearch = {
   grupo?: string;
