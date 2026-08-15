@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { listarProcessos, formatarCNJ, TIPOS_DESDOBRAMENTO } from "@/lib/processos";
+import { listarProcessos, formatarCNJ, TIPOS_DESDOBRAMENTO, exibir } from "@/lib/processos";
 
 const LIMITE_RESULTADOS = 15;
 
@@ -168,7 +168,7 @@ export function VincularDesdobramentoDialog({
                   <SelectContent>
                     {TIPOS_DESDOBRAMENTO.map((t) => (
                       <SelectItem key={t} value={t}>
-                        {t}
+                        {exibir(t)}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -24,6 +24,7 @@ import {
   useSiglaAtual,
   OUTROS_ADVOGADOS_CONHECIDOS,
   SOCIOS_CONHECIDOS,
+  exibir,
 } from "@/lib/processos";
 import { listarGrupos, listarPastas } from "@/lib/grupos";
 
@@ -333,7 +334,7 @@ function ProcessosPage() {
               <SelectItem value="todos">Todos os grupos</SelectItem>
               {(grupos.data ?? []).map((g) => (
                 <SelectItem key={g.id} value={g.id}>
-                  {g.nome}
+                  {exibir(g.nome)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -348,7 +349,7 @@ function ProcessosPage() {
               <SelectItem value="todas">Todas as pastas</SelectItem>
               {pastasDoGrupoSelecionado.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
-                  {p.nome}
+                  {exibir(p.nome)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -377,12 +378,12 @@ function ProcessosPage() {
                 <span className="font-mono text-sm">{formatarCNJ(p.numero_cnj)}</span>
                 <Badge variant={p.status === "ativo" ? "default" : "secondary"}>{p.status}</Badge>
                 {p.pasta_id && pastaPorId.get(p.pasta_id) ? (
-                  <Badge variant="outline">{pastaPorId.get(p.pasta_id)!.nome}</Badge>
+                  <Badge variant="outline">{exibir(pastaPorId.get(p.pasta_id)!.nome)}</Badge>
                 ) : p.carteira ? (
                   <Badge variant="outline">{p.carteira}</Badge>
                 ) : null}
                 {p.tipo_desdobramento ? (
-                  <Badge variant="secondary">{p.tipo_desdobramento}</Badge>
+                  <Badge variant="secondary">{exibir(p.tipo_desdobramento)}</Badge>
                 ) : null}
                 {p.socio ? <Badge variant="outline">sócio {p.socio}</Badge> : null}
                 {p.numero_interno ? (
@@ -391,7 +392,7 @@ function ProcessosPage() {
                 {p.monitorar ? <Badge variant="outline">monitorado</Badge> : null}
               </div>
               <p className="mt-1 font-serif text-lg">
-                {p.autor ?? p.cliente}
+                {p.autor ?? exibir(p.cliente)}
                 {p.reu ? <span className="text-muted-foreground"> x {p.reu}</span> : null}
               </p>
               <p className="text-sm text-muted-foreground">

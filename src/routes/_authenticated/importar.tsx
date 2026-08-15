@@ -22,6 +22,7 @@ import {
   identificarCliente,
   OUTROS_ADVOGADOS_CONHECIDOS,
   SOCIOS_CONHECIDOS,
+  exibir,
 } from "@/lib/processos";
 import { listarGrupos, listarPastas } from "@/lib/grupos";
 
@@ -564,7 +565,7 @@ function ImportarPage() {
               <SelectContent>
                 {(grupos.data ?? []).map((g) => (
                   <SelectItem key={g.id} value={g.id}>
-                    {g.nome}
+                    {exibir(g.nome)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -579,7 +580,7 @@ function ImportarPage() {
               <SelectContent>
                 {pastasDoGrupo.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.nome}
+                    {exibir(p.nome)}
                   </SelectItem>
                 ))}
               </SelectContent>

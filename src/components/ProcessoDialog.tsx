@@ -28,6 +28,7 @@ import {
   TIPOS_DESDOBRAMENTO,
   UF_OPCOES,
   SOCIOS_CONHECIDOS,
+  exibir,
   type Processo,
 } from "@/lib/processos";
 import { listarGrupos, listarPastas } from "@/lib/grupos";
@@ -135,7 +136,7 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
                 <SelectContent>
                   {TIPOS_DESDOBRAMENTO.map((t) => (
                     <SelectItem key={t} value={t}>
-                      {t}
+                      {exibir(t)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -238,7 +239,7 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
               <SelectContent>
                 {(grupos.data ?? []).map((g) => (
                   <SelectItem key={g.id} value={g.id}>
-                    {g.nome}
+                    {exibir(g.nome)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -259,7 +260,7 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
                 <SelectItem value="nenhuma">Sem pasta</SelectItem>
                 {pastasDoGrupo.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.nome}
+                    {exibir(p.nome)}
                   </SelectItem>
                 ))}
               </SelectContent>

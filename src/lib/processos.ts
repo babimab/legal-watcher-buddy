@@ -133,7 +133,7 @@ export const OUTROS_ADVOGADOS_CONHECIDOS = ["BBS", "MLV", "JGV", "ELV"];
 // já padronizado, independente de como veio escrito na planilha).
 const CLIENTES_CONHECIDOS: { padrao: RegExp; nome: string }[] = [
   { padrao: /souza\s*cruz/i, nome: "Souza Cruz LTDA." },
-  { padrao: /astro/i, nome: "Astromaritima" },
+  { padrao: /astro/i, nome: "Astromarítima" },
 ];
 
 export function identificarCliente(
@@ -159,6 +159,25 @@ export const TIPOS_DESDOBRAMENTO = [
   "Agravo",
   "Outro",
 ] as const;
+
+// Alguns textos ficaram salvos sem acento no banco (um problema antigo de
+// codificação ao colar SQL manualmente no editor do Lovable). Em vez de
+// arriscar corromper de novo escrevendo acento direto no banco, só a
+// exibição é corrigida aqui.
+const TEXTOS_PARA_EXIBICAO: Record<string, string> = {
+  "Cumprimento de sentenca": "Cumprimento de sentença",
+  Execucao: "Execução",
+  "Perfis MLV (acoes de cobranca)": "Perfis MLV (ações de cobrança)",
+  "RJ Astro Navegacao": "RJ Astro Navegação",
+  Astromaritima: "Astromarítima",
+};
+
+export function exibir(texto: string): string;
+export function exibir(texto: string | null | undefined): string | null;
+export function exibir(texto: string | null | undefined): string | null {
+  if (texto == null) return null;
+  return TEXTOS_PARA_EXIBICAO[texto] ?? texto;
+}
 
 export const TIPOS_MOVIMENTACAO = [
   "Despacho",
@@ -220,17 +239,19 @@ export type MovimentacaoComProcesso = Movimentacao & {
     | "reu"
     | "parte_contraria"
     | "responsavel"
+    | "socio"
   > | null;
 };
+
+const CAMPOS_PROCESSO_RELATORIO =
+  "id, numero_cnj, cliente, tribunal, autor, reu, parte_contraria, responsavel, socio";
 
 export async function listarMovimentacoesDesde(
   desde: string | null,
 ): Promise<MovimentacaoComProcesso[]> {
   let query = supabase
     .from("movimentacoes")
-    .select(
-      "*, processos(id, numero_cnj, cliente, tribunal, autor, reu, parte_contraria, responsavel)",
-    )
+    .select(`*, processos(${CAMPOS_PROCESSO_RELATORIO})`)
     .order("created_at", { ascending: false });
   if (desde) query = query.gt("created_at", desde);
   const { data, error } = await query;
@@ -255,9 +276,7 @@ export async function listarUltimasMovimentacoes(): Promise<Map<string, Moviment
 export async function listarPendencias(): Promise<MovimentacaoComProcesso[]> {
   const { data, error } = await supabase
     .from("movimentacoes")
-    .select(
-      "*, processos(id, numero_cnj, cliente, tribunal, autor, reu, parte_contraria, responsavel)",
-    )
+    .select(`*, processos(${CAMPOS_PROCESSO_RELATORIO})`)
     .eq("exige_acao", true)
     .eq("concluida", false)
     .order("prazo", { ascending: true, nullsFirst: false });

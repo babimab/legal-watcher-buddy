@@ -34,6 +34,7 @@ import {
   type Grupo,
   type Pasta,
 } from "@/lib/grupos";
+import { exibir } from "@/lib/processos";
 
 export const Route = createFileRoute("/_authenticated/grupos")({
   head: () => ({
@@ -262,7 +263,7 @@ function GrupoCard({ grupo, pastas }: { grupo: Grupo; pastas: Pasta[] }) {
                 >
                   <Link to="/processos" search={{ grupo: grupo.id, pasta: p.id }}>
                     <Badge variant="outline" className="cursor-pointer border-0 hover:text-primary">
-                      {p.nome}
+                      {exibir(p.nome)}
                     </Badge>
                   </Link>
                   <button

@@ -26,6 +26,7 @@ import {
   ehResponsavelDaSigla,
   useSiglaAtual,
   OUTROS_ADVOGADOS_CONHECIDOS,
+  exibir,
   type MovimentacaoComProcesso,
 } from "@/lib/processos";
 
@@ -54,16 +55,38 @@ export const Route = createFileRoute("/_authenticated/relatorio")({
 function exportarAndamentosExcel(itens: MovimentacaoComProcesso[], nomeArquivo: string) {
   const linhas = itens.map((m) => ({
     "Número CNJ": m.processos ? formatarCNJ(m.processos.numero_cnj) : "",
-    Cliente: m.processos?.cliente ?? "",
+    Cliente: exibir(m.processos?.cliente) ?? "",
     Autor: m.processos?.autor ?? "",
     Réu: m.processos?.reu ?? "",
     "Parte contrária": m.processos?.parte_contraria ?? "",
+    Responsável: m.processos?.responsavel ?? "",
+    Sócio: m.processos?.socio ?? "",
     Tipo: m.tipo ?? "",
-    Data: m.data_movimentacao,
+    Data: new Date(`${m.data_movimentacao}T12:00:00`),
     Descrição: m.descricao,
     Observação: m.observacao ?? "",
   }));
-  const planilha = XLSX.utils.json_to_sheet(linhas);
+  const planilha = XLSX.utils.json_to_sheet(linhas, { cellDates: true });
+  planilha["!cols"] = [
+    { wch: 22 }, // Número CNJ
+    { wch: 26 }, // Cliente
+    { wch: 26 }, // Autor
+    { wch: 26 }, // Réu
+    { wch: 26 }, // Parte contrária
+    { wch: 12 }, // Responsável
+    { wch: 10 }, // Sócio
+    { wch: 14 }, // Tipo
+    { wch: 12 }, // Data
+    { wch: 60 }, // Descrição
+    { wch: 40 }, // Observação
+  ];
+  const intervalo = XLSX.utils.decode_range(planilha["!ref"] ?? "A1");
+  planilha["!autofilter"] = { ref: XLSX.utils.encode_range(intervalo) };
+  const dataCol = 8; // índice 0-based da coluna "Data"
+  for (let linha = intervalo.s.r + 1; linha <= intervalo.e.r; linha++) {
+    const celula = planilha[XLSX.utils.encode_cell({ r: linha, c: dataCol })];
+    if (celula) celula.z = "dd/mm/yyyy";
+  }
   const livro = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(livro, planilha, "Andamentos");
   XLSX.writeFile(livro, `${nomeArquivo}-${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -108,7 +131,7 @@ function montarMailto(destinatarios: string[], itens: MovimentacaoComProcesso[],
   const separador = "-".repeat(COL_PROCESSO + COL_CLIENTE + COL_DATA + 20);
   const linhas = visiveis.map((m) => {
     const numero = m.processos ? formatarCNJ(m.processos.numero_cnj) : "—";
-    const cliente = (m.processos?.cliente ?? "").slice(0, COL_CLIENTE - 2);
+    const cliente = (exibir(m.processos?.cliente) ?? "").slice(0, COL_CLIENTE - 2);
     const data = new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR");
     return linhaTabela(numero, cliente, data, m.descricao);
   });
@@ -339,7 +362,7 @@ function Lista({
                 {formatarCNJ(m.processos.numero_cnj)}
               </Link>
             ) : null}
-            <span className="font-medium">{m.processos?.cliente}</span>
+            <span className="font-medium">{exibir(m.processos?.cliente)}</span>
             {m.processos?.autor || m.processos?.reu ? (
               <span className="text-muted-foreground">
                 {m.processos.autor ?? "—"}

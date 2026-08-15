@@ -15,6 +15,7 @@ import {
   listarDesdobramentos,
   listarMovimentacoes,
   formatarCNJ,
+  exibir,
 } from "@/lib/processos";
 import { linkTribunal } from "@/lib/tribunais";
 import { AcessosProcesso } from "@/components/AcessosProcesso";
@@ -88,13 +89,13 @@ function ProcessoDetalhe() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="font-mono text-sm text-muted-foreground">{formatarCNJ(p.numero_cnj)}</p>
-          <h1 className="font-serif text-3xl font-semibold">{p.cliente}</h1>
+          <h1 className="font-serif text-3xl font-semibold">{exibir(p.cliente)}</h1>
           <div className="mt-2 flex flex-wrap gap-2">
             <Badge>{p.status}</Badge>
             {p.tribunal ? <Badge variant="outline">{p.tribunal}</Badge> : null}
             {p.fase ? <Badge variant="secondary">{p.fase}</Badge> : null}
             {p.tipo_desdobramento ? (
-              <Badge variant="secondary">{p.tipo_desdobramento}</Badge>
+              <Badge variant="secondary">{exibir(p.tipo_desdobramento)}</Badge>
             ) : null}
           </div>
           {p.processo_pai_id && processoPai.data ? (
@@ -149,6 +150,7 @@ function ProcessoDetalhe() {
           <Dado rotulo="Comarca" valor={[p.comarca, p.uf].filter(Boolean).join(" / ") || null} />
           <Dado rotulo="Classe / Assunto" valor={p.classe} />
           <Dado rotulo="Responsável" valor={p.responsavel} />
+          <Dado rotulo="Sócio" valor={p.socio} />
 
           <Dado
             rotulo="Valor da causa"
@@ -221,7 +223,7 @@ function ProcessoDetalhe() {
                   <span className="font-mono text-sm">{formatarCNJ(d.numero_cnj)}</span>
                   <Badge variant={d.status === "ativo" ? "default" : "secondary"}>{d.status}</Badge>
                   {d.tipo_desdobramento ? (
-                    <Badge variant="outline">{d.tipo_desdobramento}</Badge>
+                    <Badge variant="outline">{exibir(d.tipo_desdobramento)}</Badge>
                   ) : null}
                 </div>
               </Link>
