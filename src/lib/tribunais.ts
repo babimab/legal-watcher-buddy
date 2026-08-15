@@ -14,8 +14,27 @@ export type LinkTribunal = {
 
 const UF_ESAJ = ["SP", "SC", "AC", "AL", "AM", "BA", "CE", "MS", "MT", "PE", "RN", "SE"];
 const UF_PJE_TJ = [
-  "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "PA", "PB", "PE", "PI",
-  "RJ", "RN", "RO", "RR", "TO", "MT", "MS", "AL", "SE",
+  "AP",
+  "BA",
+  "CE",
+  "DF",
+  "ES",
+  "GO",
+  "MA",
+  "MG",
+  "PA",
+  "PB",
+  "PE",
+  "PI",
+  "RJ",
+  "RN",
+  "RO",
+  "RR",
+  "TO",
+  "MT",
+  "MS",
+  "AL",
+  "SE",
 ];
 
 function digitos(cnj: string) {
@@ -82,7 +101,7 @@ export function linkTribunal(
   }
 
   // Sistemas estaduais
-  if (/esaj|saj/.test(sistema) || (!sistema && UF_ESAJ.includes(uf) && uf === "SP")) {
+  if (/esaj|saj/.test(sistema) || (!sistema && UF_ESAJ.includes(uf))) {
     if (uf)
       return {
         url: `https://esaj.tj${uf.toLowerCase()}.jus.br/cpopg/open.do`,
@@ -135,13 +154,6 @@ export function linkTribunal(
         generico: false,
       };
   }
-
-  if (uf === "SP")
-    return {
-      url: "https://esaj.tjsp.jus.br/cpopg/open.do",
-      rotulo: "Abrir o e-SAJ do TJSP",
-      generico: false,
-    };
 
   return generico();
 }
