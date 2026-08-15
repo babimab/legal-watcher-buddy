@@ -28,13 +28,14 @@ import {
 } from "@/lib/processos";
 import { listarGrupos, listarPastas } from "@/lib/grupos";
 
-type ProcessosSearch = { grupo?: string; pasta?: string; advogado?: string };
+type ProcessosSearch = { grupo?: string; pasta?: string; advogado?: string; socio?: string };
 
 export const Route = createFileRoute("/_authenticated/processos/")({
   validateSearch: (search: Record<string, unknown>): ProcessosSearch => ({
     ...(typeof search["grupo"] === "string" ? { grupo: search["grupo"] } : {}),
     ...(typeof search["pasta"] === "string" ? { pasta: search["pasta"] } : {}),
     ...(typeof search["advogado"] === "string" ? { advogado: search["advogado"] } : {}),
+    ...(typeof search["socio"] === "string" ? { socio: search["socio"] } : {}),
   }),
   head: () => ({
     meta: [
@@ -65,7 +66,7 @@ function ProcessosPage() {
   const [grupoId, setGrupoId] = useState(search.grupo ?? "todos");
   const [pastaId, setPastaId] = useState(search.pasta ?? "todas");
   const [advogado, setAdvogado] = useState(search.advogado ?? "todos");
-  const [socio, setSocio] = useState("todos");
+  const [socio, setSocio] = useState(search.socio ?? "todos");
   const somenteMeus = search.advogado === "eu";
   const minhaSigla = useSiglaAtual();
 
@@ -76,7 +77,8 @@ function ProcessosPage() {
     setGrupoId(search.grupo ?? "todos");
     setPastaId(search.pasta ?? "todas");
     setAdvogado(search.advogado ?? "todos");
-  }, [search.grupo, search.pasta, search.advogado]);
+    setSocio(search.socio ?? "todos");
+  }, [search.grupo, search.pasta, search.advogado, search.socio]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["processos"],
@@ -127,6 +129,15 @@ function ProcessosPage() {
     };
   }, [data, minhaSigla]);
 
+  const qualidade = useMemo(
+    () => ({
+      semPasta: (data ?? []).filter((p) => !p.pasta_id).length,
+      semSocio: (data ?? []).filter((p) => !p.socio).length,
+      semResponsavel: (data ?? []).filter((p) => !p.responsavel).length,
+    }),
+    [data],
+  );
+
   const socios = useMemo(
     () =>
       [
@@ -147,12 +158,15 @@ function ProcessosPage() {
       const casaSistema = sistema === "todos" || p.sistema === sistema;
       const pastaDoProcesso = p.pasta_id ? pastaPorId.get(p.pasta_id) : undefined;
       const casaGrupo = grupoId === "todos" || pastaDoProcesso?.grupo_id === grupoId;
-      const casaPasta = pastaId === "todas" || p.pasta_id === pastaId;
+      const casaPasta =
+        pastaId === "todas" || (pastaId === "nenhuma" ? !p.pasta_id : p.pasta_id === pastaId);
       const casaAdvogado =
         advogado === "todos" ||
         (advogado === "eu"
           ? ehResponsavelDaSigla(p.responsavel, minhaSigla)
-          : p.responsavel === advogado);
+          : advogado === "nenhum"
+            ? !p.responsavel
+            : p.responsavel === advogado);
       const casaSocio = socio === "todos" || (socio === "nenhum" ? !p.socio : p.socio === socio);
       const casaBusca =
         !termo ||
@@ -218,6 +232,42 @@ function ProcessosPage() {
           }
         />
       </div>
+
+      {!somenteMeus &&
+      (qualidade.semPasta > 0 || qualidade.semSocio > 0 || qualidade.semResponsavel > 0) ? (
+        <Card>
+          <CardContent className="flex flex-wrap items-center gap-4 py-4 text-sm">
+            <span className="font-medium text-muted-foreground">Qualidade dos dados:</span>
+            {qualidade.semPasta > 0 ? (
+              <Link
+                to="/processos"
+                search={{ pasta: "nenhuma" }}
+                className="text-primary underline-offset-4 hover:underline"
+              >
+                {qualidade.semPasta} sem pasta
+              </Link>
+            ) : null}
+            {qualidade.semResponsavel > 0 ? (
+              <Link
+                to="/processos"
+                search={{ advogado: "nenhum" }}
+                className="text-primary underline-offset-4 hover:underline"
+              >
+                {qualidade.semResponsavel} sem responsável
+              </Link>
+            ) : null}
+            {qualidade.semSocio > 0 ? (
+              <Link
+                to="/processos"
+                search={{ socio: "nenhum" }}
+                className="text-primary underline-offset-4 hover:underline"
+              >
+                {qualidade.semSocio} sem sócio
+              </Link>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="flex flex-wrap gap-3">
         <div className="relative min-w-64 flex-1">
@@ -294,6 +344,7 @@ function ProcessosPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os advogados</SelectItem>
+              <SelectItem value="nenhum">Sem responsável</SelectItem>
               {advogados.temMeus ? <SelectItem value="eu">{minhaSigla} (meus)</SelectItem> : null}
               {advogados.outros.map((a) => (
                 <SelectItem key={a} value={a}>
@@ -340,13 +391,14 @@ function ProcessosPage() {
             </SelectContent>
           </Select>
         ) : null}
-        {pastasDoGrupoSelecionado.length > 0 ? (
+        {(pastas.data ?? []).length > 0 ? (
           <Select value={pastaId} onValueChange={setPastaId}>
             <SelectTrigger className="w-48">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todas">Todas as pastas</SelectItem>
+              <SelectItem value="nenhuma">Sem pasta</SelectItem>
               {pastasDoGrupoSelecionado.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
                   {exibir(p.nome)}

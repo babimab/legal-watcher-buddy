@@ -20,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   formatarCNJ,
   identificarCliente,
+  listarProcessos,
   OUTROS_ADVOGADOS_CONHECIDOS,
   SOCIOS_CONHECIDOS,
   exibir,
@@ -343,6 +344,11 @@ function ImportarPage() {
 
   const grupos = useQuery({ queryKey: ["grupos"], queryFn: listarGrupos });
   const pastas = useQuery({ queryKey: ["pastas"], queryFn: listarPastas });
+  const processosExistentes = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
+  const pastaExistentePorId = useMemo(
+    () => new Map((pastas.data ?? []).map((p) => [p.id, p])),
+    [pastas.data],
+  );
   const pastasDoGrupo = useMemo(
     () => (pastas.data ?? []).filter((p) => p.grupo_id === grupoId),
     [pastas.data, grupoId],
@@ -350,6 +356,35 @@ function ImportarPage() {
 
   const { processos, erros } = useMemo(() => montar(abas, mapas), [abas, mapas]);
   const totalMovs = processos.reduce((soma, p) => soma + p.movimentacoes.length, 0);
+
+  const conflitos = useMemo(() => {
+    const existentes = processosExistentes.data;
+    if (!existentes) return [];
+    const porChave = new Map(existentes.map((p) => [p.numero_cnj.replace(/\D/g, ""), p]));
+    const lista: {
+      numero_cnj: string;
+      pastaAtual: string | null;
+      responsavelAtual: string | null;
+    }[] = [];
+    for (const p of processos) {
+      const existente = porChave.get(p.numero_cnj.replace(/\D/g, ""));
+      if (!existente) continue;
+      const pastaMuda = !!pastaId && !!existente.pasta_id && existente.pasta_id !== pastaId;
+      const responsavelMuda =
+        !!responsavel.trim() &&
+        !!existente.responsavel &&
+        existente.responsavel !== responsavel.trim();
+      if (!pastaMuda && !responsavelMuda) continue;
+      lista.push({
+        numero_cnj: p.numero_cnj,
+        pastaAtual: existente.pasta_id
+          ? (pastaExistentePorId.get(existente.pasta_id)?.nome ?? null)
+          : null,
+        responsavelAtual: existente.responsavel,
+      });
+    }
+    return lista;
+  }, [processos, processosExistentes.data, pastaId, responsavel, pastaExistentePorId]);
 
   const faltando = useMemo(() => {
     const pendentes: { aba: string; campos: Campo[] }[] = [];
@@ -688,6 +723,29 @@ function ImportarPage() {
               ))}
             </CardDescription>
           </CardHeader>
+        </Card>
+      ) : null}
+
+      {conflitos.length > 0 ? (
+        <Card className="border-amber-500/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 font-serif text-lg text-amber-600">
+              <AlertTriangle className="size-4" /> {conflitos.length} processo(s) já cadastrados com
+              outra pasta ou responsável
+            </CardTitle>
+            <CardDescription>
+              Esses números já existem no sistema associados a outra pasta/responsável. Importar
+              assim vai sobrescrever isso. Confira se não é engano antes de continuar.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="max-h-48 overflow-y-auto text-sm">
+            {conflitos.map((c) => (
+              <p key={c.numero_cnj} className="text-muted-foreground">
+                <span className="font-mono text-xs">{formatarCNJ(c.numero_cnj)}</span> — hoje:{" "}
+                {[exibir(c.pastaAtual), c.responsavelAtual].filter(Boolean).join(" · ") || "—"}
+              </p>
+            ))}
+          </CardContent>
         </Card>
       ) : null}
 
