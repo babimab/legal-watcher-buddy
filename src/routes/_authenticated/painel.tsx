@@ -1,9 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
-import { AlertTriangle, CheckCircle2, FileWarning, Wallet } from "lucide-react";
+import { useMemo, useState } from "react";
+import { AlertTriangle, CheckCircle2, Download, FileWarning, Wallet } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   listarNaoValidados,
@@ -14,8 +16,10 @@ import {
   useSiglaAtual,
   categoriaCliente,
   type MovimentacaoComProcesso,
+  type Processo,
 } from "@/lib/processos";
 import { listarPastas } from "@/lib/grupos";
+import { exportarProcessosExcel } from "@/lib/excel";
 
 type PainelSearch = { cliente?: string };
 
@@ -115,17 +119,30 @@ function PainelPage() {
   // de processos.
   const porPasta = useMemo(() => {
     if (!categorias) return [];
-    const contagem = new Map<string, { nome: string; qtd: number }>();
+    const contagem = new Map<string, { nome: string; itens: Processo[] }>();
     for (const p of processos.data) {
       const pasta = p.pasta_id ? pastaPorId.get(p.pasta_id) : undefined;
       const chave = pasta?.id ?? "sem-pasta";
       const nome = pasta ? exibir(pasta.nome) : "Sem pasta";
       const atual = contagem.get(chave);
-      if (atual) atual.qtd++;
-      else contagem.set(chave, { nome, qtd: 1 });
+      if (atual) atual.itens.push(p);
+      else contagem.set(chave, { nome, itens: [p] });
     }
-    return [...contagem.entries()].sort(([, a], [, b]) => b.qtd - a.qtd);
+    return [...contagem.entries()].sort(([, a], [, b]) => b.itens.length - a.itens.length);
   }, [categorias, processos.data, pastaPorId]);
+
+  const [exportandoPasta, setExportandoPasta] = useState<string | null>(null);
+
+  const exportarPasta = async (chave: string, nome: string, itens: Processo[]) => {
+    setExportandoPasta(chave);
+    try {
+      await exportarProcessosExcel(itens, `processos-${nome}`);
+    } catch {
+      toast.error("Não consegui gerar a planilha.");
+    } finally {
+      setExportandoPasta(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -196,7 +213,7 @@ function PainelPage() {
             {porPasta.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhum processo cadastrado ainda.</p>
             ) : (
-              porPasta.map(([chave, { nome, qtd }]) => (
+              porPasta.map(([chave, { nome, itens }]) => (
                 <div key={chave} className="flex items-center justify-between text-sm">
                   {chave === "sem-pasta" ? (
                     <span className="text-muted-foreground">{nome}</span>
@@ -209,7 +226,20 @@ function PainelPage() {
                       {nome}
                     </Link>
                   )}
-                  <Badge variant="outline">{qtd}</Badge>
+                  <span className="flex items-center gap-2">
+                    <Badge variant="outline">{itens.length}</Badge>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-7"
+                      aria-label={`Exportar planilha de ${nome}`}
+                      disabled={exportandoPasta === chave}
+                      onClick={() => exportarPasta(chave, nome, itens)}
+                    >
+                      <Download className="size-3.5" />
+                    </Button>
+                  </span>
                 </div>
               ))
             )}
