@@ -114,17 +114,25 @@ export function ehResponsavelDaSigla(responsavel: string | null | undefined, sig
   return (APELIDOS_ANTIGOS[sigla] ?? []).some((a) => normalizarNome(a) === respNormalizado);
 }
 
-// Sigla da pessoa logada agora, derivada do e-mail da sessão atual.
+// Sigla da pessoa logada agora. Vem do perfil (campo cadastrado no
+// registro) sempre que existir; senão cai pro e-mail como antes, pra não
+// quebrar quem criou conta antes desse campo existir.
 export function useSiglaAtual(): string | null {
   const { data } = useQuery({
     queryKey: ["usuario-atual"],
     queryFn: async () => {
       const { data } = await supabase.auth.getUser();
-      return data.user?.email ?? null;
+      if (!data.user) return { sigla: null, email: null };
+      const { data: perfil } = await supabase
+        .from("profiles")
+        .select("sigla")
+        .eq("id", data.user.id)
+        .maybeSingle();
+      return { sigla: perfil?.sigla ?? null, email: data.user.email ?? null };
     },
     staleTime: Infinity,
   });
-  return siglaDoEmail(data ?? null);
+  return data?.sigla || siglaDoEmail(data?.email ?? null);
 }
 
 // Siglas dos outros advogados do escritório, pra já aparecerem no filtro

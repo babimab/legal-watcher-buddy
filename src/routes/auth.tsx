@@ -33,6 +33,7 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [nome, setNome] = useState("");
+  const [sigla, setSigla] = useState("");
   const [carregando, setCarregando] = useState(false);
 
   useEffect(() => {
@@ -64,7 +65,7 @@ function AuthPage() {
       email,
       password: senha,
       options: {
-        data: { nome },
+        data: { nome, sigla: sigla.trim().toUpperCase() || null },
         emailRedirectTo: `${window.location.origin}/processos`,
       },
     });
@@ -147,6 +148,22 @@ function AuthPage() {
                       value={nome}
                       onChange={(e) => setNome(e.target.value)}
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sigla">Sigla</Label>
+                    <Input
+                      id="sigla"
+                      required
+                      placeholder="Ex.: BDR"
+                      maxLength={6}
+                      value={sigla}
+                      onChange={(e) => setSigla(e.target.value)}
+                      className="uppercase"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      As iniciais usadas nos processos como responsável (ex.: BDR, ELV) — é o que
+                      liga "Meus processos" e "Meus prazos" a você.
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email-novo">E-mail</Label>

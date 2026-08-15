@@ -23,6 +23,7 @@ function PerfilPage() {
   const [userId, setUserId] = useState("");
   const [email, setEmail] = useState("");
   const [nome, setNome] = useState("");
+  const [sigla, setSigla] = useState("");
   const [salvandoNome, setSalvandoNome] = useState(false);
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
@@ -35,10 +36,11 @@ function PerfilPage() {
       setUserId(data.user.id);
       const { data: perfil } = await supabase
         .from("profiles")
-        .select("nome")
+        .select("nome, sigla")
         .eq("id", data.user.id)
         .maybeSingle();
       setNome(perfil?.nome ?? "");
+      setSigla(perfil?.sigla ?? "");
     });
   }, []);
 
@@ -48,17 +50,21 @@ function PerfilPage() {
       toast.error("Informe o nome completo.");
       return;
     }
+    if (!sigla.trim()) {
+      toast.error("Informe a sigla.");
+      return;
+    }
     setSalvandoNome(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ nome: nome.trim() })
+      .update({ nome: nome.trim(), sigla: sigla.trim().toUpperCase() })
       .eq("id", userId);
     setSalvandoNome(false);
     if (error) {
       toast.error(error.message);
       return;
     }
-    toast.success("Nome atualizado.");
+    toast.success("Dados atualizados.");
   };
 
   const trocarSenha = async (e: React.FormEvent) => {
@@ -111,8 +117,24 @@ function PerfilPage() {
                 onChange={(e) => setNome(e.target.value)}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="sigla-perfil">Sigla</Label>
+              <Input
+                id="sigla-perfil"
+                type="text"
+                placeholder="Ex.: BDR"
+                maxLength={6}
+                value={sigla}
+                onChange={(e) => setSigla(e.target.value)}
+                className="uppercase"
+              />
+              <p className="text-xs text-muted-foreground">
+                As iniciais usadas nos processos como responsável — é o que liga "Meus processos" e
+                "Meus prazos" a você.
+              </p>
+            </div>
             <Button type="submit" disabled={salvandoNome} className="w-fit">
-              {salvandoNome ? "Salvando..." : "Salvar nome"}
+              {salvandoNome ? "Salvando..." : "Salvar"}
             </Button>
           </form>
         </CardContent>
