@@ -3,10 +3,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
-import { Upload, CheckCircle2 } from "lucide-react";
+import { Upload, CheckCircle2, Mail } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -191,6 +192,68 @@ function grupoDoProcesso(p: Processo): Grupo {
   return "Outros";
 }
 
+function saudacaoAgora() {
+  const hora = new Date().getHours();
+  if (hora < 12) return "bom dia";
+  if (hora < 18) return "boa tarde";
+  return "boa noite";
+}
+
+const SAUDACAO_INICIAL: Record<Grupo, string> = {
+  ELV: "Eliane, {saudacao}.",
+  GFC: "MLV e BBS, {saudacao}.",
+  Astro: "Pessoal da Astro, {saudacao}.",
+  Outros: "Pessoal, {saudacao}.",
+};
+
+const SEPARADOR_EMAIL = "═".repeat(60);
+
+// Formato pensado a partir do projeto que a Bárbara já usa pra publicações:
+// saudação por grupo, bloco por processo com Caso/Coord/ADVG/Partes/Juízo e
+// um separador entre eles. A diferença é que aqui o "teor" é o texto bruto
+// do ANDAMENTO da planilha — o sistema não faz a leitura jurídica (prazo,
+// relevância, resumo) que o projeto de IA da Bárbara faz; isso continua lá.
+function montarMailtoPublicacoes(grupo: Grupo, destinatarios: string[], itens: LinhaCasada[]) {
+  const assunto = `Publicações — ${grupo}`;
+  const saudacaoInicial = SAUDACAO_INICIAL[grupo].replace("{saudacao}", saudacaoAgora());
+
+  const blocos = itens.map((l, i) => {
+    const cliente = exibir(l.processo.cliente) ?? "";
+    const numeroCliente = l.processo.numero_cliente ? ` (nº ${l.processo.numero_cliente})` : "";
+    const caso = l.processo.numero_interno ? `\nCaso: ${l.processo.numero_interno}` : "";
+    const coordAdvg = [l.coord ? `Coord.: ${l.coord}` : null, l.advg ? `ADVG: ${l.advg}` : null]
+      .filter(Boolean)
+      .join("   ");
+    const partes = [l.autor, l.reu].filter(Boolean).join(" x ") || "—";
+    const juizo = [l.processo.vara, l.processo.comarca].filter(Boolean).join(" — ") || "—";
+    const data = l.dataPublicacao
+      ? new Date(`${l.dataPublicacao}T12:00:00`).toLocaleDateString("pt-BR")
+      : "—";
+    return `${i + 1}. Processo: ${l.cnjTexto}
+Cliente: ${cliente}${numeroCliente}${caso}
+${coordAdvg || "Coord./ADVG: —"}
+Partes: ${partes}
+Juízo: ${juizo}
+Data da publicação: ${data}
+Teor da publicação: ${l.andamento ?? "—"}`;
+  });
+
+  const corpo = `${saudacaoInicial}
+
+Seguem as publicações localizadas nos processos monitorados:
+
+${blocos.join(`\n${SEPARADOR_EMAIL}\n\n`)}
+${SEPARADOR_EMAIL}
+
+Qualquer prazo mencionado acima precisa ser conferido com atenção antes de agendar — este
+e-mail traz o teor da publicação tal como veio da planilha do TI, sem cálculo automático de
+prazo.
+
+Abs.,`;
+
+  return `mailto:${destinatarios.join(",")}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+}
+
 function PublicacoesPage() {
   const [linhas, setLinhas] = useState<LinhaPublicacao[]>([]);
   const [grupoAtivo, setGrupoAtivo] = useState<Grupo | "todos">("todos");
@@ -227,6 +290,28 @@ function PublicacoesPage() {
     () => (grupoAtivo === "todos" ? casadas : casadas.filter((l) => l.grupo === grupoAtivo)),
     [casadas, grupoAtivo],
   );
+
+  const [emails, setEmails] = useState("");
+
+  const enviarEmailDoGrupo = () => {
+    if (grupoAtivo === "todos") {
+      toast.error("Escolha um grupo (ELV, GFC, Astro ou Outros) pra montar o e-mail.");
+      return;
+    }
+    const destinatarios = emails
+      .split(",")
+      .map((e) => e.trim())
+      .filter(Boolean);
+    if (destinatarios.length === 0) {
+      toast.error("Informe pelo menos um e-mail.");
+      return;
+    }
+    if (exibidas.length === 0) {
+      toast.error("Nenhuma publicação desse grupo pra mandar.");
+      return;
+    }
+    window.location.href = montarMailtoPublicacoes(grupoAtivo, destinatarios, exibidas);
+  };
 
   const ler = async (arquivo: File) => {
     const nome = arquivo.name.toLowerCase();
@@ -420,6 +505,24 @@ function PublicacoesPage() {
                   {g} ({contagemPorGrupo[g]})
                 </Button>
               ))}
+            </div>
+
+            <div className="flex flex-wrap items-end gap-2 rounded-md border border-border bg-muted/40 p-3">
+              <div className="min-w-64 flex-1 space-y-1">
+                <Label htmlFor="emails-publicacoes" className="text-xs text-muted-foreground">
+                  E-mail(s) de destino
+                </Label>
+                <Input
+                  id="emails-publicacoes"
+                  placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br"
+                  value={emails}
+                  onChange={(e) => setEmails(e.target.value)}
+                />
+              </div>
+              <Button type="button" onClick={enviarEmailDoGrupo} disabled={grupoAtivo === "todos"}>
+                <Mail className="size-4" />
+                Mandar e-mail — {grupoAtivo === "todos" ? "escolha um grupo" : grupoAtivo}
+              </Button>
             </div>
 
             <div className="flex items-center gap-3 text-sm">
