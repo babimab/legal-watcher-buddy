@@ -12,9 +12,16 @@ import {
   exibir,
   ehResponsavelDaSigla,
   useSiglaAtual,
+  categoriaCliente,
+  type MovimentacaoComProcesso,
 } from "@/lib/processos";
 
+type PainelSearch = { cliente?: string };
+
 export const Route = createFileRoute("/_authenticated/painel")({
+  validateSearch: (search: Record<string, unknown>): PainelSearch => ({
+    ...(typeof search["cliente"] === "string" ? { cliente: search["cliente"] } : {}),
+  }),
   head: () => ({
     meta: [
       { title: "Painel | FaroLex" },
@@ -32,13 +39,36 @@ function formatarValor(v: number) {
 }
 
 function PainelPage() {
+  const search = Route.useSearch();
   const minhaSigla = useSiglaAtual();
-  const processos = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
-  const pendencias = useQuery({ queryKey: ["pendencias"], queryFn: listarPendencias });
-  const naoValidados = useQuery({ queryKey: ["nao-validados"], queryFn: listarNaoValidados });
+  const processosQuery = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
+  const pendenciasQuery = useQuery({ queryKey: ["pendencias"], queryFn: listarPendencias });
+  const naoValidadosQuery = useQuery({ queryKey: ["nao-validados"], queryFn: listarNaoValidados });
+
+  const categorias = search.cliente ? search.cliente.split(",") : null;
+  const titulo = categorias ? categorias.join(" / ") : null;
+
+  const filtrarPorCliente = <T extends { cliente?: string | null }>(itens: T[]) =>
+    categorias ? itens.filter((i) => categorias.includes(categoriaCliente(i.cliente))) : itens;
+
+  const processos = { data: filtrarPorCliente(processosQuery.data ?? []) };
+  const pendencias = {
+    data: categorias
+      ? (pendenciasQuery.data ?? []).filter((m: MovimentacaoComProcesso) =>
+          categorias.includes(categoriaCliente(m.processos?.cliente)),
+        )
+      : (pendenciasQuery.data ?? []),
+  };
+  const naoValidados = {
+    data: categorias
+      ? (naoValidadosQuery.data ?? []).filter((m: MovimentacaoComProcesso) =>
+          categorias.includes(categoriaCliente(m.processos?.cliente)),
+        )
+      : (naoValidadosQuery.data ?? []),
+  };
 
   const meusProcessos = useMemo(
-    () => (processos.data ?? []).filter((p) => ehResponsavelDaSigla(p.responsavel, minhaSigla)),
+    () => processos.data.filter((p) => ehResponsavelDaSigla(p.responsavel, minhaSigla)),
     [processos.data, minhaSigla],
   );
 
@@ -76,10 +106,10 @@ function PainelPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-serif text-3xl font-semibold">Painel</h1>
+        <h1 className="font-serif text-3xl font-semibold">Painel{titulo ? ` — ${titulo}` : ""}</h1>
         <p className="text-muted-foreground">
-          Resumo do escritório — {meusProcessos.length} processo(s) seus,{" "}
-          {processos.data?.length ?? 0} no total.
+          {titulo ? `Resumo da carteira ${titulo}` : "Resumo do escritório"} —{" "}
+          {meusProcessos.length} processo(s) seus, {processos.data?.length ?? 0} no total.
         </p>
       </div>
 

@@ -305,6 +305,7 @@ function RelatorioPage() {
   const [advogado, setAdvogado] = useState(search.advogado ?? "todos");
   const [urgencia, setUrgencia] = useState(search.urgencia ?? "todos");
   const [soProntos, setSoProntos] = useState(false);
+  const [ufEncerramento, setUfEncerramento] = useState("todos");
   const minhaSigla = useSiglaAtual();
 
   // O componente não remonta ao trocar de aba/filtro via link (ex.: atalho
@@ -365,7 +366,7 @@ function RelatorioPage() {
     return m.prazo >= hojeISO && m.prazo <= emSeteDiasISO;
   });
 
-  const encerramentoFiltrado =
+  const encerramentoPorAdvogado =
     advogado === "todos"
       ? encerramento
       : encerramento.filter((p) =>
@@ -373,6 +374,16 @@ function RelatorioPage() {
             ? ehResponsavelDaSigla(p.responsavel, minhaSigla)
             : p.responsavel === advogado,
         );
+
+  const ufsEncerramento = useMemo(
+    () => [...new Set(encerramento.map((p) => p.uf).filter(Boolean))].sort() as string[],
+    [encerramento],
+  );
+
+  const encerramentoFiltrado =
+    ufEncerramento === "todos"
+      ? encerramentoPorAdvogado
+      : encerramentoPorAdvogado.filter((p) => p.uf === ufEncerramento);
 
   const encerramentoProntos = encerramentoFiltrado.filter((p) => p.pronto_para_encerrar);
   const encerramentoExibido = soProntos ? encerramentoProntos : encerramentoFiltrado;
@@ -484,6 +495,21 @@ function RelatorioPage() {
                 <SelectItem value="1dia">Vencendo em 1 dia</SelectItem>
                 <SelectItem value="7dias">Vencendo em 7 dias</SelectItem>
                 <SelectItem value="vencidos">Vencidos</SelectItem>
+              </SelectContent>
+            </Select>
+          ) : null}
+          {aba === "encerramento" && ufsEncerramento.length > 1 ? (
+            <Select value={ufEncerramento} onValueChange={setUfEncerramento}>
+              <SelectTrigger className="w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os estados</SelectItem>
+                {ufsEncerramento.map((uf) => (
+                  <SelectItem key={uf} value={uf}>
+                    {uf}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           ) : null}

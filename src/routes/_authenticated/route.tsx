@@ -63,6 +63,24 @@ function AppLayout() {
           <nav className="flex items-center gap-1 text-sm">
             <NavItem to="/painel" icon={<LayoutDashboard className="size-4" />} label="Painel" />
             <NavItem
+              to="/painel"
+              icon={<LayoutDashboard className="size-4" />}
+              label="Souza Cruz"
+              search={{ cliente: "Souza Cruz" }}
+            />
+            <NavItem
+              to="/painel"
+              icon={<LayoutDashboard className="size-4" />}
+              label="Astro"
+              search={{ cliente: "Astro" }}
+            />
+            <NavItem
+              to="/painel"
+              icon={<LayoutDashboard className="size-4" />}
+              label="Merck/Outros"
+              search={{ cliente: "Merck,PRC,Outros" }}
+            />
+            <NavItem
               to="/processos"
               icon={<FolderKanban className="size-4" />}
               label="Meus processos"
