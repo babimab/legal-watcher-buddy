@@ -15,6 +15,7 @@ import {
   categoriaCliente,
   type MovimentacaoComProcesso,
 } from "@/lib/processos";
+import { listarPastas } from "@/lib/grupos";
 
 type PainelSearch = { cliente?: string };
 
@@ -44,6 +45,7 @@ function PainelPage() {
   const processosQuery = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
   const pendenciasQuery = useQuery({ queryKey: ["pendencias"], queryFn: listarPendencias });
   const naoValidadosQuery = useQuery({ queryKey: ["nao-validados"], queryFn: listarNaoValidados });
+  const pastasQuery = useQuery({ queryKey: ["pastas"], queryFn: listarPastas });
 
   const categorias = search.cliente ? search.cliente.split(",") : null;
   const titulo = categorias ? categorias.join(" / ") : null;
@@ -103,6 +105,28 @@ function PainelPage() {
 
   const valorTotal = valorPorCarteira.reduce((soma, [, v]) => soma + v, 0);
 
+  const pastaPorId = useMemo(
+    () => new Map((pastasQuery.data ?? []).map((p) => [p.id, p])),
+    [pastasQuery.data],
+  );
+
+  // Só faz sentido nos painéis por carteira (Souza Cruz, Astro, Merck/Outros)
+  // — é onde as pastas representam o advogado responsável por aquele bloco
+  // de processos.
+  const porPasta = useMemo(() => {
+    if (!categorias) return [];
+    const contagem = new Map<string, { nome: string; qtd: number }>();
+    for (const p of processos.data) {
+      const pasta = p.pasta_id ? pastaPorId.get(p.pasta_id) : undefined;
+      const chave = pasta?.id ?? "sem-pasta";
+      const nome = pasta ? exibir(pasta.nome) : "Sem pasta";
+      const atual = contagem.get(chave);
+      if (atual) atual.qtd++;
+      else contagem.set(chave, { nome, qtd: 1 });
+    }
+    return [...contagem.entries()].sort(([, a], [, b]) => b.qtd - a.qtd);
+  }, [categorias, processos.data, pastaPorId]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -161,6 +185,37 @@ function PainelPage() {
           </CardContent>
         </Card>
       </div>
+
+      {categorias ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif text-lg">Pastas</CardTitle>
+            <CardDescription>Processos agrupados por pasta (advogado responsável).</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {porPasta.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum processo cadastrado ainda.</p>
+            ) : (
+              porPasta.map(([chave, { nome, qtd }]) => (
+                <div key={chave} className="flex items-center justify-between text-sm">
+                  {chave === "sem-pasta" ? (
+                    <span className="text-muted-foreground">{nome}</span>
+                  ) : (
+                    <Link
+                      to="/processos"
+                      search={{ pasta: chave }}
+                      className="underline-offset-4 hover:underline"
+                    >
+                      {nome}
+                    </Link>
+                  )}
+                  <Badge variant="outline">{qtd}</Badge>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
