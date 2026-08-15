@@ -28,8 +28,6 @@ import {
   useSiglaAtual,
   OUTROS_ADVOGADOS_CONHECIDOS,
   exibir,
-  categoriaCliente,
-  CATEGORIAS_CLIENTE,
   type MovimentacaoComProcesso,
   type Processo,
 } from "@/lib/processos";
@@ -41,13 +39,12 @@ import {
   exportarProcessosExcel,
 } from "@/lib/excel";
 
-type RelatorioSearch = { aba?: string; advogado?: string; cliente?: string; urgencia?: string };
+type RelatorioSearch = { aba?: string; advogado?: string; urgencia?: string };
 
 export const Route = createFileRoute("/_authenticated/relatorio")({
   validateSearch: (search: Record<string, unknown>): RelatorioSearch => ({
     ...(typeof search["aba"] === "string" ? { aba: search["aba"] } : {}),
     ...(typeof search["advogado"] === "string" ? { advogado: search["advogado"] } : {}),
-    ...(typeof search["cliente"] === "string" ? { cliente: search["cliente"] } : {}),
     ...(typeof search["urgencia"] === "string" ? { urgencia: search["urgencia"] } : {}),
   }),
   head: () => ({
@@ -229,7 +226,6 @@ function RelatorioPage() {
   const encerramento = (processos.data ?? []).filter((p) => p.fase === "Encerramento");
 
   const [advogado, setAdvogado] = useState(search.advogado ?? "todos");
-  const [cliente, setCliente] = useState(search.cliente ?? "todos");
   const [urgencia, setUrgencia] = useState(search.urgencia ?? "todos");
   const minhaSigla = useSiglaAtual();
 
@@ -238,9 +234,8 @@ function RelatorioPage() {
   useEffect(() => {
     setAba(search.aba ?? "novidades");
     setAdvogado(search.advogado ?? "todos");
-    setCliente(search.cliente ?? "todos");
     setUrgencia(search.urgencia ?? "todos");
-  }, [search.aba, search.advogado, search.cliente, search.urgencia]);
+  }, [search.aba, search.advogado, search.urgencia]);
 
   const advogados = useMemo(() => {
     const todosItens = [
@@ -281,14 +276,12 @@ function RelatorioPage() {
   emSeteDias.setDate(emSeteDias.getDate() + 7);
   const emSeteDiasISO = emSeteDias.toISOString().slice(0, 10);
 
-  const pendenciasFiltradas = filtrarPorAdvogado(pendencias.data ?? [])
-    .filter((m) => cliente === "todos" || categoriaCliente(m.processos?.cliente) === cliente)
-    .filter((m) => {
-      if (urgencia === "todos") return true;
-      if (!m.prazo) return false;
-      if (urgencia === "vencidos") return m.prazo < hojeISO;
-      return m.prazo >= hojeISO && m.prazo <= emSeteDiasISO;
-    });
+  const pendenciasFiltradas = filtrarPorAdvogado(pendencias.data ?? []).filter((m) => {
+    if (urgencia === "todos") return true;
+    if (!m.prazo) return false;
+    if (urgencia === "vencidos") return m.prazo < hojeISO;
+    return m.prazo >= hojeISO && m.prazo <= emSeteDiasISO;
+  });
 
   const encerramentoFiltrado =
     advogado === "todos"
@@ -382,31 +375,16 @@ function RelatorioPage() {
             </Select>
           ) : null}
           {aba === "pendencias" ? (
-            <>
-              <Select value={cliente} onValueChange={setCliente}>
-                <SelectTrigger className="w-44">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos os clientes</SelectItem>
-                  {CATEGORIAS_CLIENTE.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={urgencia} onValueChange={setUrgencia}>
-                <SelectTrigger className="w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos os prazos</SelectItem>
-                  <SelectItem value="7dias">Vencendo em 7 dias</SelectItem>
-                  <SelectItem value="vencidos">Vencidos</SelectItem>
-                </SelectContent>
-              </Select>
-            </>
+            <Select value={urgencia} onValueChange={setUrgencia}>
+              <SelectTrigger className="w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os prazos</SelectItem>
+                <SelectItem value="7dias">Vencendo em 7 dias</SelectItem>
+                <SelectItem value="vencidos">Vencidos</SelectItem>
+              </SelectContent>
+            </Select>
           ) : null}
           <Button
             variant="outline"
@@ -433,74 +411,117 @@ function RelatorioPage() {
         </div>
       </div>
 
-      <Card>
-        <CardContent className="flex flex-wrap items-center gap-3 py-4">
-          <span className="text-sm font-medium text-muted-foreground">Atalhos:</span>
-          <Link
-            to="/processos"
-            search={{ fase: "Encerramento" }}
-            className="inline-flex items-center gap-1 text-sm text-primary underline-offset-4 hover:underline"
-          >
-            Relatório de Encerramento
-          </Link>
-          <span className="text-xs text-muted-foreground">
-            (abre "Todos os processos" já filtrado por fase — dá pra combinar com o filtro de
-            Cliente lá)
-          </span>
-        </CardContent>
-      </Card>
+      {aba === "pendencias" ? (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-serif text-xl font-semibold">
+              Prazos ({pendenciasFiltradas.length})
+            </h2>
+            <Link
+              to="/relatorio"
+              search={{ aba: "novidades", advogado }}
+              className="text-sm text-primary underline-offset-4 hover:underline"
+            >
+              Ver relatório de andamentos
+            </Link>
+          </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          type="text"
-          placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br"
-          value={emails}
-          onChange={(e) => setEmails(e.target.value)}
-          className="max-w-sm"
-        />
-        <Button
-          variant="outline"
-          disabled={aba === "encerramento" || itensDaAba.length === 0}
-          onClick={() => void abrirEmail()}
-        >
-          <Mail className="size-4" /> Enviar por e-mail
-        </Button>
-      </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              type="text"
+              placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br"
+              value={emails}
+              onChange={(e) => setEmails(e.target.value)}
+              className="max-w-sm"
+            />
+            <Button
+              variant="outline"
+              disabled={itensDaAba.length === 0}
+              onClick={() => void abrirEmail()}
+            >
+              <Mail className="size-4" /> Enviar por e-mail
+            </Button>
+          </div>
 
-      <Tabs value={aba} onValueChange={setAba}>
-        <TabsList>
-          <TabsTrigger value="novidades">Novidades ({novidadesFiltradas.length})</TabsTrigger>
-          <TabsTrigger value="semana">Semana ({semanaFiltrada.length})</TabsTrigger>
-          <TabsTrigger value="mes">Mês ({mesFiltrado.length})</TabsTrigger>
-          <TabsTrigger value="ultimos">Últimos andamentos ({ultimosFiltrados.length})</TabsTrigger>
-          <TabsTrigger value="pendencias">Prazos</TabsTrigger>
-          <TabsTrigger value="encerramento">
-            Encerramento ({encerramentoFiltrado.length})
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="novidades" className="mt-4">
-          <Lista itens={novidadesFiltradas} vazio="Nada novo desde a última verificação." />
-        </TabsContent>
-        <TabsContent value="semana" className="mt-4">
-          <Lista itens={semanaFiltrada} vazio="Nenhuma movimentação nos últimos 7 dias." />
-        </TabsContent>
-        <TabsContent value="mes" className="mt-4">
-          <Lista itens={mesFiltrado} vazio="Nenhuma movimentação nos últimos 30 dias." />
-        </TabsContent>
-        <TabsContent value="ultimos" className="mt-4">
-          <Lista itens={ultimosFiltrados} vazio="Nenhum andamento registrado ainda." />
-        </TabsContent>
-        <TabsContent value="pendencias" className="mt-4">
           <Lista itens={pendenciasFiltradas} vazio="Nenhuma providência em aberto." destaque />
-        </TabsContent>
-        <TabsContent value="encerramento" className="mt-4">
-          <ListaProcessos
-            processos={encerramentoFiltrado}
-            vazio="Nenhum processo em fase de Encerramento."
-          />
-        </TabsContent>
-      </Tabs>
+        </>
+      ) : (
+        <>
+          <Card>
+            <CardContent className="flex flex-wrap items-center gap-3 py-4">
+              <span className="text-sm font-medium text-muted-foreground">Atalhos:</span>
+              <Link
+                to="/relatorio"
+                search={{ aba: "pendencias", advogado }}
+                className="inline-flex items-center gap-1 text-sm text-primary underline-offset-4 hover:underline"
+              >
+                Ver prazos
+              </Link>
+              <Link
+                to="/processos"
+                search={{ fase: "Encerramento" }}
+                className="inline-flex items-center gap-1 text-sm text-primary underline-offset-4 hover:underline"
+              >
+                Relatório de Encerramento
+              </Link>
+              <span className="text-xs text-muted-foreground">
+                (abre "Todos os processos" já filtrado por fase — dá pra combinar com o filtro de
+                Cliente lá)
+              </span>
+            </CardContent>
+          </Card>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              type="text"
+              placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br"
+              value={emails}
+              onChange={(e) => setEmails(e.target.value)}
+              className="max-w-sm"
+            />
+            <Button
+              variant="outline"
+              disabled={aba === "encerramento" || itensDaAba.length === 0}
+              onClick={() => void abrirEmail()}
+            >
+              <Mail className="size-4" /> Enviar por e-mail
+            </Button>
+          </div>
+
+          <Tabs value={aba} onValueChange={setAba}>
+            <TabsList>
+              <TabsTrigger value="novidades">Novidades ({novidadesFiltradas.length})</TabsTrigger>
+              <TabsTrigger value="semana">Semana ({semanaFiltrada.length})</TabsTrigger>
+              <TabsTrigger value="mes">Mês ({mesFiltrado.length})</TabsTrigger>
+              <TabsTrigger value="ultimos">
+                Últimos andamentos ({ultimosFiltrados.length})
+              </TabsTrigger>
+              <TabsTrigger value="encerramento">
+                Encerramento ({encerramentoFiltrado.length})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="novidades" className="mt-4">
+              <Lista itens={novidadesFiltradas} vazio="Nada novo desde a última verificação." />
+            </TabsContent>
+            <TabsContent value="semana" className="mt-4">
+              <Lista itens={semanaFiltrada} vazio="Nenhuma movimentação nos últimos 7 dias." />
+            </TabsContent>
+            <TabsContent value="mes" className="mt-4">
+              <Lista itens={mesFiltrado} vazio="Nenhuma movimentação nos últimos 30 dias." />
+            </TabsContent>
+            <TabsContent value="ultimos" className="mt-4">
+              <Lista itens={ultimosFiltrados} vazio="Nenhum andamento registrado ainda." />
+            </TabsContent>
+            <TabsContent value="encerramento" className="mt-4">
+              <ListaProcessos
+                processos={encerramentoFiltrado}
+                vazio="Nenhum processo em fase de Encerramento."
+              />
+            </TabsContent>
+          </Tabs>
+        </>
+      )}
 
       <Card>
         <CardHeader>
