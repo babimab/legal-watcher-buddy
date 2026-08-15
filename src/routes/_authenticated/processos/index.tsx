@@ -29,6 +29,7 @@ import {
   OUTROS_ADVOGADOS_CONHECIDOS,
   SOCIOS_CONHECIDOS,
   exibir,
+  variantCriticidade,
   type Processo,
 } from "@/lib/processos";
 import { listarGrupos, listarPastas, type Pasta } from "@/lib/grupos";
@@ -568,6 +569,9 @@ function ProcessoCard({
         ) : null}
         {p.socio ? <Badge variant="outline">sócio {p.socio}</Badge> : null}
         {p.fase ? <Badge variant="outline">{p.fase}</Badge> : null}
+        {p.criticidade ? (
+          <Badge variant={variantCriticidade(p.criticidade)}>{p.criticidade}</Badge>
+        ) : null}
         {p.numero_interno ? (
           <span className="text-xs text-muted-foreground">caso {p.numero_interno}</span>
         ) : null}

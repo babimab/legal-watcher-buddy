@@ -20,6 +20,7 @@ export type Processo = {
   comarca: string | null;
   classe: string | null;
   fase: string | null;
+  criticidade: string | null;
   pasta_id: string | null;
   processo_pai_id: string | null;
   tipo_desdobramento: string | null;
@@ -52,6 +53,18 @@ export type Movimentacao = {
 export const STATUS_OPCOES = ["ativo", "suspenso", "arquivado", "baixado", "encerrado"] as const;
 
 export const FASE_OPCOES = ["Instrutória", "Recursal", "Encerramento"] as const;
+
+export const CRITICIDADE_OPCOES = ["Alta", "Média", "Baixa"] as const;
+
+// Variante do Badge pra cada nível de criticidade — "Alta" chama mais
+// atenção (mesma cor de alerta usada nos prazos vencidos).
+export function variantCriticidade(
+  criticidade: string | null | undefined,
+): "destructive" | "default" | "outline" {
+  if (criticidade === "Alta") return "destructive";
+  if (criticidade === "Média") return "default";
+  return "outline";
+}
 
 export const UF_OPCOES = [
   "AC",
@@ -177,6 +190,18 @@ export function identificarCliente(
 // Sócios conhecidos, pra já aparecerem no filtro de Sócio mesmo antes de
 // ter processo com esse sócio cadastrado.
 export const SOCIOS_CONHECIDOS = ["ELV", "GFC", "NYM"];
+
+// Carteiras conhecidas, pra já aparecerem como sugestão ao cadastrar um
+// processo mesmo antes de existir algum processo com essa carteira.
+export const CARTEIRAS_CONHECIDAS = [
+  "Cobrança Indevida",
+  "Acidente de Trânsito",
+  "Fumicultor",
+  "Cash in",
+  "Transportador",
+  "FASC",
+  "Merck",
+];
 
 export const TIPOS_DESDOBRAMENTO = [
   "Recurso",

@@ -28,7 +28,9 @@ import {
   TIPOS_DESDOBRAMENTO,
   UF_OPCOES,
   FASE_OPCOES,
+  CRITICIDADE_OPCOES,
   SOCIOS_CONHECIDOS,
+  CARTEIRAS_CONHECIDAS,
   listarProcessos,
   exibir,
   type Processo,
@@ -60,7 +62,10 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
   const carteirasConhecidas = useMemo(
     () =>
       [
-        ...new Set((processos.data ?? []).map((p) => p.carteira).filter(Boolean) as string[]),
+        ...new Set([
+          ...CARTEIRAS_CONHECIDAS,
+          ...((processos.data ?? []).map((p) => p.carteira).filter(Boolean) as string[]),
+        ]),
       ].sort(),
     [processos.data],
   );
@@ -95,6 +100,10 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
       classe: String(form.get("classe") ?? "").trim() || null,
       fase: (() => {
         const v = String(form.get("fase") ?? "").trim();
+        return v && v !== "nenhuma" ? v : null;
+      })(),
+      criticidade: (() => {
+        const v = String(form.get("criticidade") ?? "").trim();
         return v && v !== "nenhuma" ? v : null;
       })(),
       responsavel: String(form.get("responsavel") ?? "").trim() || null,
@@ -224,6 +233,22 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
                 {FASE_OPCOES.map((f) => (
                   <SelectItem key={f} value={f}>
                     {f}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Criticidade</Label>
+            <Select name="criticidade" defaultValue={processo?.criticidade ?? "nenhuma"}>
+              <SelectTrigger>
+                <SelectValue placeholder="Criticidade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nenhuma">Não informada</SelectItem>
+                {CRITICIDADE_OPCOES.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
                   </SelectItem>
                 ))}
               </SelectContent>

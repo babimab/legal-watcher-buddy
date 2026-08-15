@@ -257,6 +257,7 @@ export type Database = {
           comarca: string | null;
           created_at: string;
           created_by: string | null;
+          criticidade: string | null;
           fase: string | null;
           fonte: string;
           id: string;
@@ -293,6 +294,7 @@ export type Database = {
           comarca?: string | null;
           created_at?: string;
           created_by?: string | null;
+          criticidade?: string | null;
           fase?: string | null;
           fonte?: string;
           id?: string;
@@ -329,6 +331,7 @@ export type Database = {
           comarca?: string | null;
           created_at?: string;
           created_by?: string | null;
+          criticidade?: string | null;
           fase?: string | null;
           fonte?: string;
           id?: string;

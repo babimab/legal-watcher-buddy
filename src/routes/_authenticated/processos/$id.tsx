@@ -16,6 +16,7 @@ import {
   listarMovimentacoes,
   formatarCNJ,
   exibir,
+  variantCriticidade,
 } from "@/lib/processos";
 import { linkTribunal } from "@/lib/tribunais";
 import { AcessosProcesso } from "@/components/AcessosProcesso";
@@ -94,6 +95,9 @@ function ProcessoDetalhe() {
             <Badge>{p.status}</Badge>
             {p.tribunal ? <Badge variant="outline">{p.tribunal}</Badge> : null}
             {p.fase ? <Badge variant="secondary">{p.fase}</Badge> : null}
+            {p.criticidade ? (
+              <Badge variant={variantCriticidade(p.criticidade)}>Criticidade {p.criticidade}</Badge>
+            ) : null}
             {p.tipo_desdobramento ? (
               <Badge variant="secondary">{exibir(p.tipo_desdobramento)}</Badge>
             ) : null}
