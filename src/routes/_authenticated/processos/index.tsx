@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { toast } from "sonner";
+import { Download, Plus, Search } from "lucide-react";
+import ExcelJS from "exceljs";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,13 +22,56 @@ import {
   listarUltimasMovimentacoes,
   formatarCNJ,
   STATUS_OPCOES,
+  FASE_OPCOES,
   ehResponsavelDaSigla,
   useSiglaAtual,
   OUTROS_ADVOGADOS_CONHECIDOS,
   SOCIOS_CONHECIDOS,
   exibir,
+  type Processo,
 } from "@/lib/processos";
 import { listarGrupos, listarPastas } from "@/lib/grupos";
+import {
+  estilizarCabecalho,
+  centralizarLinhas,
+  finalizarPlanilha,
+  baixarPlanilha,
+} from "@/lib/excel";
+
+async function exportarProcessosExcel(processos: Processo[]) {
+  const workbook = new ExcelJS.Workbook();
+  const planilha = workbook.addWorksheet("Processos");
+
+  planilha.columns = [
+    { header: "Número CNJ", key: "numero_cnj", width: 22 },
+    { header: "Cliente", key: "cliente", width: 26 },
+    { header: "Comarca", key: "comarca", width: 22 },
+    { header: "UF", key: "uf", width: 10 },
+    { header: "Responsável", key: "responsavel", width: 14 },
+    { header: "Sócio", key: "socio", width: 10 },
+    { header: "Fase", key: "fase", width: 16 },
+    { header: "Status", key: "status", width: 14 },
+  ];
+
+  for (const p of processos) {
+    planilha.addRow({
+      numero_cnj: formatarCNJ(p.numero_cnj),
+      cliente: exibir(p.cliente) ?? "",
+      comarca: p.comarca ?? "",
+      uf: p.uf ?? "",
+      responsavel: p.responsavel ?? "",
+      socio: p.socio ?? "",
+      fase: p.fase ?? "",
+      status: p.status,
+    });
+  }
+
+  estilizarCabecalho(planilha);
+  centralizarLinhas(planilha, new Set());
+  finalizarPlanilha(planilha);
+
+  await baixarPlanilha(workbook, "processos");
+}
 
 type ProcessosSearch = { grupo?: string; pasta?: string; advogado?: string; socio?: string };
 
@@ -60,6 +105,7 @@ function ProcessosPage() {
   const search = Route.useSearch();
   const [busca, setBusca] = useState("");
   const [status, setStatus] = useState("todos");
+  const [fase, setFase] = useState("todas");
   const [carteira, setCarteira] = useState("todas");
   const [uf, setUf] = useState("todas");
   const [sistema, setSistema] = useState("todos");
@@ -153,6 +199,7 @@ function ProcessosPage() {
     const termo = busca.trim().toLowerCase();
     return (data ?? []).filter((p) => {
       const casaStatus = status === "todos" || p.status === status;
+      const casaFase = fase === "todas" || (fase === "nenhuma" ? !p.fase : p.fase === fase);
       const casaCarteira = carteira === "todas" || p.carteira === carteira;
       const casaUf = uf === "todas" || p.uf === uf;
       const casaSistema = sistema === "todos" || p.sistema === sistema;
@@ -186,6 +233,7 @@ function ProcessosPage() {
           .some((v) => String(v).toLowerCase().includes(termo));
       return (
         casaStatus &&
+        casaFase &&
         casaCarteira &&
         casaUf &&
         casaSistema &&
@@ -200,6 +248,7 @@ function ProcessosPage() {
     data,
     busca,
     status,
+    fase,
     carteira,
     uf,
     sistema,
@@ -224,13 +273,26 @@ function ProcessosPage() {
               : `Carteira compartilhada do escritório — ${data?.length ?? 0} cadastrados.`}
           </p>
         </div>
-        <ProcessoDialog
-          trigger={
-            <Button>
-              <Plus className="size-4" /> Novo processo
-            </Button>
-          }
-        />
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            disabled={lista.length === 0}
+            onClick={() => {
+              void exportarProcessosExcel(lista).catch(() =>
+                toast.error("Não consegui gerar o Excel."),
+              );
+            }}
+          >
+            <Download className="size-4" /> Exportar Excel
+          </Button>
+          <ProcessoDialog
+            trigger={
+              <Button>
+                <Plus className="size-4" /> Novo processo
+              </Button>
+            }
+          />
+        </div>
       </div>
 
       {!somenteMeus &&
@@ -288,6 +350,20 @@ function ProcessosPage() {
             {STATUS_OPCOES.map((s) => (
               <SelectItem key={s} value={s}>
                 {s}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={fase} onValueChange={setFase}>
+          <SelectTrigger className="w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">Todas as fases</SelectItem>
+            <SelectItem value="nenhuma">Sem fase definida</SelectItem>
+            {FASE_OPCOES.map((f) => (
+              <SelectItem key={f} value={f}>
+                {f}
               </SelectItem>
             ))}
           </SelectContent>
@@ -438,6 +514,7 @@ function ProcessosPage() {
                   <Badge variant="secondary">{exibir(p.tipo_desdobramento)}</Badge>
                 ) : null}
                 {p.socio ? <Badge variant="outline">sócio {p.socio}</Badge> : null}
+                {p.fase ? <Badge variant="outline">{p.fase}</Badge> : null}
                 {p.numero_interno ? (
                   <span className="text-xs text-muted-foreground">caso {p.numero_interno}</span>
                 ) : null}

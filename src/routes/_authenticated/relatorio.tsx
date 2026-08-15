@@ -29,6 +29,12 @@ import {
   exibir,
   type MovimentacaoComProcesso,
 } from "@/lib/processos";
+import {
+  estilizarCabecalho,
+  centralizarLinhas,
+  finalizarPlanilha,
+  baixarPlanilha,
+} from "@/lib/excel";
 
 export const Route = createFileRoute("/_authenticated/relatorio")({
   head: () => ({
@@ -52,9 +58,6 @@ export const Route = createFileRoute("/_authenticated/relatorio")({
   component: RelatorioPage,
 });
 
-// Mesmo azul escuro usado no cabeçalho do site (--primary), pra planilha
-// exportada ficar com a cara do sistema.
-const COR_CABECALHO = "FF0D3A51";
 const COLUNAS_TEXTO_LIVRE = new Set(["descricao", "observacao"]);
 
 async function exportarAndamentosExcel(itens: MovimentacaoComProcesso[], nomeArquivo: string) {
@@ -97,46 +100,12 @@ async function exportarAndamentosExcel(itens: MovimentacaoComProcesso[], nomeArq
     });
   }
 
-  const cabecalho = planilha.getRow(1);
-  cabecalho.height = 22;
-  cabecalho.eachCell((celula) => {
-    celula.font = { bold: true, color: { argb: "FFFFFFFF" } };
-    celula.fill = { type: "pattern", pattern: "solid", fgColor: { argb: COR_CABECALHO } };
-    celula.alignment = { horizontal: "center", vertical: "middle" };
-  });
+  estilizarCabecalho(planilha);
+  centralizarLinhas(planilha, COLUNAS_TEXTO_LIVRE);
+  planilha.getColumn("data").numFmt = "dd/mm/yyyy";
+  finalizarPlanilha(planilha);
 
-  planilha.eachRow((linha, numeroLinha) => {
-    if (numeroLinha === 1) return;
-    linha.eachCell((celula, numeroColuna) => {
-      const chave = String(planilha.getColumn(numeroColuna).key);
-      const textoLivre = COLUNAS_TEXTO_LIVRE.has(chave);
-      celula.alignment = {
-        horizontal: textoLivre ? "left" : "center",
-        vertical: "middle",
-        wrapText: textoLivre,
-      };
-      if (chave === "data") celula.numFmt = "dd/mm/yyyy";
-    });
-  });
-
-  planilha.autoFilter = {
-    from: { row: 1, column: 1 },
-    to: { row: 1, column: planilha.columns.length },
-  };
-  planilha.views = [{ state: "frozen", ySplit: 1 }];
-
-  const buffer = await workbook.xlsx.writeBuffer();
-  const blob = new Blob([buffer], {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `${nomeArquivo}-${new Date().toISOString().slice(0, 10)}.xlsx`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  await baixarPlanilha(workbook, nomeArquivo);
 }
 
 const LIMITE_ULTIMOS_ANDAMENTOS = 50;
