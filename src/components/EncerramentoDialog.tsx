@@ -22,6 +22,7 @@ import { type Processo } from "@/lib/processos";
 export function EncerramentoDialog({ processo }: { processo: Processo }) {
   const [aberto, setAberto] = useState(false);
   const [pronto, setPronto] = useState(processo.pronto_para_encerrar);
+  const [decisoesNoLd, setDecisoesNoLd] = useState(processo.decisoes_no_ld);
   const [salvando, setSalvando] = useState(false);
   const queryClient = useQueryClient();
 
@@ -36,6 +37,7 @@ export function EncerramentoDialog({ processo }: { processo: Processo }) {
       .from("processos")
       .update({
         pronto_para_encerrar: pronto,
+        decisoes_no_ld: decisoesNoLd,
         valor_encerramento: valorRaw ? Number(valorRaw) : null,
         observacao_encerramento: String(form.get("observacao_encerramento") ?? "").trim() || null,
       })
@@ -73,6 +75,14 @@ export function EncerramentoDialog({ processo }: { processo: Processo }) {
           <div className="flex items-center gap-2">
             <Checkbox id="pronto" checked={pronto} onCheckedChange={(v) => setPronto(v === true)} />
             <Label htmlFor="pronto">Pronto para encerrar</Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="decisoes_no_ld"
+              checked={decisoesNoLd}
+              onCheckedChange={(v) => setDecisoesNoLd(v === true)}
+            />
+            <Label htmlFor="decisoes_no_ld">Preenchida Decisões no LD</Label>
           </div>
           <div className="space-y-2">
             <Label htmlFor="valor_encerramento">Valor</Label>

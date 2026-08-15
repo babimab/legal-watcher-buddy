@@ -33,6 +33,7 @@ export type Processo = {
   pronto_para_encerrar: boolean;
   valor_encerramento: number | null;
   observacao_encerramento: string | null;
+  decisoes_no_ld: boolean;
   ultima_verificacao_em: string | null;
   fonte: string;
   monitorar: boolean;

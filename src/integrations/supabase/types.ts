@@ -259,6 +259,7 @@ export type Database = {
           created_at: string;
           created_by: string | null;
           criticidade: string | null;
+          decisoes_no_ld: boolean;
           fase: string | null;
           fonte: string;
           id: string;
@@ -300,6 +301,7 @@ export type Database = {
           created_at?: string;
           created_by?: string | null;
           criticidade?: string | null;
+          decisoes_no_ld?: boolean;
           fase?: string | null;
           fonte?: string;
           id?: string;
@@ -341,6 +343,7 @@ export type Database = {
           created_at?: string;
           created_by?: string | null;
           criticidade?: string | null;
+          decisoes_no_ld?: boolean;
           fase?: string | null;
           fonte?: string;
           id?: string;

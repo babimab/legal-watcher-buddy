@@ -745,6 +745,7 @@ function ListaProcessos({ processos, vazio }: { processos: Processo[]; vazio: st
             {p.responsavel ? <Badge variant="outline">{p.responsavel}</Badge> : null}
             {p.socio ? <Badge variant="outline">sócio {p.socio}</Badge> : null}
             {p.fase ? <Badge variant="secondary">{p.fase}</Badge> : null}
+            {p.decisoes_no_ld ? <Badge variant="outline">Decisões no LD</Badge> : null}
             <span className="ml-auto flex items-center gap-3">
               {p.valor_encerramento != null ? (
                 <span className="text-base font-semibold text-foreground">
