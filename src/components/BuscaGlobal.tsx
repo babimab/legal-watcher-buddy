@@ -70,6 +70,7 @@ export function BuscaGlobal() {
       <button
         type="button"
         onClick={() => setAberto(true)}
+        data-tour="nav-busca"
         className="flex items-center gap-2 rounded-md border border-sidebar-border px-3 py-1.5 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent"
       >
         <Search className="size-4" />

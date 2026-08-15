@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BuscaGlobal } from "@/components/BuscaGlobal";
+import { GuiaRapido } from "@/components/GuiaRapido";
 import { supabase } from "@/integrations/supabase/client";
 import { listarPendencias, ehResponsavelDaSigla, useSiglaAtual } from "@/lib/processos";
 
@@ -61,12 +62,18 @@ function AppLayout() {
             <img src="/faro-logo-white.png" alt="FaroLex" className="h-7 w-auto" />
           </Link>
           <nav className="flex items-center gap-1 text-sm">
-            <NavItem to="/painel" icon={<LayoutDashboard className="size-4" />} label="Painel" />
+            <NavItem
+              to="/painel"
+              icon={<LayoutDashboard className="size-4" />}
+              label="Painel"
+              tourId="nav-painel"
+            />
             <NavItem
               to="/painel"
               icon={<LayoutDashboard className="size-4" />}
               label="Souza Cruz"
               search={{ cliente: "Souza Cruz" }}
+              tourId="nav-clientes"
             />
             <NavItem
               to="/painel"
@@ -85,17 +92,20 @@ function AppLayout() {
               icon={<FolderKanban className="size-4" />}
               label="Meus processos"
               search={{ advogado: "eu" }}
+              tourId="nav-meus-processos"
             />
             <NavItem
               to="/processos"
               icon={<List className="size-4" />}
               label="Todos os processos"
+              tourId="nav-todos-processos"
             />
             <NavItem
               to="/relatorio"
               icon={<LineChart className="size-4" />}
               label="Relatórios"
               contador={prazosUrgentes}
+              tourId="nav-relatorios"
             />
             <NavItem
               to="/relatorio"
@@ -104,25 +114,39 @@ function AppLayout() {
               search={{ aba: "pendencias", advogado: "eu" }}
               contador={meusPrazosUrgentes}
             />
-            <NavItem to="/grupos" icon={<Users className="size-4" />} label="Grupos" />
+            <NavItem
+              to="/grupos"
+              icon={<Users className="size-4" />}
+              label="Grupos"
+              tourId="nav-grupos"
+            />
             <NavItem
               to="/relatorio"
               icon={<Archive className="size-4" />}
               label="Encerramento"
               search={{ aba: "encerramento" }}
+              tourId="nav-encerramento"
             />
             <NavItem
               to="/publicacoes"
               icon={<Newspaper className="size-4" />}
               label="Publicações"
+              tourId="nav-publicacoes"
             />
-            <NavItem to="/importar" icon={<Upload className="size-4" />} label="Importar" />
+            <NavItem
+              to="/importar"
+              icon={<Upload className="size-4" />}
+              label="Importar"
+              tourId="nav-importar"
+            />
           </nav>
           <div className="ml-auto flex items-center gap-1">
+            <GuiaRapido />
             <BuscaGlobal />
             <Link
               to="/perfil"
               aria-label="Meu perfil"
+              data-tour="nav-perfil"
               className="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
               activeProps={{ className: "bg-sidebar-accent font-semibold" }}
             >
@@ -161,18 +185,21 @@ function NavItem({
   label,
   contador,
   search,
+  tourId,
 }: {
   to: string;
   icon: React.ReactNode;
   label: string;
   contador?: number;
   search?: Record<string, string>;
+  tourId?: string;
 }) {
   return (
     <Link
       to={to}
       search={search ?? {}}
       activeOptions={{ exact: true, includeSearch: true }}
+      data-tour={tourId}
       className="flex items-center gap-2 rounded-md px-3 py-1.5 transition-colors hover:bg-sidebar-accent"
       activeProps={{ className: "bg-sidebar-accent font-semibold" }}
     >
