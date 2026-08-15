@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, redirect, Link, useRouter } from "@tanstack/re
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  Archive,
   FolderKanban,
   List,
   LineChart,
@@ -82,6 +83,12 @@ function AppLayout() {
               contador={meusPrazosUrgentes}
             />
             <NavItem to="/grupos" icon={<Users className="size-4" />} label="Grupos" />
+            <NavItem
+              to="/relatorio"
+              icon={<Archive className="size-4" />}
+              label="Encerramento"
+              search={{ aba: "encerramento" }}
+            />
             <NavItem to="/importar" icon={<Upload className="size-4" />} label="Importar" />
           </nav>
           <div className="ml-auto flex items-center gap-1">

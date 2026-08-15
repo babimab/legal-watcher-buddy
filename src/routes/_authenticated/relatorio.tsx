@@ -396,7 +396,11 @@ function RelatorioPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-serif text-3xl font-semibold">
-            {aba === "pendencias" ? "Prazos" : "Relatórios"}
+            {aba === "pendencias"
+              ? "Prazos"
+              : aba === "encerramento"
+                ? "Encerramento"
+                : "Relatórios"}
           </h1>
           <p className="text-muted-foreground">
             {desde
@@ -539,6 +543,44 @@ function RelatorioPage() {
 
           <Lista itens={pendenciasFiltradas} vazio="Nenhuma providência em aberto." destaque />
         </>
+      ) : aba === "encerramento" ? (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-serif text-xl font-semibold">
+              Encerramento ({encerramentoExibido.length})
+            </h2>
+            <Link
+              to="/relatorio"
+              search={{ aba: "novidades", advogado }}
+              className="text-sm text-primary underline-offset-4 hover:underline"
+            >
+              Ver relatório de andamentos
+            </Link>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              type="text"
+              placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br"
+              value={emails}
+              onChange={(e) => setEmails(e.target.value)}
+              className="max-w-sm"
+            />
+            <Button
+              variant="outline"
+              disabled={encerramentoProntos.length === 0}
+              onClick={() => void abrirEmail()}
+            >
+              <Mail className="size-4" />
+              Mandar prontos pra Eliane ({encerramentoProntos.length})
+            </Button>
+          </div>
+
+          <ListaProcessos
+            processos={encerramentoExibido}
+            vazio="Nenhum processo em fase de Encerramento."
+          />
+        </>
       ) : (
         <>
           <Card>
@@ -552,16 +594,12 @@ function RelatorioPage() {
                 Ver prazos
               </Link>
               <Link
-                to="/processos"
-                search={{ fase: "Encerramento" }}
+                to="/relatorio"
+                search={{ aba: "encerramento", advogado }}
                 className="inline-flex items-center gap-1 text-sm text-primary underline-offset-4 hover:underline"
               >
-                Relatório de Encerramento
+                Ver Encerramento
               </Link>
-              <span className="text-xs text-muted-foreground">
-                (abre "Todos os processos" já filtrado por fase — dá pra combinar com o filtro de
-                Cliente lá)
-              </span>
             </CardContent>
           </Card>
 
@@ -575,15 +613,10 @@ function RelatorioPage() {
             />
             <Button
               variant="outline"
-              disabled={
-                aba === "encerramento" ? encerramentoProntos.length === 0 : itensDaAba.length === 0
-              }
+              disabled={itensDaAba.length === 0}
               onClick={() => void abrirEmail()}
             >
-              <Mail className="size-4" />
-              {aba === "encerramento"
-                ? `Mandar prontos pra Eliane (${encerramentoProntos.length})`
-                : "Enviar por e-mail"}
+              <Mail className="size-4" /> Enviar por e-mail
             </Button>
           </div>
 
@@ -594,9 +627,6 @@ function RelatorioPage() {
               <TabsTrigger value="mes">Mês ({mesFiltrado.length})</TabsTrigger>
               <TabsTrigger value="ultimos">
                 Últimos andamentos ({ultimosFiltrados.length})
-              </TabsTrigger>
-              <TabsTrigger value="encerramento">
-                Encerramento ({encerramentoExibido.length})
               </TabsTrigger>
             </TabsList>
 
@@ -611,12 +641,6 @@ function RelatorioPage() {
             </TabsContent>
             <TabsContent value="ultimos" className="mt-4">
               <Lista itens={ultimosFiltrados} vazio="Nenhum andamento registrado ainda." />
-            </TabsContent>
-            <TabsContent value="encerramento" className="mt-4">
-              <ListaProcessos
-                processos={encerramentoExibido}
-                vazio="Nenhum processo em fase de Encerramento."
-              />
             </TabsContent>
           </Tabs>
         </>
