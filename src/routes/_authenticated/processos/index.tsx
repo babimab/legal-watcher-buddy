@@ -237,14 +237,16 @@ function ProcessosPage() {
   ]);
 
   // "Meus processos" sem filtro de cliente já ativo: agrupa em pastas por
-  // cliente (Astro, Souza Cruz, Merck, PRC, Outros), como ela pediu.
+  // cliente (Astro, Souza Cruz, Merck, PRC, Outros). As pastas aparecem
+  // sempre, mesmo vazias — é um padrão igual pra todo mundo, não muda
+  // conforme o que cada advogado tem hoje.
   const gruposPorCliente = useMemo(() => {
     if (!somenteMeus || cliente !== "todos") return null;
     const porCategoria = new Map<string, typeof lista>(CATEGORIAS_CLIENTE.map((c) => [c, []]));
     for (const p of lista) {
       porCategoria.get(categoriaCliente(p.cliente))!.push(p);
     }
-    return [...porCategoria.entries()].filter(([, itens]) => itens.length > 0);
+    return [...porCategoria.entries()];
   }, [somenteMeus, cliente, lista]);
 
   return (
@@ -496,7 +498,7 @@ function ProcessosPage() {
       ) : gruposPorCliente ? (
         <div className="space-y-4">
           {gruposPorCliente.map(([categoria, itens]) => (
-            <details key={categoria} className="group" open>
+            <details key={categoria} className="group" open={itens.length > 0}>
               <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 font-serif text-lg font-semibold transition-colors hover:border-primary">
                 <span className="text-muted-foreground transition-transform group-open:rotate-90">
                   ▸
@@ -505,6 +507,11 @@ function ProcessosPage() {
                 <Badge variant="secondary">{itens.length}</Badge>
               </summary>
               <div className="mt-3 grid gap-3 pl-2">
+                {itens.length === 0 ? (
+                  <p className="px-2 text-sm text-muted-foreground">
+                    Nenhum processo seu de {categoria} no momento.
+                  </p>
+                ) : null}
                 {itens.map((p) => (
                   <ProcessoCard
                     key={p.id}
