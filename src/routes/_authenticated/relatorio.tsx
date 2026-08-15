@@ -139,15 +139,19 @@ async function exportarAndamentosExcel(itens: MovimentacaoComProcesso[], nomeArq
   URL.revokeObjectURL(url);
 }
 
+const LIMITE_ULTIMOS_ANDAMENTOS = 50;
+
 const NOME_ARQUIVO_POR_ABA: Record<string, string> = {
   novidades: "novidades",
   semana: "andamentos-da-semana",
+  ultimos: "ultimos-andamentos",
   pendencias: "prazos-pendentes",
 };
 
 const TITULO_POR_ABA: Record<string, string> = {
   novidades: "Novidades desde a última verificação",
   semana: "Andamentos da última semana",
+  ultimos: `Últimos ${LIMITE_ULTIMOS_ANDAMENTOS} andamentos`,
   pendencias: "Prazos pendentes",
 };
 
@@ -219,6 +223,14 @@ function RelatorioPage() {
     queryFn: () => listarMovimentacoesDesde(new Date(Date.now() - 7 * 864e5).toISOString()),
   });
 
+  // Sempre os últimos andamentos registrados, sem depender de verificação
+  // nem de janela de dias — pra poder consultar a qualquer momento mesmo
+  // depois de zerar as novidades.
+  const ultimos = useQuery({
+    queryKey: ["ultimos-andamentos"],
+    queryFn: () => listarMovimentacoesDesde(null, LIMITE_ULTIMOS_ANDAMENTOS),
+  });
+
   const pendencias = useQuery({ queryKey: ["pendencias"], queryFn: listarPendencias });
 
   const [advogado, setAdvogado] = useState("todos");
@@ -228,6 +240,7 @@ function RelatorioPage() {
     const todosItens = [
       ...(novidades.data ?? []),
       ...(semana.data ?? []),
+      ...(ultimos.data ?? []),
       ...(pendencias.data ?? []),
     ];
     const valores = [
@@ -240,7 +253,7 @@ function RelatorioPage() {
       temMeus: !!minhaSigla,
       outros: valores.filter((v) => !ehResponsavelDaSigla(v, minhaSigla)).sort(),
     };
-  }, [novidades.data, semana.data, pendencias.data, minhaSigla]);
+  }, [novidades.data, semana.data, ultimos.data, pendencias.data, minhaSigla]);
 
   const filtrarPorAdvogado = (itens: MovimentacaoComProcesso[]) =>
     advogado === "todos"
@@ -253,14 +266,17 @@ function RelatorioPage() {
 
   const novidadesFiltradas = filtrarPorAdvogado(novidades.data ?? []);
   const semanaFiltrada = filtrarPorAdvogado(semana.data ?? []);
+  const ultimosFiltrados = filtrarPorAdvogado(ultimos.data ?? []);
   const pendenciasFiltradas = filtrarPorAdvogado(pendencias.data ?? []);
 
   const itensDaAba =
     aba === "semana"
       ? semanaFiltrada
-      : aba === "pendencias"
-        ? pendenciasFiltradas
-        : novidadesFiltradas;
+      : aba === "ultimos"
+        ? ultimosFiltrados
+        : aba === "pendencias"
+          ? pendenciasFiltradas
+          : novidadesFiltradas;
 
   const [emails, setEmails] = useState("");
 
@@ -356,6 +372,7 @@ function RelatorioPage() {
         <TabsList>
           <TabsTrigger value="novidades">Novidades ({novidadesFiltradas.length})</TabsTrigger>
           <TabsTrigger value="semana">Semana ({semanaFiltrada.length})</TabsTrigger>
+          <TabsTrigger value="ultimos">Últimos andamentos ({ultimosFiltrados.length})</TabsTrigger>
           <TabsTrigger value="pendencias">Prazos ({pendenciasFiltradas.length})</TabsTrigger>
         </TabsList>
 
@@ -364,6 +381,9 @@ function RelatorioPage() {
         </TabsContent>
         <TabsContent value="semana" className="mt-4">
           <Lista itens={semanaFiltrada} vazio="Nenhuma movimentação nos últimos 7 dias." />
+        </TabsContent>
+        <TabsContent value="ultimos" className="mt-4">
+          <Lista itens={ultimosFiltrados} vazio="Nenhum andamento registrado ainda." />
         </TabsContent>
         <TabsContent value="pendencias" className="mt-4">
           <Lista itens={pendenciasFiltradas} vazio="Nenhuma providência em aberto." destaque />

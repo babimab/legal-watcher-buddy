@@ -251,12 +251,14 @@ const CAMPOS_PROCESSO_RELATORIO =
 
 export async function listarMovimentacoesDesde(
   desde: string | null,
+  limite?: number,
 ): Promise<MovimentacaoComProcesso[]> {
   let query = supabase
     .from("movimentacoes")
     .select(`*, processos(${CAMPOS_PROCESSO_RELATORIO})`)
     .order("created_at", { ascending: false });
   if (desde) query = query.gt("created_at", desde);
+  if (limite) query = query.limit(limite);
   const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as unknown as MovimentacaoComProcesso[];
