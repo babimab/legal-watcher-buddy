@@ -12,30 +12,15 @@ export type LinkTribunal = {
   generico: boolean;
 };
 
-const UF_ESAJ = ["SP", "SC", "AC", "AL", "AM", "BA", "CE", "MS", "MT", "PE", "RN", "SE"];
-const UF_PJE_TJ = [
-  "AP",
-  "BA",
-  "CE",
-  "DF",
-  "ES",
-  "GO",
-  "MA",
-  "MG",
-  "PA",
-  "PB",
-  "PE",
-  "PI",
-  "RJ",
-  "RN",
-  "RO",
-  "RR",
-  "TO",
-  "MT",
-  "MS",
-  "AL",
-  "SE",
-];
+// Cada estado usa um sistema diferente (e às vezes mais de um), e sem
+// testar ao vivo não dá pra confiar em "adivinhar" o sistema pela UF —
+// isso já gerou um link errado pro TJRJ. Por isso só assumimos um
+// sistema estadual por UF quando é algo bem conhecido/documentado; nos
+// outros casos caímos na busca genérica, a não ser que o processo tenha
+// o campo "sistema" preenchido de verdade (dado real, não achismo).
+const UF_ESAJ_CONHECIDO = ["SP"];
+const UF_PROJUDI_CONHECIDO = ["PR"];
+const UF_EPROC_CONHECIDO = ["RS", "SC"];
 
 function digitos(cnj: string) {
   return cnj.replace(/\D/g, "");
@@ -101,7 +86,7 @@ export function linkTribunal(
   }
 
   // Sistemas estaduais
-  if (/esaj|saj/.test(sistema) || (!sistema && UF_ESAJ.includes(uf))) {
+  if (/esaj|saj/.test(sistema) || (!sistema && UF_ESAJ_CONHECIDO.includes(uf))) {
     if (uf) {
       const base = `https://esaj.tj${uf.toLowerCase()}.jus.br/cpopg`;
       // Com o CNJ dá pra ir direto pro resultado da busca, em vez de cair
@@ -129,7 +114,7 @@ export function linkTribunal(
     }
   }
 
-  if (/projudi/.test(sistema)) {
+  if (/projudi/.test(sistema) || (!sistema && UF_PROJUDI_CONHECIDO.includes(uf))) {
     if (uf === "PR")
       return {
         url: "https://projudi.tjpr.jus.br/projudi/",
@@ -144,7 +129,7 @@ export function linkTribunal(
       };
   }
 
-  if (/eproc/.test(sistema)) {
+  if (/eproc/.test(sistema) || (!sistema && UF_EPROC_CONHECIDO.includes(uf))) {
     if (uf === "RS")
       return {
         url: "https://eproc1g.tjrs.jus.br/eproc/",
@@ -165,13 +150,15 @@ export function linkTribunal(
       };
   }
 
-  if (/pje/.test(sistema) || (!sistema && uf && UF_PJE_TJ.includes(uf))) {
-    if (uf)
-      return {
-        url: `https://pje.tj${uf.toLowerCase()}.jus.br/pje/ConsultaPublica/listView.seam`,
-        rotulo: `Abrir o PJe do TJ${uf}`,
-        generico: false,
-      };
+  // PJe estadual: só quando o dado real de "sistema" confirma — sem isso,
+  // a maioria dos estados (inclusive RJ) cai na busca genérica, porque a
+  // gente não tinha como confirmar o padrão certo pra cada um.
+  if (/pje/.test(sistema) && uf) {
+    return {
+      url: `https://pje.tj${uf.toLowerCase()}.jus.br/pje/ConsultaPublica/listView.seam`,
+      rotulo: `Abrir o PJe do TJ${uf}`,
+      generico: false,
+    };
   }
 
   return generico();
