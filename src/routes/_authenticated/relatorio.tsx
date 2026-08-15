@@ -194,12 +194,14 @@ function montarMailtoEncerramento(destinatarios: string[], processos: Processo[]
   const blocos = processos.map((p, i) => {
     const numero = formatarCNJ(p.numero_cnj);
     const cliente = exibir(p.cliente) ?? "";
+    const numeroCliente = p.numero_cliente ? ` (nº ${p.numero_cliente})` : "";
+    const caso = p.numero_interno ? `\n   Caso: ${p.numero_interno}` : "";
     const valor =
       p.valor_encerramento != null
         ? p.valor_encerramento.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
         : "sem valor informado";
     const observacao = p.observacao_encerramento ? `\n   Obs.: ${p.observacao_encerramento}` : "";
-    return `${i + 1}. ${numero} — ${cliente}\n   Valor: ${valor}${observacao}`;
+    return `${i + 1}. ${numero} — ${cliente}${numeroCliente}${caso}\n   Valor: ${valor}${observacao}`;
   });
 
   const corpo = `Olá, ${saudacao()}.
