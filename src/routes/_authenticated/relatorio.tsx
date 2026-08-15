@@ -28,6 +28,8 @@ import {
   useSiglaAtual,
   OUTROS_ADVOGADOS_CONHECIDOS,
   exibir,
+  categoriaCliente,
+  CATEGORIAS_CLIENTE,
   type MovimentacaoComProcesso,
   type Processo,
 } from "@/lib/processos";
@@ -39,12 +41,14 @@ import {
   exportarProcessosExcel,
 } from "@/lib/excel";
 
-type RelatorioSearch = { aba?: string; advogado?: string };
+type RelatorioSearch = { aba?: string; advogado?: string; cliente?: string; urgencia?: string };
 
 export const Route = createFileRoute("/_authenticated/relatorio")({
   validateSearch: (search: Record<string, unknown>): RelatorioSearch => ({
     ...(typeof search["aba"] === "string" ? { aba: search["aba"] } : {}),
     ...(typeof search["advogado"] === "string" ? { advogado: search["advogado"] } : {}),
+    ...(typeof search["cliente"] === "string" ? { cliente: search["cliente"] } : {}),
+    ...(typeof search["urgencia"] === "string" ? { urgencia: search["urgencia"] } : {}),
   }),
   head: () => ({
     meta: [
@@ -225,6 +229,8 @@ function RelatorioPage() {
   const encerramento = (processos.data ?? []).filter((p) => p.fase === "Encerramento");
 
   const [advogado, setAdvogado] = useState(search.advogado ?? "todos");
+  const [cliente, setCliente] = useState(search.cliente ?? "todos");
+  const [urgencia, setUrgencia] = useState(search.urgencia ?? "todos");
   const minhaSigla = useSiglaAtual();
 
   // O componente não remonta ao trocar de aba/filtro via link (ex.: atalho
@@ -232,7 +238,9 @@ function RelatorioPage() {
   useEffect(() => {
     setAba(search.aba ?? "novidades");
     setAdvogado(search.advogado ?? "todos");
-  }, [search.aba, search.advogado]);
+    setCliente(search.cliente ?? "todos");
+    setUrgencia(search.urgencia ?? "todos");
+  }, [search.aba, search.advogado, search.cliente, search.urgencia]);
 
   const advogados = useMemo(() => {
     const todosItens = [
@@ -267,7 +275,20 @@ function RelatorioPage() {
   const semanaFiltrada = filtrarPorAdvogado(semana.data ?? []);
   const mesFiltrado = filtrarPorAdvogado(mes.data ?? []);
   const ultimosFiltrados = filtrarPorAdvogado(ultimos.data ?? []);
-  const pendenciasFiltradas = filtrarPorAdvogado(pendencias.data ?? []);
+
+  const hojeISO = new Date().toISOString().slice(0, 10);
+  const emSeteDias = new Date();
+  emSeteDias.setDate(emSeteDias.getDate() + 7);
+  const emSeteDiasISO = emSeteDias.toISOString().slice(0, 10);
+
+  const pendenciasFiltradas = filtrarPorAdvogado(pendencias.data ?? [])
+    .filter((m) => cliente === "todos" || categoriaCliente(m.processos?.cliente) === cliente)
+    .filter((m) => {
+      if (urgencia === "todos") return true;
+      if (!m.prazo) return false;
+      if (urgencia === "vencidos") return m.prazo < hojeISO;
+      return m.prazo >= hojeISO && m.prazo <= emSeteDiasISO;
+    });
 
   const encerramentoFiltrado =
     advogado === "todos"
@@ -359,6 +380,33 @@ function RelatorioPage() {
                 ))}
               </SelectContent>
             </Select>
+          ) : null}
+          {aba === "pendencias" ? (
+            <>
+              <Select value={cliente} onValueChange={setCliente}>
+                <SelectTrigger className="w-44">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os clientes</SelectItem>
+                  {CATEGORIAS_CLIENTE.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={urgencia} onValueChange={setUrgencia}>
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os prazos</SelectItem>
+                  <SelectItem value="7dias">Vencendo em 7 dias</SelectItem>
+                  <SelectItem value="vencidos">Vencidos</SelectItem>
+                </SelectContent>
+              </Select>
+            </>
           ) : null}
           <Button
             variant="outline"
