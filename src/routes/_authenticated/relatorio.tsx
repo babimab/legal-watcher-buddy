@@ -67,6 +67,9 @@ async function exportarAndamentosExcel(itens: MovimentacaoComProcesso[], nomeArq
     { header: "Autor", key: "autor", width: 26 },
     { header: "Réu", key: "reu", width: 26 },
     { header: "Parte contrária", key: "parte_contraria", width: 26 },
+    { header: "Comarca", key: "comarca", width: 22 },
+    { header: "Juízo", key: "vara", width: 26 },
+    { header: "Estado do processo", key: "status", width: 16 },
     { header: "Responsável", key: "responsavel", width: 14 },
     { header: "Sócio", key: "socio", width: 10 },
     { header: "Tipo", key: "tipo", width: 14 },
@@ -82,6 +85,9 @@ async function exportarAndamentosExcel(itens: MovimentacaoComProcesso[], nomeArq
       autor: m.processos?.autor ?? "",
       reu: m.processos?.reu ?? "",
       parte_contraria: m.processos?.parte_contraria ?? "",
+      comarca: m.processos?.comarca ?? "",
+      vara: m.processos?.vara ?? "",
+      status: m.processos?.status ?? "",
       responsavel: m.processos?.responsavel ?? "",
       socio: m.processos?.socio ?? "",
       tipo: m.tipo ?? "",
@@ -113,7 +119,10 @@ async function exportarAndamentosExcel(itens: MovimentacaoComProcesso[], nomeArq
     });
   });
 
-  planilha.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 11 } };
+  planilha.autoFilter = {
+    from: { row: 1, column: 1 },
+    to: { row: 1, column: planilha.columns.length },
+  };
   planilha.views = [{ state: "frozen", ySplit: 1 }];
 
   const buffer = await workbook.xlsx.writeBuffer();

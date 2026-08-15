@@ -240,11 +240,14 @@ export type MovimentacaoComProcesso = Movimentacao & {
     | "parte_contraria"
     | "responsavel"
     | "socio"
+    | "vara"
+    | "comarca"
+    | "status"
   > | null;
 };
 
 const CAMPOS_PROCESSO_RELATORIO =
-  "id, numero_cnj, cliente, tribunal, autor, reu, parte_contraria, responsavel, socio";
+  "id, numero_cnj, cliente, tribunal, autor, reu, parte_contraria, responsavel, socio, vara, comarca, status";
 
 export async function listarMovimentacoesDesde(
   desde: string | null,
