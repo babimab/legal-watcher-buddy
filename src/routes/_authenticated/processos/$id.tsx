@@ -22,6 +22,8 @@ import {
 import { linkTribunal } from "@/lib/tribunais";
 import { AcessosProcesso } from "@/components/AcessosProcesso";
 import { DocumentosProcesso } from "@/components/DocumentosProcesso";
+import { RelacionadosProcesso } from "@/components/RelacionadosProcesso";
+import { HistoricoProcesso } from "@/components/HistoricoProcesso";
 import { ExcluirProcessoDialog } from "@/components/ExcluirProcessoDialog";
 import { VincularDesdobramentoDialog } from "@/components/VincularDesdobramentoDialog";
 
@@ -200,6 +202,8 @@ function ProcessoDetalhe() {
 
       <DocumentosProcesso processoId={p.id} />
 
+      <RelacionadosProcesso processoId={p.id} />
+
       <div>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-serif text-xl font-semibold">Desdobramentos</h2>
@@ -329,6 +333,8 @@ function ProcessoDetalhe() {
           </ol>
         )}
       </div>
+
+      <HistoricoProcesso processoId={p.id} />
     </div>
   );
 }

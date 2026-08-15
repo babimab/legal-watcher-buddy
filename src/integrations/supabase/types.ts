@@ -298,6 +298,86 @@ export type Database = {
           },
         ];
       };
+      processos_historico: {
+        Row: {
+          alterado_em: string;
+          alterado_por: string | null;
+          campo: string;
+          id: string;
+          processo_id: string;
+          valor_antigo: string | null;
+          valor_novo: string | null;
+        };
+        Insert: {
+          alterado_em?: string;
+          alterado_por?: string | null;
+          campo: string;
+          id?: string;
+          processo_id: string;
+          valor_antigo?: string | null;
+          valor_novo?: string | null;
+        };
+        Update: {
+          alterado_em?: string;
+          alterado_por?: string | null;
+          campo?: string;
+          id?: string;
+          processo_id?: string;
+          valor_antigo?: string | null;
+          valor_novo?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "processos_historico_processo_id_fkey";
+            columns: ["processo_id"];
+            isOneToOne: false;
+            referencedRelation: "processos";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      processos_relacionados: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          observacao: string | null;
+          processo_id: string;
+          relacionado_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          observacao?: string | null;
+          processo_id: string;
+          relacionado_id: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          observacao?: string | null;
+          processo_id?: string;
+          relacionado_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "processos_relacionados_processo_id_fkey";
+            columns: ["processo_id"];
+            isOneToOne: false;
+            referencedRelation: "processos";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "processos_relacionados_relacionado_id_fkey";
+            columns: ["relacionado_id"];
+            isOneToOne: false;
+            referencedRelation: "processos";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       processos: {
         Row: {
           autor: string | null;
