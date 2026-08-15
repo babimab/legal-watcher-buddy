@@ -136,9 +136,6 @@ const TITULO_POR_ABA: Record<string, string> = {
 };
 
 const MAX_ITENS_NO_EMAIL = 30;
-const COL_PROCESSO = 27;
-const COL_CLIENTE = 22;
-const COL_DATA = 12;
 
 function saudacao() {
   const hora = new Date().getHours();
@@ -147,10 +144,18 @@ function saudacao() {
   return "boa noite";
 }
 
-function linhaTabela(processo: string, cliente: string, data: string, andamento: string) {
-  return (
-    processo.padEnd(COL_PROCESSO) + cliente.padEnd(COL_CLIENTE) + data.padEnd(COL_DATA) + andamento
-  );
+// Formato em blocos (não em colunas alinhadas com espaços): a maioria dos
+// clientes de e-mail exibe o corpo em fonte proporcional, então colunas
+// "alinhadas" com padEnd ficam tortas na prática — daí o "tosco".
+function blocoAndamento(
+  indice: number,
+  processo: string,
+  cliente: string,
+  data: string,
+  andamento: string,
+) {
+  const cabecalho = cliente ? `${processo} — ${cliente}` : processo;
+  return `${indice}. ${cabecalho} (${data})\n${andamento}`;
 }
 
 function montarMailto(destinatarios: string[], itens: MovimentacaoComProcesso[], titulo: string) {
@@ -158,26 +163,21 @@ function montarMailto(destinatarios: string[], itens: MovimentacaoComProcesso[],
   const cortado = itens.length > MAX_ITENS_NO_EMAIL;
   const visiveis = itens.slice(0, MAX_ITENS_NO_EMAIL);
 
-  const cabecalho = linhaTabela("Processo", "Cliente", "Data", "Andamento");
-  const separador = "-".repeat(COL_PROCESSO + COL_CLIENTE + COL_DATA + 20);
-  const linhas = visiveis.map((m) => {
+  const blocos = visiveis.map((m, i) => {
     const numero = m.processos ? formatarCNJ(m.processos.numero_cnj) : "—";
-    const cliente = (exibir(m.processos?.cliente) ?? "").slice(0, COL_CLIENTE - 2);
+    const cliente = exibir(m.processos?.cliente) ?? "";
     const data = new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR");
-    return linhaTabela(numero, cliente, data, m.descricao);
+    return blocoAndamento(i + 1, numero, cliente, data, m.descricao);
   });
   const linhaCortado = cortado
-    ? `\n... e mais ${itens.length - MAX_ITENS_NO_EMAIL} andamento(s). Veja a lista completa em "Exportar Excel".`
+    ? `\n\n... e mais ${itens.length - MAX_ITENS_NO_EMAIL} andamento(s). A lista completa está na planilha em anexo.`
     : "";
 
   const corpo = `Olá, ${saudacao()}.
 
-Seguem os andamentos novos — ${titulo}:
+Seguem os andamentos novos — ${titulo}. A planilha completa foi baixada agora e é só arrastar pra cá antes de enviar.
 
-${cabecalho}
-${separador}
-${linhas.join("\n")}
-${linhaCortado}
+${blocos.join("\n\n")}${linhaCortado}
 
 Abs.,`;
 
@@ -293,7 +293,7 @@ function RelatorioPage() {
 
   const [emails, setEmails] = useState("");
 
-  const abrirEmail = () => {
+  const abrirEmail = async () => {
     const destinatarios = emails
       .split(",")
       .map((e) => e.trim())
@@ -302,6 +302,15 @@ function RelatorioPage() {
       toast.error("Informe pelo menos um e-mail.");
       return;
     }
+
+    // Link mailto não consegue anexar arquivo sozinho — baixa a planilha
+    // junto e avisa pra arrastar ela pro e-mail que vai abrir.
+    await exportarAndamentosExcel(itensDaAba, NOME_ARQUIVO_POR_ABA[aba]!).catch(() => {
+      toast.error("Não consegui gerar a planilha, mas vou abrir o e-mail mesmo assim.");
+    });
+    toast.success("Planilha baixada — arraste o arquivo pro e-mail que vai abrir para anexar.", {
+      duration: 6000,
+    });
     window.location.href = montarMailto(destinatarios, itensDaAba, TITULO_POR_ABA[aba]!);
   };
 
@@ -404,7 +413,7 @@ function RelatorioPage() {
         <Button
           variant="outline"
           disabled={aba === "encerramento" || itensDaAba.length === 0}
-          onClick={abrirEmail}
+          onClick={() => void abrirEmail()}
         >
           <Mail className="size-4" /> Enviar por e-mail
         </Button>
