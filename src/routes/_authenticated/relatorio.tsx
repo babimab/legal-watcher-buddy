@@ -7,7 +7,9 @@ import ExcelJS from "exceljs";
 
 import { Button } from "@/components/ui/button";
 import { NovoPrazoDialog } from "@/components/NovoPrazoDialog";
+import { EncerramentoDialog } from "@/components/EncerramentoDialog";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -186,6 +188,31 @@ Abs.,`;
   return `mailto:${destinatarios.join(",")}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
 }
 
+function montarMailtoEncerramento(destinatarios: string[], processos: Processo[]) {
+  const assunto = "FaroLex — Processos prontos para encerrar";
+
+  const blocos = processos.map((p, i) => {
+    const numero = formatarCNJ(p.numero_cnj);
+    const cliente = exibir(p.cliente) ?? "";
+    const valor =
+      p.valor_encerramento != null
+        ? p.valor_encerramento.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+        : "sem valor informado";
+    const observacao = p.observacao_encerramento ? `\n   Obs.: ${p.observacao_encerramento}` : "";
+    return `${i + 1}. ${numero} — ${cliente}\n   Valor: ${valor}${observacao}`;
+  });
+
+  const corpo = `Olá, ${saudacao()}.
+
+Seguem os processos já revisados e prontos para encerramento:
+
+${blocos.join("\n\n")}
+
+Abs.,`;
+
+  return `mailto:${destinatarios.join(",")}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+}
+
 function RelatorioPage() {
   const search = Route.useSearch();
   const queryClient = useQueryClient();
@@ -228,6 +255,7 @@ function RelatorioPage() {
 
   const [advogado, setAdvogado] = useState(search.advogado ?? "todos");
   const [urgencia, setUrgencia] = useState(search.urgencia ?? "todos");
+  const [soProntos, setSoProntos] = useState(false);
   const minhaSigla = useSiglaAtual();
 
   // O componente não remonta ao trocar de aba/filtro via link (ex.: atalho
@@ -297,6 +325,9 @@ function RelatorioPage() {
             : p.responsavel === advogado,
         );
 
+  const encerramentoProntos = encerramentoFiltrado.filter((p) => p.pronto_para_encerrar);
+  const encerramentoExibido = soProntos ? encerramentoProntos : encerramentoFiltrado;
+
   const itensDaAba =
     aba === "semana"
       ? semanaFiltrada
@@ -319,6 +350,15 @@ function RelatorioPage() {
       .filter(Boolean);
     if (destinatarios.length === 0) {
       toast.error("Informe pelo menos um e-mail.");
+      return;
+    }
+
+    if (aba === "encerramento") {
+      if (encerramentoProntos.length === 0) {
+        toast.error("Nenhum processo marcado como pronto para encerrar ainda.");
+        return;
+      }
+      window.location.href = montarMailtoEncerramento(destinatarios, encerramentoProntos);
       return;
     }
 
@@ -394,14 +434,20 @@ function RelatorioPage() {
               </SelectContent>
             </Select>
           ) : null}
+          {aba === "encerramento" ? (
+            <label className="flex items-center gap-2 rounded-md border border-input px-3 text-sm">
+              <Checkbox checked={soProntos} onCheckedChange={(v) => setSoProntos(v === true)} />
+              Só os prontos para encerrar
+            </label>
+          ) : null}
           <Button
             variant="outline"
             disabled={
-              aba === "encerramento" ? encerramentoFiltrado.length === 0 : itensDaAba.length === 0
+              aba === "encerramento" ? encerramentoExibido.length === 0 : itensDaAba.length === 0
             }
             onClick={() => {
               if (aba === "encerramento") {
-                void exportarProcessosExcel(encerramentoFiltrado, "processos-encerramento").catch(
+                void exportarProcessosExcel(encerramentoExibido, "processos-encerramento").catch(
                   () => toast.error("Não consegui gerar o Excel."),
                 );
                 return;
@@ -529,10 +575,15 @@ function RelatorioPage() {
             />
             <Button
               variant="outline"
-              disabled={aba === "encerramento" || itensDaAba.length === 0}
+              disabled={
+                aba === "encerramento" ? encerramentoProntos.length === 0 : itensDaAba.length === 0
+              }
               onClick={() => void abrirEmail()}
             >
-              <Mail className="size-4" /> Enviar por e-mail
+              <Mail className="size-4" />
+              {aba === "encerramento"
+                ? `Mandar prontos pra Eliane (${encerramentoProntos.length})`
+                : "Enviar por e-mail"}
             </Button>
           </div>
 
@@ -545,7 +596,7 @@ function RelatorioPage() {
                 Últimos andamentos ({ultimosFiltrados.length})
               </TabsTrigger>
               <TabsTrigger value="encerramento">
-                Encerramento ({encerramentoFiltrado.length})
+                Encerramento ({encerramentoExibido.length})
               </TabsTrigger>
             </TabsList>
 
@@ -563,7 +614,7 @@ function RelatorioPage() {
             </TabsContent>
             <TabsContent value="encerramento" className="mt-4">
               <ListaProcessos
-                processos={encerramentoFiltrado}
+                processos={encerramentoExibido}
                 vazio="Nenhum processo em fase de Encerramento."
               />
             </TabsContent>
@@ -669,6 +720,9 @@ function ListaProcessos({ processos, vazio }: { processos: Processo[]; vazio: st
             ) : null}
             {p.responsavel ? <Badge variant="outline">{p.responsavel}</Badge> : null}
             {p.socio ? <Badge variant="outline">sócio {p.socio}</Badge> : null}
+            <span className="ml-auto">
+              <EncerramentoDialog processo={p} />
+            </span>
           </div>
         </li>
       ))}

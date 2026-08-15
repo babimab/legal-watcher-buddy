@@ -268,10 +268,12 @@ export type Database = {
           numero_cliente: string | null;
           numero_cnj: string;
           numero_interno: string | null;
+          observacao_encerramento: string | null;
           observacoes: string | null;
           parte_contraria: string | null;
           pasta_id: string | null;
           processo_pai_id: string | null;
+          pronto_para_encerrar: boolean;
           provedor_externo: string | null;
           responsavel: string | null;
           reu: string | null;
@@ -285,6 +287,7 @@ export type Database = {
           ultima_verificacao_em: string | null;
           updated_at: string;
           valor_causa: number | null;
+          valor_encerramento: number | null;
           vara: string | null;
         };
         Insert: {
@@ -306,10 +309,12 @@ export type Database = {
           numero_cliente?: string | null;
           numero_cnj: string;
           numero_interno?: string | null;
+          observacao_encerramento?: string | null;
           observacoes?: string | null;
           parte_contraria?: string | null;
           pasta_id?: string | null;
           processo_pai_id?: string | null;
+          pronto_para_encerrar?: boolean;
           provedor_externo?: string | null;
           responsavel?: string | null;
           reu?: string | null;
@@ -323,6 +328,7 @@ export type Database = {
           ultima_verificacao_em?: string | null;
           updated_at?: string;
           valor_causa?: number | null;
+          valor_encerramento?: number | null;
           vara?: string | null;
         };
         Update: {
@@ -344,10 +350,12 @@ export type Database = {
           numero_cliente?: string | null;
           numero_cnj?: string;
           numero_interno?: string | null;
+          observacao_encerramento?: string | null;
           observacoes?: string | null;
           parte_contraria?: string | null;
           pasta_id?: string | null;
           processo_pai_id?: string | null;
+          pronto_para_encerrar?: boolean;
           provedor_externo?: string | null;
           responsavel?: string | null;
           reu?: string | null;
@@ -361,6 +369,7 @@ export type Database = {
           ultima_verificacao_em?: string | null;
           updated_at?: string;
           valor_causa?: number | null;
+          valor_encerramento?: number | null;
           vara?: string | null;
         };
         Relationships: [

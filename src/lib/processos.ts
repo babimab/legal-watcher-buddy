@@ -30,6 +30,9 @@ export type Processo = {
   socio: string | null;
   coordenador: string | null;
   observacoes: string | null;
+  pronto_para_encerrar: boolean;
+  valor_encerramento: number | null;
+  observacao_encerramento: string | null;
   ultima_verificacao_em: string | null;
   fonte: string;
   monitorar: boolean;
