@@ -17,7 +17,12 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { formatarCNJ, OUTROS_ADVOGADOS_CONHECIDOS, SOCIOS_CONHECIDOS } from "@/lib/processos";
+import {
+  formatarCNJ,
+  identificarCliente,
+  OUTROS_ADVOGADOS_CONHECIDOS,
+  SOCIOS_CONHECIDOS,
+} from "@/lib/processos";
 import { listarGrupos, listarPastas } from "@/lib/grupos";
 
 export const Route = createFileRoute("/_authenticated/importar")({
@@ -271,8 +276,7 @@ function montar(
 
       const autor = texto(l.autor);
       const reu = texto(l.reu);
-      const nosso = [autor, reu].find((p) => p && /souza\s*cruz/i.test(p)) ?? autor ?? reu ?? "—";
-      const outra = nosso === autor ? reu : autor;
+      const { cliente, parteContraria } = identificarCliente(autor, reu);
 
       let p = mapa.get(chave);
       if (!p) {
@@ -280,8 +284,8 @@ function montar(
           numero_cnj: formatarCNJ(chave),
           numero_interno: texto(l.numero_interno),
           numero_antigo: texto(l.numero_antigo),
-          cliente: nosso,
-          parte_contraria: outra,
+          cliente,
+          parte_contraria: parteContraria,
           autor,
           reu,
           uf: texto(l.uf),
@@ -354,6 +358,17 @@ function ImportarPage() {
       if (campos.length > 0) pendentes.push({ aba: aba.nome, campos });
     }
     return pendentes;
+  }, [abas, mapas]);
+
+  const poucoMapeadas = useMemo(() => {
+    const nomes = new Set<string>();
+    for (const aba of abas) {
+      if (aba.colunas.length < 3) continue;
+      const mapaAba = mapas[aba.nome] ?? {};
+      const mapeadas = aba.colunas.filter((c) => mapaAba[c]).length;
+      if (mapeadas / aba.colunas.length < 0.4) nomes.add(aba.nome);
+    }
+    return nomes;
   }, [abas, mapas]);
 
   const ler = async (arquivo: File) => {
@@ -609,13 +624,20 @@ function ImportarPage() {
       </Card>
 
       {abas.map((aba) => (
-        <Card key={aba.nome}>
+        <Card key={aba.nome} className={poucoMapeadas.has(aba.nome) ? "border-amber-500/50" : ""}>
           <CardHeader>
             <CardTitle className="font-serif text-lg">Aba “{aba.nome}”</CardTitle>
             <CardDescription>
               {aba.linhas.length} linha(s) com conteúdo. Associe cada coluna da planilha ao campo do
               sistema.
             </CardDescription>
+            {poucoMapeadas.has(aba.nome) ? (
+              <p className="flex items-center gap-2 text-sm text-amber-600">
+                <AlertTriangle className="size-4" /> A maioria das colunas dessa aba não foi
+                reconhecida automaticamente — confira se a planilha tem uma estrutura diferente das
+                outras (ex.: tabelas lado a lado, cabeçalho fora do padrão).
+              </p>
+            ) : null}
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {aba.colunas.map((col) => (

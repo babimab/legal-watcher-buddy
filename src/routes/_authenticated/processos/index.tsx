@@ -139,7 +139,7 @@ function ProcessosPage() {
       const casaAdvogado =
         advogado === "todos" ||
         (advogado === "eu" ? ehMeuApelido(p.responsavel) : p.responsavel === advogado);
-      const casaSocio = socio === "todos" || p.socio === socio;
+      const casaSocio = socio === "todos" || (socio === "nenhum" ? !p.socio : p.socio === socio);
       const casaBusca =
         !termo ||
         [
@@ -179,7 +179,7 @@ function ProcessosPage() {
           </h1>
           <p className="text-muted-foreground">
             {somenteMeus
-              ? "Só os processos seus (BDR / Bárbara)."
+              ? `${lista.length} processo(s) seus (BDR / Bárbara).`
               : `Carteira compartilhada do escritório — ${data?.length ?? 0} cadastrados.`}
           </p>
         </div>
@@ -260,7 +260,7 @@ function ProcessosPage() {
             </SelectContent>
           </Select>
         ) : null}
-        {advogados.temMeus || advogados.outros.length > 0 ? (
+        {!somenteMeus && (advogados.temMeus || advogados.outros.length > 0) ? (
           <Select value={advogado} onValueChange={setAdvogado}>
             <SelectTrigger className="w-52">
               <SelectValue />
@@ -283,6 +283,7 @@ function ProcessosPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os sócios</SelectItem>
+              <SelectItem value="nenhum">Sem sócio definido</SelectItem>
               {socios.map((s) => (
                 <SelectItem key={s} value={s}>
                   {s}
@@ -357,6 +358,7 @@ function ProcessosPage() {
                 {p.tipo_desdobramento ? (
                   <Badge variant="secondary">{p.tipo_desdobramento}</Badge>
                 ) : null}
+                {p.socio ? <Badge variant="outline">sócio {p.socio}</Badge> : null}
                 {p.numero_interno ? (
                   <span className="text-xs text-muted-foreground">caso {p.numero_interno}</span>
                 ) : null}

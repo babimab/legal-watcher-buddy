@@ -98,6 +98,25 @@ export function ehMeuApelido(responsavel: string | null | undefined) {
 // de Advogado mesmo antes de eles terem processo cadastrado.
 export const OUTROS_ADVOGADOS_CONHECIDOS = ["BBS", "MLV", "JGV", "ELV"];
 
+// Clientes do escritório reconhecidos automaticamente na importação (autor
+// ou réu batendo com o padrão vira o "nosso lado" do processo, com o nome
+// já padronizado, independente de como veio escrito na planilha).
+const CLIENTES_CONHECIDOS: { padrao: RegExp; nome: string }[] = [
+  { padrao: /souza\s*cruz/i, nome: "Souza Cruz LTDA." },
+  { padrao: /astro/i, nome: "Astromaritima" },
+];
+
+export function identificarCliente(
+  autor: string | null,
+  reu: string | null,
+): { cliente: string; parteContraria: string | null } {
+  for (const { padrao, nome } of CLIENTES_CONHECIDOS) {
+    if (autor && padrao.test(autor)) return { cliente: nome, parteContraria: reu };
+    if (reu && padrao.test(reu)) return { cliente: nome, parteContraria: autor };
+  }
+  return { cliente: autor ?? reu ?? "—", parteContraria: autor ? reu : null };
+}
+
 // Sócios conhecidos, pra já aparecerem no filtro de Sócio mesmo antes de
 // ter processo com esse sócio cadastrado.
 export const SOCIOS_CONHECIDOS = ["ELV", "GFC"];
