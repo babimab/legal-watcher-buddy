@@ -47,7 +47,11 @@ function AppLayout() {
               label="Meus processos"
               search={{ advogado: "eu" }}
             />
-            <NavItem to="/processos" icon={<List className="size-4" />} label="Processos" />
+            <NavItem
+              to="/processos"
+              icon={<List className="size-4" />}
+              label="Todos os processos"
+            />
             <NavItem
               to="/relatorio"
               icon={<LineChart className="size-4" />}
