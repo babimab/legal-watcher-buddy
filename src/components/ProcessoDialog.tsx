@@ -27,6 +27,7 @@ import {
   STATUS_OPCOES,
   TIPOS_DESDOBRAMENTO,
   UF_OPCOES,
+  FASE_OPCOES,
   SOCIOS_CONHECIDOS,
   exibir,
   type Processo,
@@ -78,7 +79,10 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
         return v && v !== "nenhum" ? v : null;
       })(),
       classe: String(form.get("classe") ?? "").trim() || null,
-      fase: String(form.get("fase") ?? "").trim() || null,
+      fase: (() => {
+        const v = String(form.get("fase") ?? "").trim();
+        return v && v !== "nenhuma" ? v : null;
+      })(),
       responsavel: String(form.get("responsavel") ?? "").trim() || null,
       socio: String(form.get("socio") ?? "").trim() || null,
       status: String(form.get("status") ?? "ativo"),
@@ -189,7 +193,22 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
             </Select>
           </div>
           <Campo label="Classe / Assunto" name="classe" defaultValue={processo?.classe ?? ""} />
-          <Campo label="Fase" name="fase" defaultValue={processo?.fase ?? ""} />
+          <div className="space-y-2">
+            <Label>Fase</Label>
+            <Select name="fase" defaultValue={processo?.fase ?? "nenhuma"}>
+              <SelectTrigger>
+                <SelectValue placeholder="Fase" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nenhuma">Não informada</SelectItem>
+                {FASE_OPCOES.map((f) => (
+                  <SelectItem key={f} value={f}>
+                    {f}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <Campo
             label="Advogado responsável"
             name="responsavel"

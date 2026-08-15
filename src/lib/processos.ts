@@ -50,6 +50,8 @@ export type Movimentacao = {
 
 export const STATUS_OPCOES = ["ativo", "suspenso", "arquivado", "baixado", "encerrado"] as const;
 
+export const FASE_OPCOES = ["Instrutória", "Recursal", "Encerramento"] as const;
+
 export const UF_OPCOES = [
   "AC",
   "AL",
@@ -149,7 +151,7 @@ export function identificarCliente(
 
 // Sócios conhecidos, pra já aparecerem no filtro de Sócio mesmo antes de
 // ter processo com esse sócio cadastrado.
-export const SOCIOS_CONHECIDOS = ["ELV", "GFC"];
+export const SOCIOS_CONHECIDOS = ["ELV", "GFC", "NYM"];
 
 export const TIPOS_DESDOBRAMENTO = [
   "Recurso",

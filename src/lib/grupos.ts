@@ -101,6 +101,25 @@ export async function removerConviteGrupo(conviteId: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function listarMembrosPasta(pastaId: string): Promise<MembroGrupo[]> {
+  const { data, error } = await supabase.rpc("listar_membros_pasta", { _pasta_id: pastaId });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function adicionarMembroPasta(pastaId: string, email: string): Promise<void> {
+  const { error } = await supabase.rpc("adicionar_membro_pasta", {
+    _pasta_id: pastaId,
+    _email: email,
+  });
+  if (error) throw error;
+}
+
+export async function removerMembroPasta(membroId: string): Promise<void> {
+  const { error } = await supabase.from("pasta_membros").delete().eq("id", membroId);
+  if (error) throw error;
+}
+
 export async function moverProcessoParaPasta(
   processoId: string,
   pastaId: string | null,

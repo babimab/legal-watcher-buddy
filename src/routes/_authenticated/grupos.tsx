@@ -20,16 +20,27 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
   adicionarMembroGrupo,
+  adicionarMembroPasta,
   criarGrupo,
   criarPasta,
   listarConvitesGrupo,
   listarGrupos,
   listarMembrosGrupo,
+  listarMembrosPasta,
   listarPastas,
   removerConviteGrupo,
   removerGrupo,
   removerMembroGrupo,
+  removerMembroPasta,
   removerPasta,
   type Grupo,
   type Pasta,
@@ -266,6 +277,7 @@ function GrupoCard({ grupo, pastas }: { grupo: Grupo; pastas: Pasta[] }) {
                       {exibir(p.nome)}
                     </Badge>
                   </Link>
+                  <PastaMembrosDialog pasta={p} />
                   <button
                     type="button"
                     aria-label={`Excluir pasta ${p.nome}`}
@@ -389,5 +401,105 @@ function GrupoCard({ grupo, pastas }: { grupo: Grupo; pastas: Pasta[] }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function PastaMembrosDialog({ pasta }: { pasta: Pasta }) {
+  const queryClient = useQueryClient();
+  const [aberto, setAberto] = useState(false);
+  const [email, setEmail] = useState("");
+
+  const membros = useQuery({
+    queryKey: ["membros-pasta", pasta.id],
+    queryFn: () => listarMembrosPasta(pasta.id),
+    enabled: aberto,
+    retry: false,
+  });
+
+  const adicionarMembro = useMutation({
+    mutationFn: (valor: string) => adicionarMembroPasta(pasta.id, valor),
+    onSuccess: async () => {
+      setEmail("");
+      toast.success("Acesso à pasta liberado.");
+      await queryClient.invalidateQueries({ queryKey: ["membros-pasta", pasta.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const removerMembro = useMutation({
+    mutationFn: (membroId: string) => removerMembroPasta(membroId),
+    onSuccess: async () => {
+      toast.success("Acesso removido.");
+      await queryClient.invalidateQueries({ queryKey: ["membros-pasta", pasta.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog open={aberto} onOpenChange={setAberto}>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Gerenciar acesso à pasta ${pasta.nome}`}
+          className="text-muted-foreground hover:text-primary"
+        >
+          <Users className="size-3" />
+        </button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="font-serif">Acesso à pasta "{exibir(pasta.nome)}"</DialogTitle>
+          <DialogDescription>
+            Libere o acesso só aos processos desta pasta, sem dar acesso às outras pastas do grupo.
+            A pessoa já precisa ter conta no sistema (não gera convite pendente).
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          className="flex flex-wrap gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!email.trim()) return;
+            adicionarMembro.mutate(email.trim());
+          }}
+        >
+          <Input
+            type="email"
+            placeholder="e-mail@bcw.com.br"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="max-w-xs"
+          />
+          <Button type="submit" size="sm" disabled={adicionarMembro.isPending}>
+            <UserPlus className="size-4" /> Liberar acesso
+          </Button>
+        </form>
+        {membros.isLoading ? (
+          <p className="text-sm text-muted-foreground">Carregando...</p>
+        ) : (membros.data ?? []).length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Ninguém tem acesso liberado só a esta pasta.
+          </p>
+        ) : (
+          <ul className="divide-y divide-border rounded-lg border border-border">
+            {(membros.data ?? []).map((m) => (
+              <li key={m.membro_id} className="flex items-center justify-between gap-3 px-3 py-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{m.nome ?? m.email ?? "Usuário"}</p>
+                  <p className="truncate text-xs text-muted-foreground">{m.email}</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Remover acesso"
+                  onClick={() => removerMembro.mutate(m.membro_id)}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

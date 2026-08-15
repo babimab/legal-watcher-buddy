@@ -67,6 +67,38 @@ export type Database = {
           },
         ]
       }
+      pasta_membros: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          pasta_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          pasta_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          pasta_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pasta_membros_pasta_id_fkey"
+            columns: ["pasta_id"]
+            isOneToOne: false
+            referencedRelation: "pastas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       grupo_membros: {
         Row: {
           created_at: string
@@ -432,6 +464,10 @@ export type Database = {
         Args: { _email: string; _grupo_id: string }
         Returns: { id: string; pendente: boolean }[]
       }
+      adicionar_membro_pasta: {
+        Args: { _email: string; _pasta_id: string }
+        Returns: string
+      }
       compartilhar_processo: {
         Args: { _email: string; _processo_id: string }
         Returns: string
@@ -441,6 +477,7 @@ export type Database = {
         Returns: undefined
       }
       e_dono_grupo: { Args: { _grupo_id: string }; Returns: boolean }
+      e_dono_pasta: { Args: { _pasta_id: string }; Returns: boolean }
       e_dono_processo: { Args: { _processo_id: string }; Returns: boolean }
       has_role: {
         Args: {
@@ -465,6 +502,16 @@ export type Database = {
       }
       listar_membros_grupo: {
         Args: { _grupo_id: string }
+        Returns: {
+          created_at: string
+          email: string
+          membro_id: string
+          nome: string
+          user_id: string
+        }[]
+      }
+      listar_membros_pasta: {
+        Args: { _pasta_id: string }
         Returns: {
           created_at: string
           email: string
