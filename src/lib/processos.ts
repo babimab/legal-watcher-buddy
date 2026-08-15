@@ -53,8 +53,24 @@ export type Movimentacao = {
   observacao: string | null;
   fonte: string;
   validado: boolean;
+  validado_por: string | null;
+  validado_em: string | null;
   created_at: string;
 };
+
+// Sigla ou e-mail de quem está logado agora, pra registrar em
+// "validado_por" no momento da validação (não precisa de FK pra
+// auth.users porque cada um só escreve seu próprio identificador).
+export async function siglaOuEmailAtual(): Promise<string | null> {
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) return null;
+  const { data: perfil } = await supabase
+    .from("profiles")
+    .select("sigla")
+    .eq("id", data.user.id)
+    .maybeSingle();
+  return perfil?.sigla || data.user.email || null;
+}
 
 export const STATUS_OPCOES = ["ativo", "suspenso", "arquivado", "baixado", "encerrado"] as const;
 
@@ -349,6 +365,16 @@ export async function listarPendencias(): Promise<MovimentacaoComProcesso[]> {
     .eq("exige_acao", true)
     .eq("concluida", false)
     .order("prazo", { ascending: true, nullsFirst: false });
+  if (error) throw error;
+  return (data ?? []) as unknown as MovimentacaoComProcesso[];
+}
+
+export async function listarNaoValidados(): Promise<MovimentacaoComProcesso[]> {
+  const { data, error } = await supabase
+    .from("movimentacoes")
+    .select(`*, processos(${CAMPOS_PROCESSO_RELATORIO})`)
+    .eq("validado", false)
+    .order("data_movimentacao", { ascending: false });
   if (error) throw error;
   return (data ?? []) as unknown as MovimentacaoComProcesso[];
 }

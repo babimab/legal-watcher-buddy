@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, Download, Mail, Play } from "lucide-react";
+import { AlertTriangle, CalendarPlus, CheckCircle2, Download, Mail, Play } from "lucide-react";
 import ExcelJS from "exceljs";
 
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ import {
   ultimaVerificacao,
   ehResponsavelDaSigla,
   useSiglaAtual,
+  siglaOuEmailAtual,
   OUTROS_ADVOGADOS_CONHECIDOS,
   exibir,
   type MovimentacaoComProcesso,
@@ -213,6 +214,52 @@ ${blocos.join("\n\n")}
 Abs.,`;
 
   return `mailto:${destinatarios.join(",")}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+}
+
+// Escapa vírgula, ponto e vírgula, barra invertida e quebra de linha
+// conforme o RFC 5545 — sem isso o Outlook lê o campo cortado no meio.
+function escaparIcs(texto: string) {
+  return texto
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\n/g, "\\n");
+}
+
+// .ics é o formato aberto de convite de calendário — funciona igual no
+// Outlook, Google Calendar e Apple Calendar, sem precisar de conta ou
+// integração com nenhum deles.
+function baixarPrazoIcs(m: MovimentacaoComProcesso) {
+  if (!m.prazo) return;
+  const dataEvento = m.prazo.replace(/-/g, "");
+  const agora = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  const numero = m.processos ? formatarCNJ(m.processos.numero_cnj) : "";
+  const cliente = exibir(m.processos?.cliente) ?? "";
+  const titulo = [numero, cliente].filter(Boolean).join(" — ") || "Prazo FaroLex";
+
+  const ics = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//FaroLex//Prazo//PT",
+    "CALSCALE:GREGORIAN",
+    "BEGIN:VEVENT",
+    `UID:${m.id}@farolex`,
+    `DTSTAMP:${agora}`,
+    `DTSTART;VALUE=DATE:${dataEvento}`,
+    `DTEND;VALUE=DATE:${dataEvento}`,
+    `SUMMARY:${escaparIcs(titulo)}`,
+    `DESCRIPTION:${escaparIcs(m.descricao)}`,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n");
+
+  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `prazo-${dataEvento}.ics`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function RelatorioPage() {
@@ -673,7 +720,11 @@ function Lista({
   const queryClient = useQueryClient();
 
   const validar = async (id: string) => {
-    const { error } = await supabase.from("movimentacoes").update({ validado: true }).eq("id", id);
+    const quem = await siglaOuEmailAtual();
+    const { error } = await supabase
+      .from("movimentacoes")
+      .update({ validado: true, validado_por: quem, validado_em: new Date().toISOString() })
+      .eq("id", id);
     if (error) {
       toast.error(error.message);
       return;
@@ -717,10 +768,20 @@ function Lista({
             {m.tipo ? <Badge variant="outline">{m.tipo}</Badge> : null}
             {!m.validado ? <Badge variant="secondary">Sugerido — não validado</Badge> : null}
             {destaque && m.prazo ? (
-              <Badge variant="destructive">
-                <AlertTriangle className="size-3" />
-                Prazo {new Date(`${m.prazo}T12:00:00`).toLocaleDateString("pt-BR")}
-              </Badge>
+              <>
+                <Badge variant="destructive">
+                  <AlertTriangle className="size-3" />
+                  Prazo {new Date(`${m.prazo}T12:00:00`).toLocaleDateString("pt-BR")}
+                </Badge>
+                <button
+                  type="button"
+                  title="Exportar prazo para o calendário (Outlook, Google, Apple)"
+                  className="inline-flex items-center gap-1 text-xs text-primary underline-offset-4 hover:underline"
+                  onClick={() => baixarPrazoIcs(m)}
+                >
+                  <CalendarPlus className="size-3.5" /> Exportar
+                </button>
+              </>
             ) : null}
           </div>
           <p className="mt-2 whitespace-pre-wrap text-sm">{m.descricao}</p>
@@ -732,6 +793,11 @@ function Lista({
               <Button type="button" size="sm" variant="outline" onClick={() => validar(m.id)}>
                 <CheckCircle2 className="size-3.5" /> Marcar como validado
               </Button>
+            ) : m.validado_por ? (
+              <p className="text-xs text-muted-foreground">
+                Validado por {m.validado_por}
+                {m.validado_em ? ` em ${new Date(m.validado_em).toLocaleDateString("pt-BR")}` : ""}
+              </p>
             ) : null}
           </div>
         </li>

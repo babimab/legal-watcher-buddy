@@ -157,6 +157,47 @@ export type Database = {
           },
         ];
       };
+      documentos: {
+        Row: {
+          caminho: string;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          nome_arquivo: string;
+          processo_id: string;
+          tamanho: number | null;
+          tipo: string | null;
+        };
+        Insert: {
+          caminho: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          nome_arquivo: string;
+          processo_id: string;
+          tamanho?: number | null;
+          tipo?: string | null;
+        };
+        Update: {
+          caminho?: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          nome_arquivo?: string;
+          processo_id?: string;
+          tamanho?: number | null;
+          tipo?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "documentos_processo_id_fkey";
+            columns: ["processo_id"];
+            isOneToOne: false;
+            referencedRelation: "processos";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       movimentacoes: {
         Row: {
           concluida: boolean;
@@ -174,6 +215,8 @@ export type Database = {
           tipo: string | null;
           updated_at: string;
           validado: boolean;
+          validado_em: string | null;
+          validado_por: string | null;
         };
         Insert: {
           concluida?: boolean;
@@ -191,6 +234,8 @@ export type Database = {
           tipo?: string | null;
           updated_at?: string;
           validado?: boolean;
+          validado_em?: string | null;
+          validado_por?: string | null;
         };
         Update: {
           concluida?: boolean;
@@ -208,6 +253,8 @@ export type Database = {
           tipo?: string | null;
           updated_at?: string;
           validado?: boolean;
+          validado_em?: string | null;
+          validado_por?: string | null;
         };
         Relationships: [
           {

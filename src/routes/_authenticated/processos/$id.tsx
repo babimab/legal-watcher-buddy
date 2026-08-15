@@ -17,9 +17,11 @@ import {
   formatarCNJ,
   exibir,
   variantCriticidade,
+  siglaOuEmailAtual,
 } from "@/lib/processos";
 import { linkTribunal } from "@/lib/tribunais";
 import { AcessosProcesso } from "@/components/AcessosProcesso";
+import { DocumentosProcesso } from "@/components/DocumentosProcesso";
 import { ExcluirProcessoDialog } from "@/components/ExcluirProcessoDialog";
 import { VincularDesdobramentoDialog } from "@/components/VincularDesdobramentoDialog";
 
@@ -72,9 +74,10 @@ function ProcessoDetalhe() {
   };
 
   const validarMovimentacao = async (movId: string) => {
+    const quem = await siglaOuEmailAtual();
     const { error } = await supabase
       .from("movimentacoes")
-      .update({ validado: true })
+      .update({ validado: true, validado_por: quem, validado_em: new Date().toISOString() })
       .eq("id", movId);
     if (error) {
       toast.error(error.message);
@@ -195,6 +198,8 @@ function ProcessoDetalhe() {
 
       <AcessosProcesso processoId={p.id} />
 
+      <DocumentosProcesso processoId={p.id} />
+
       <div>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-serif text-xl font-semibold">Desdobramentos</h2>
@@ -310,6 +315,13 @@ function ProcessoDetalhe() {
                     >
                       <CheckCircle2 className="size-3.5" /> Marcar como validado
                     </Button>
+                  ) : m.validado_por ? (
+                    <p className="text-xs text-muted-foreground">
+                      Validado por {m.validado_por}
+                      {m.validado_em
+                        ? ` em ${new Date(m.validado_em).toLocaleDateString("pt-BR")}`
+                        : ""}
+                    </p>
                   ) : null}
                 </div>
               </li>

@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   Archive,
   FolderKanban,
+  LayoutDashboard,
   List,
   LineChart,
   LogOut,
@@ -15,6 +16,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { BuscaGlobal } from "@/components/BuscaGlobal";
 import { supabase } from "@/integrations/supabase/client";
 import { listarPendencias, ehResponsavelDaSigla, useSiglaAtual } from "@/lib/processos";
 
@@ -59,6 +61,7 @@ function AppLayout() {
             <img src="/faro-logo-white.png" alt="FaroLex" className="h-7 w-auto" />
           </Link>
           <nav className="flex items-center gap-1 text-sm">
+            <NavItem to="/painel" icon={<LayoutDashboard className="size-4" />} label="Painel" />
             <NavItem
               to="/processos"
               icon={<FolderKanban className="size-4" />}
@@ -98,6 +101,7 @@ function AppLayout() {
             <NavItem to="/importar" icon={<Upload className="size-4" />} label="Importar" />
           </nav>
           <div className="ml-auto flex items-center gap-1">
+            <BuscaGlobal />
             <Link
               to="/perfil"
               aria-label="Meu perfil"

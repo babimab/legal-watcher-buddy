@@ -62,8 +62,8 @@ export function ExcluirProcessoDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Excluir este processo?</AlertDialogTitle>
           <AlertDialogDescription>
-            {cliente} — {formatarCNJ(numeroCnj)}. Todas as movimentações e os acessos
-            compartilhados deste processo também serão apagados. Esta ação não pode ser desfeita.
+            {cliente} — {formatarCNJ(numeroCnj)}. Todas as movimentações e os acessos compartilhados
+            deste processo também serão apagados. Esta ação não pode ser desfeita.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
