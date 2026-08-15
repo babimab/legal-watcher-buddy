@@ -507,20 +507,34 @@ function ProcessosPage() {
                 {categoria}
                 <Badge variant="secondary">{itens.length}</Badge>
               </summary>
-              <div className="mt-3 grid gap-3 pl-2">
+              <div className="mt-3 space-y-3 pl-2">
                 {itens.length === 0 ? (
                   <p className="px-2 text-sm text-muted-foreground">
                     Nenhum processo seu de {categoria} no momento.
                   </p>
-                ) : null}
-                {itens.map((p) => (
-                  <ProcessoCard
-                    key={p.id}
-                    p={p}
-                    pastaPorId={pastaPorId}
-                    ultimaMovimentacao={ultimasMovimentacoes.data?.get(p.id)}
-                  />
-                ))}
+                ) : (
+                  agruparPorCarteira(itens).map(([carteiraNome, subItens]) => (
+                    <details key={carteiraNome} className="group/carteira" open>
+                      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm font-medium transition-colors hover:border-primary">
+                        <span className="text-muted-foreground transition-transform group-open/carteira:rotate-90">
+                          ▸
+                        </span>
+                        {carteiraNome}
+                        <Badge variant="secondary">{subItens.length}</Badge>
+                      </summary>
+                      <div className="mt-2 grid gap-3 pl-4">
+                        {subItens.map((p) => (
+                          <ProcessoCard
+                            key={p.id}
+                            p={p}
+                            pastaPorId={pastaPorId}
+                            ultimaMovimentacao={ultimasMovimentacoes.data?.get(p.id)}
+                          />
+                        ))}
+                      </div>
+                    </details>
+                  ))
+                )}
               </div>
             </details>
           ))}
@@ -539,6 +553,23 @@ function ProcessosPage() {
       )}
     </div>
   );
+}
+
+// Subdivide os processos de um cliente por carteira (pra dentro de cada
+// pasta de cliente em "Meus processos"), com "Sem carteira" sempre por
+// último.
+function agruparPorCarteira(itens: Processo[]): [string, Processo[]][] {
+  const porCarteira = new Map<string, Processo[]>();
+  for (const p of itens) {
+    const chave = p.carteira ?? "Sem carteira";
+    if (!porCarteira.has(chave)) porCarteira.set(chave, []);
+    porCarteira.get(chave)!.push(p);
+  }
+  return [...porCarteira.entries()].sort(([a], [b]) => {
+    if (a === "Sem carteira") return 1;
+    if (b === "Sem carteira") return -1;
+    return a.localeCompare(b, "pt-BR");
+  });
 }
 
 function ProcessoCard({
