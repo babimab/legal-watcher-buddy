@@ -156,6 +156,7 @@ function ProcessoDetalhe() {
           <Dado rotulo="Classe / Assunto" valor={p.classe} />
           <Dado rotulo="Responsável" valor={p.responsavel} />
           <Dado rotulo="Sócio" valor={p.socio} />
+          <Dado rotulo="Coordenador" valor={p.coordenador} />
 
           <Dado
             rotulo="Valor da causa"

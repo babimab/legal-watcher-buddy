@@ -599,6 +599,7 @@ function ProcessoCard({
           <Badge variant="secondary">{exibir(p.tipo_desdobramento)}</Badge>
         ) : null}
         {p.socio ? <Badge variant="outline">sócio {p.socio}</Badge> : null}
+        {p.coordenador ? <Badge variant="outline">coord. {p.coordenador}</Badge> : null}
         {p.fase ? <Badge variant="outline">{p.fase}</Badge> : null}
         {p.criticidade ? (
           <Badge variant={variantCriticidade(p.criticidade)}>{p.criticidade}</Badge>

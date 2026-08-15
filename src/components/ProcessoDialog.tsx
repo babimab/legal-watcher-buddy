@@ -108,6 +108,7 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
       })(),
       responsavel: String(form.get("responsavel") ?? "").trim() || null,
       socio: String(form.get("socio") ?? "").trim() || null,
+      coordenador: String(form.get("coordenador") ?? "").trim() || null,
       carteira: String(form.get("carteira") ?? "").trim() || null,
       status: String(form.get("status") ?? "ativo"),
       valor_causa: valor ? Number(valor) : null,
@@ -272,6 +273,15 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
                 <option key={s} value={s} />
               ))}
             </datalist>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="coordenador">Coordenador</Label>
+            <Input
+              id="coordenador"
+              name="coordenador"
+              list="socios-sugeridos"
+              defaultValue={processo?.coordenador ?? iniciais?.coordenador ?? ""}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="carteira">Carteira</Label>

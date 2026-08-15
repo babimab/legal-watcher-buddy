@@ -28,6 +28,7 @@ export type Processo = {
   valor_causa: number | null;
   responsavel: string | null;
   socio: string | null;
+  coordenador: string | null;
   observacoes: string | null;
   ultima_verificacao_em: string | null;
   fonte: string;
