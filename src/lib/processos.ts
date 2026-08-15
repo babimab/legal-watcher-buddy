@@ -156,6 +156,9 @@ export function useSiglaAtual(): string | null {
 // de Advogado mesmo antes de eles terem processo cadastrado.
 export const OUTROS_ADVOGADOS_CONHECIDOS = ["BBS", "MLV", "JGV", "ELV"];
 
+// Siglas conhecidas pro campo Coordenador (sugestão no cadastro).
+export const COORDENADORES_CONHECIDOS = ["BDR", ...OUTROS_ADVOGADOS_CONHECIDOS];
+
 // Clientes do escritório reconhecidos automaticamente na importação (autor
 // ou réu batendo com o padrão vira o "nosso lado" do processo, com o nome
 // já padronizado, independente de como veio escrito na planilha).

@@ -30,6 +30,7 @@ import {
   FASE_OPCOES,
   CRITICIDADE_OPCOES,
   SOCIOS_CONHECIDOS,
+  COORDENADORES_CONHECIDOS,
   CARTEIRAS_CONHECIDAS,
   listarProcessos,
   exibir,
@@ -279,9 +280,14 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
             <Input
               id="coordenador"
               name="coordenador"
-              list="socios-sugeridos"
+              list="coordenadores-sugeridos"
               defaultValue={processo?.coordenador ?? iniciais?.coordenador ?? ""}
             />
+            <datalist id="coordenadores-sugeridos">
+              {COORDENADORES_CONHECIDOS.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
           </div>
           <div className="space-y-2">
             <Label htmlFor="carteira">Carteira</Label>
