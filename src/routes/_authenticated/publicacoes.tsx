@@ -11,6 +11,13 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import {
   categoriaCliente,
@@ -61,11 +68,12 @@ const SINONIMOS: Record<string, Campo> = {
   andamento: "andamento",
 };
 
-type LinhaLida = { numero: number; dados: Record<string, unknown> };
+type LinhaLida = { numero: number; origem: string; dados: Record<string, unknown> };
 
 type LinhaPublicacao = {
   idx: number;
   linha: number;
+  origem: string;
   cnjDigits: string;
   cnjTexto: string;
   clientePlanilha: string | null;
@@ -120,36 +128,44 @@ function dataISO(valor: unknown): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
 }
 
-// Só a aba "Localizada" interessa aqui — é a que já vem com o processo
-// identificado e o andamento pronto. As outras (Não Localizada, Termos,
-// Resumo etc.) ficam pro projeto de análise da Bárbara no Claude.
-function lerAbaLocalizada(buffer: ArrayBuffer): LinhaLida[] {
+// Lê a aba "Localizada" (já vem com o processo identificado pelo TI) e
+// também as duas abas "Não Localizada" — o TI não conseguiu casar essas
+// automaticamente no sistema deles, mas o número do processo (coluna
+// PROCESSO) ainda está lá, então a gente cruza do mesmo jeito com os
+// processos já cadastrados aqui. As demais abas (Termos, Resumo,
+// Duplicada etc.) ficam pro projeto de análise da Bárbara no Claude, que
+// faz a leitura jurídica de prazo e relevância.
+const ABAS_RECONHECIDAS: { rotulo: string; bate: (nomeNormalizado: string) => boolean }[] = [
+  { rotulo: "Localizada", bate: (n) => n === "localizada" },
+  { rotulo: "Não Localizada", bate: (n) => n.includes("localizada") && n.includes("nao") },
+];
+
+function lerPublicacoes(buffer: ArrayBuffer): LinhaLida[] {
   const wb = XLSX.read(buffer, { cellDates: true, cellFormula: false, cellHTML: false });
-  const nomeAba =
-    wb.SheetNames.find((n) => normalizar(n) === "localizada") ??
-    wb.SheetNames.find(
-      (n) => normalizar(n).includes("localizada") && !normalizar(n).includes("nao"),
-    );
-  if (!nomeAba) return [];
-  const sheet = wb.Sheets[nomeAba];
-  if (!sheet) return [];
-
-  const matriz = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, blankrows: false });
-  const idxCabecalho = matriz.findIndex(
-    (linha) => Array.isArray(linha) && linha.filter((c) => texto(c)).length >= 2,
-  );
-  if (idxCabecalho < 0) return [];
-  const cabecalho = (matriz[idxCabecalho] ?? []).map((c, i) => texto(c) ?? `Coluna ${i + 1}`);
-
   const linhas: LinhaLida[] = [];
-  for (let i = idxCabecalho + 1; i < matriz.length; i++) {
-    const bruta = matriz[i] ?? [];
-    if (!bruta.some((c) => texto(c) != null)) continue;
-    const dados: Record<string, unknown> = {};
-    cabecalho.forEach((col, j) => {
-      dados[col] = bruta[j] ?? null;
-    });
-    linhas.push({ numero: i + 1, dados });
+
+  for (const nomeAba of wb.SheetNames) {
+    const rotulo = ABAS_RECONHECIDAS.find((a) => a.bate(normalizar(nomeAba)))?.rotulo;
+    if (!rotulo) continue;
+    const sheet = wb.Sheets[nomeAba];
+    if (!sheet) continue;
+
+    const matriz = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, blankrows: false });
+    const idxCabecalho = matriz.findIndex(
+      (linha) => Array.isArray(linha) && linha.filter((c) => texto(c)).length >= 2,
+    );
+    if (idxCabecalho < 0) continue;
+    const cabecalho = (matriz[idxCabecalho] ?? []).map((c, i) => texto(c) ?? `Coluna ${i + 1}`);
+
+    for (let i = idxCabecalho + 1; i < matriz.length; i++) {
+      const bruta = matriz[i] ?? [];
+      if (!bruta.some((c) => texto(c) != null)) continue;
+      const dados: Record<string, unknown> = {};
+      cabecalho.forEach((col, j) => {
+        dados[col] = bruta[j] ?? null;
+      });
+      linhas.push({ numero: i + 1, origem: rotulo, dados });
+    }
   }
   return linhas;
 }
@@ -170,6 +186,7 @@ function montarLinhas(linhas: LinhaLida[]): LinhaPublicacao[] {
     resultado.push({
       idx: resultado.length,
       linha: linha.numero,
+      origem: linha.origem,
       cnjDigits,
       cnjTexto: formatarCNJ(cnjDigits),
       clientePlanilha: texto(l.cliente),
@@ -292,6 +309,7 @@ function PublicacoesPage() {
   );
 
   const [emails, setEmails] = useState("");
+  const [detalhe, setDetalhe] = useState<LinhaCasada | null>(null);
 
   const enviarEmailDoGrupo = () => {
     if (grupoAtivo === "todos") {
@@ -324,16 +342,18 @@ function PublicacoesPage() {
       return;
     }
     try {
-      const lidas = lerAbaLocalizada(await arquivo.arrayBuffer());
+      const lidas = lerPublicacoes(await arquivo.arrayBuffer());
       if (lidas.length === 0) {
-        toast.error('Não encontrei a aba "Localizada" com linhas de dados nesse arquivo.');
+        toast.error(
+          'Não encontrei as abas "Localizada" ou "Não Localizada" com linhas de dados nesse arquivo.',
+        );
         return;
       }
       const montadas = montarLinhas(lidas);
       setLinhas(montadas);
       setSelecionadas(new Set(montadas.map((l) => l.idx)));
       setGrupoAtivo("todos");
-      toast.success(`${montadas.length} publicação(ões) lida(s) da aba "Localizada".`);
+      toast.success(`${montadas.length} publicação(ões) lida(s) (Localizada + Não Localizada).`);
     } catch {
       toast.error("Não consegui ler o arquivo.");
     }
@@ -446,9 +466,9 @@ function PublicacoesPage() {
       <div>
         <h1 className="font-serif text-3xl font-semibold">Publicações</h1>
         <p className="text-muted-foreground">
-          Envie a planilha de publicações recebida do TI (aba "Localizada"). O sistema cruza o
-          número do processo com o que já está cadastrado aqui e já sugere o andamento — a
-          estagiária só confere e valida o último andamento de cada processo.
+          Envie a planilha de publicações recebida do TI (abas "Localizada" e "Não Localizada"). O
+          sistema cruza o número do processo com o que já está cadastrado aqui e já sugere o
+          andamento.
         </p>
       </div>
 
@@ -550,6 +570,7 @@ function PublicacoesPage() {
                     <th className="p-2 text-left">Processo</th>
                     <th className="p-2 text-left">Cliente</th>
                     <th className="p-2 text-left">Grupo</th>
+                    <th className="p-2 text-left">Origem</th>
                     <th className="p-2 text-left">Data publicação</th>
                     <th className="p-2 text-left">Andamento</th>
                   </tr>
@@ -557,8 +578,12 @@ function PublicacoesPage() {
                 <tbody>
                   {exibidas.map((l) => {
                     return (
-                      <tr key={`${l.cnjDigits}-${l.linha}`} className="border-t border-border">
-                        <td className="p-2">
+                      <tr
+                        key={`${l.cnjDigits}-${l.linha}`}
+                        className="cursor-pointer border-t border-border hover:bg-muted/50"
+                        onClick={() => setDetalhe(l)}
+                      >
+                        <td className="p-2" onClick={(e) => e.stopPropagation()}>
                           <Checkbox
                             checked={selecionadas.has(l.idx)}
                             onCheckedChange={() => alternarSelecao(l.idx)}
@@ -568,6 +593,11 @@ function PublicacoesPage() {
                         <td className="p-2">{exibir(l.processo.cliente)}</td>
                         <td className="p-2">
                           <Badge variant="outline">{l.grupo}</Badge>
+                        </td>
+                        <td className="p-2">
+                          <Badge variant={l.origem === "Localizada" ? "secondary" : "outline"}>
+                            {l.origem}
+                          </Badge>
                         </td>
                         <td className="p-2">
                           {l.dataPublicacao
@@ -597,6 +627,53 @@ function PublicacoesPage() {
           </CardContent>
         </Card>
       ) : null}
+
+      <Dialog open={!!detalhe} onOpenChange={(v) => !v && setDetalhe(null)}>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-serif">
+              {detalhe ? exibir(detalhe.processo.cliente) : ""}
+            </DialogTitle>
+            <DialogDescription className="font-mono text-xs">{detalhe?.cnjTexto}</DialogDescription>
+          </DialogHeader>
+          {detalhe ? (
+            <div className="space-y-3 text-sm">
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline">{detalhe.grupo}</Badge>
+                <Badge variant={detalhe.origem === "Localizada" ? "secondary" : "outline"}>
+                  {detalhe.origem}
+                </Badge>
+                {detalhe.dataPublicacao ? (
+                  <Badge variant="outline">
+                    {new Date(`${detalhe.dataPublicacao}T00:00:00`).toLocaleDateString("pt-BR")}
+                  </Badge>
+                ) : null}
+              </div>
+              {detalhe.autor || detalhe.reu ? (
+                <p className="text-muted-foreground">
+                  Partes: {[detalhe.autor, detalhe.reu].filter(Boolean).join(" x ")}
+                </p>
+              ) : null}
+              {detalhe.coord || detalhe.advg ? (
+                <p className="text-muted-foreground">
+                  {[
+                    detalhe.coord ? `Coord.: ${detalhe.coord}` : null,
+                    detalhe.advg ? `ADVG: ${detalhe.advg}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join("   ")}
+                </p>
+              ) : null}
+              <div>
+                <p className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">
+                  Teor da publicação
+                </p>
+                <p className="whitespace-pre-wrap">{detalhe.andamento ?? "—"}</p>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
