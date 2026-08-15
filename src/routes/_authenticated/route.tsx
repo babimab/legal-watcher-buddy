@@ -82,7 +82,7 @@ function AppLayout() {
         </div>
       </header>
       <div className="mx-auto flex max-w-7xl gap-6 px-4 py-8">
-        <aside className="hidden w-52 shrink-0 lg:block">
+        <aside className="hidden w-36 shrink-0 lg:block">
           <img
             src="/faro-advogada.jpg"
             alt="Faro Processual"
