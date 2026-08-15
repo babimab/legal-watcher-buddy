@@ -6,6 +6,7 @@ import { AlertTriangle, Download, Mail, Play } from "lucide-react";
 import ExcelJS from "exceljs";
 
 import { Button } from "@/components/ui/button";
+import { NovoPrazoDialog } from "@/components/NovoPrazoDialog";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -272,6 +273,9 @@ function RelatorioPage() {
   const ultimosFiltrados = filtrarPorAdvogado(ultimos.data ?? []);
 
   const hojeISO = new Date().toISOString().slice(0, 10);
+  const emUmDia = new Date();
+  emUmDia.setDate(emUmDia.getDate() + 1);
+  const emUmDiaISO = emUmDia.toISOString().slice(0, 10);
   const emSeteDias = new Date();
   emSeteDias.setDate(emSeteDias.getDate() + 7);
   const emSeteDiasISO = emSeteDias.toISOString().slice(0, 10);
@@ -280,6 +284,7 @@ function RelatorioPage() {
     if (urgencia === "todos") return true;
     if (!m.prazo) return false;
     if (urgencia === "vencidos") return m.prazo < hojeISO;
+    if (urgencia === "1dia") return m.prazo >= hojeISO && m.prazo <= emUmDiaISO;
     return m.prazo >= hojeISO && m.prazo <= emSeteDiasISO;
   });
 
@@ -350,7 +355,9 @@ function RelatorioPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl font-semibold">Relatórios</h1>
+          <h1 className="font-serif text-3xl font-semibold">
+            {aba === "pendencias" ? "Prazos" : "Relatórios"}
+          </h1>
           <p className="text-muted-foreground">
             {desde
               ? `Última verificação em ${new Date(desde).toLocaleString("pt-BR")}.`
@@ -381,6 +388,7 @@ function RelatorioPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos os prazos</SelectItem>
+                <SelectItem value="1dia">Vencendo em 1 dia</SelectItem>
                 <SelectItem value="7dias">Vencendo em 7 dias</SelectItem>
                 <SelectItem value="vencidos">Vencidos</SelectItem>
               </SelectContent>
@@ -424,6 +432,37 @@ function RelatorioPage() {
             >
               Ver relatório de andamentos
             </Link>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-muted-foreground">Novo prazo:</span>
+            <NovoPrazoDialog
+              tipo="Audiência"
+              processos={processos.data ?? []}
+              trigger={
+                <Button variant="outline" size="sm">
+                  Audiência
+                </Button>
+              }
+            />
+            <NovoPrazoDialog
+              tipo="Julgamento"
+              processos={processos.data ?? []}
+              trigger={
+                <Button variant="outline" size="sm">
+                  Julgamento
+                </Button>
+              }
+            />
+            <NovoPrazoDialog
+              tipo="Providência interna"
+              processos={processos.data ?? []}
+              trigger={
+                <Button variant="outline" size="sm">
+                  Providência interna
+                </Button>
+              }
+            />
           </div>
 
           <div className="flex flex-wrap items-center gap-2">

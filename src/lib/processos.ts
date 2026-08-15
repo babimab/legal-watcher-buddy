@@ -203,6 +203,8 @@ export const TIPOS_MOVIMENTACAO = [
   "Decisão",
   "Sentença",
   "Audiência",
+  "Julgamento",
+  "Providência interna",
   "Petição",
   "Intimação",
   "Publicação",
