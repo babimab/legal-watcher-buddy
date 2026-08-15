@@ -473,7 +473,7 @@ function RelatorioPage() {
           <TabsTrigger value="semana">Semana ({semanaFiltrada.length})</TabsTrigger>
           <TabsTrigger value="mes">Mês ({mesFiltrado.length})</TabsTrigger>
           <TabsTrigger value="ultimos">Últimos andamentos ({ultimosFiltrados.length})</TabsTrigger>
-          <TabsTrigger value="pendencias">Prazos ({pendenciasFiltradas.length})</TabsTrigger>
+          <TabsTrigger value="pendencias">Prazos</TabsTrigger>
           <TabsTrigger value="encerramento">
             Encerramento ({encerramentoFiltrado.length})
           </TabsTrigger>
