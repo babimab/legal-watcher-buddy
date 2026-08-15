@@ -29,8 +29,9 @@ import {
   OUTROS_ADVOGADOS_CONHECIDOS,
   SOCIOS_CONHECIDOS,
   exibir,
+  type Processo,
 } from "@/lib/processos";
-import { listarGrupos, listarPastas } from "@/lib/grupos";
+import { listarGrupos, listarPastas, type Pasta } from "@/lib/grupos";
 import { exportarProcessosExcel } from "@/lib/excel";
 
 type ProcessosSearch = {
@@ -234,6 +235,17 @@ function ProcessosPage() {
     socio,
     pastaPorId,
   ]);
+
+  // "Meus processos" sem filtro de cliente já ativo: agrupa em pastas por
+  // cliente (Astro, Souza Cruz, Merck, PRC, Outros), como ela pediu.
+  const gruposPorCliente = useMemo(() => {
+    if (!somenteMeus || cliente !== "todos") return null;
+    const porCategoria = new Map<string, typeof lista>(CATEGORIAS_CLIENTE.map((c) => [c, []]));
+    for (const p of lista) {
+      porCategoria.get(categoriaCliente(p.cliente))!.push(p);
+    }
+    return [...porCategoria.entries()].filter(([, itens]) => itens.length > 0);
+  }, [somenteMeus, cliente, lista]);
 
   return (
     <div className="space-y-6">
@@ -481,55 +493,97 @@ function ProcessosPage() {
             Nenhum processo encontrado. Cadastre o primeiro ou importe sua planilha.
           </CardContent>
         </Card>
+      ) : gruposPorCliente ? (
+        <div className="space-y-4">
+          {gruposPorCliente.map(([categoria, itens]) => (
+            <details key={categoria} className="group" open>
+              <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 font-serif text-lg font-semibold transition-colors hover:border-primary">
+                <span className="text-muted-foreground transition-transform group-open:rotate-90">
+                  ▸
+                </span>
+                {categoria}
+                <Badge variant="secondary">{itens.length}</Badge>
+              </summary>
+              <div className="mt-3 grid gap-3 pl-2">
+                {itens.map((p) => (
+                  <ProcessoCard
+                    key={p.id}
+                    p={p}
+                    pastaPorId={pastaPorId}
+                    ultimaMovimentacao={ultimasMovimentacoes.data?.get(p.id)}
+                  />
+                ))}
+              </div>
+            </details>
+          ))}
+        </div>
       ) : (
         <div className="grid gap-3">
           {lista.map((p) => (
-            <Link
+            <ProcessoCard
               key={p.id}
-              to="/processos/$id"
-              params={{ id: p.id }}
-              className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary"
-            >
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="font-mono text-sm">{formatarCNJ(p.numero_cnj)}</span>
-                <Badge variant={p.status === "ativo" ? "default" : "secondary"}>{p.status}</Badge>
-                {p.pasta_id && pastaPorId.get(p.pasta_id) ? (
-                  <Badge variant="outline">{exibir(pastaPorId.get(p.pasta_id)!.nome)}</Badge>
-                ) : p.carteira ? (
-                  <Badge variant="outline">{p.carteira}</Badge>
-                ) : null}
-                {p.tipo_desdobramento ? (
-                  <Badge variant="secondary">{exibir(p.tipo_desdobramento)}</Badge>
-                ) : null}
-                {p.socio ? <Badge variant="outline">sócio {p.socio}</Badge> : null}
-                {p.fase ? <Badge variant="outline">{p.fase}</Badge> : null}
-                {p.numero_interno ? (
-                  <span className="text-xs text-muted-foreground">caso {p.numero_interno}</span>
-                ) : null}
-                {p.monitorar ? <Badge variant="outline">monitorado</Badge> : null}
-              </div>
-              <p className="mt-1 font-serif text-lg">
-                {p.autor ?? exibir(p.cliente)}
-                {p.reu ? <span className="text-muted-foreground"> x {p.reu}</span> : null}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {[p.comarca, p.uf, p.vara, p.sistema].filter(Boolean).join(" · ")}
-              </p>
-              {ultimasMovimentacoes.data?.get(p.id) ? (
-                <p className="mt-2 line-clamp-1 text-sm">
-                  <span className="text-muted-foreground">
-                    {new Date(
-                      `${ultimasMovimentacoes.data.get(p.id)!.data_movimentacao}T12:00:00`,
-                    ).toLocaleDateString("pt-BR")}
-                    {" — "}
-                  </span>
-                  {ultimasMovimentacoes.data.get(p.id)!.descricao}
-                </p>
-              ) : null}
-            </Link>
+              p={p}
+              pastaPorId={pastaPorId}
+              ultimaMovimentacao={ultimasMovimentacoes.data?.get(p.id)}
+            />
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+function ProcessoCard({
+  p,
+  pastaPorId,
+  ultimaMovimentacao,
+}: {
+  p: Processo;
+  pastaPorId: Map<string, Pasta>;
+  ultimaMovimentacao: { data_movimentacao: string; descricao: string } | undefined;
+}) {
+  return (
+    <Link
+      to="/processos/$id"
+      params={{ id: p.id }}
+      className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary"
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="font-mono text-sm">{formatarCNJ(p.numero_cnj)}</span>
+        <Badge variant={p.status === "ativo" ? "default" : "secondary"}>{p.status}</Badge>
+        {p.pasta_id && pastaPorId.get(p.pasta_id) ? (
+          <Badge variant="outline">{exibir(pastaPorId.get(p.pasta_id)!.nome)}</Badge>
+        ) : p.carteira ? (
+          <Badge variant="outline">{p.carteira}</Badge>
+        ) : null}
+        {p.tipo_desdobramento ? (
+          <Badge variant="secondary">{exibir(p.tipo_desdobramento)}</Badge>
+        ) : null}
+        {p.socio ? <Badge variant="outline">sócio {p.socio}</Badge> : null}
+        {p.fase ? <Badge variant="outline">{p.fase}</Badge> : null}
+        {p.numero_interno ? (
+          <span className="text-xs text-muted-foreground">caso {p.numero_interno}</span>
+        ) : null}
+        {p.monitorar ? <Badge variant="outline">monitorado</Badge> : null}
+      </div>
+      <p className="mt-1 font-serif text-lg">
+        {p.autor ?? exibir(p.cliente)}
+        {p.reu ? <span className="text-muted-foreground"> x {p.reu}</span> : null}
+      </p>
+      <p className="text-sm text-muted-foreground">
+        {[p.comarca, p.uf, p.vara, p.sistema].filter(Boolean).join(" · ")}
+      </p>
+      {ultimaMovimentacao ? (
+        <p className="mt-2 line-clamp-1 text-sm">
+          <span className="text-muted-foreground">
+            {new Date(`${ultimaMovimentacao.data_movimentacao}T12:00:00`).toLocaleDateString(
+              "pt-BR",
+            )}
+            {" — "}
+          </span>
+          {ultimaMovimentacao.descricao}
+        </p>
+      ) : null}
+    </Link>
   );
 }
