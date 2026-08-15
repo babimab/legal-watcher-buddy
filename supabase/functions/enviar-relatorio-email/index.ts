@@ -33,7 +33,7 @@ Deno.serve(async (req: Request) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "Faro Processual <onboarding@resend.dev>",
+        from: "FaroLex <onboarding@resend.dev>",
         to: destinatarios,
         subject: assunto,
         html,

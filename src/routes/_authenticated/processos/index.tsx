@@ -97,7 +97,7 @@ export const Route = createFileRoute("/_authenticated/processos/")({
   }),
   head: () => ({
     meta: [
-      { title: "Processos | Faro Processual" },
+      { title: "Processos | FaroLex" },
       {
         name: "description",
         content: "Carteira de processos judiciais do escritório com busca, status e responsável.",

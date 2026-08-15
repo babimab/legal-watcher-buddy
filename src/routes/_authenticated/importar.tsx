@@ -30,7 +30,7 @@ import { listarGrupos, listarPastas } from "@/lib/grupos";
 export const Route = createFileRoute("/_authenticated/importar")({
   head: () => ({
     meta: [
-      { title: "Importar planilha | Faro Processual" },
+      { title: "Importar planilha | FaroLex" },
       {
         name: "description",
         content:

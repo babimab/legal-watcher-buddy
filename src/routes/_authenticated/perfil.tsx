@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/_authenticated/perfil")({
   head: () => ({
     meta: [
-      { title: "Meu perfil | Faro Processual" },
+      { title: "Meu perfil | FaroLex" },
       { name: "description", content: "Dados da sua conta e troca de senha." },
     ],
   }),

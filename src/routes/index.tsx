@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Faro Processual — acompanhamento de processos do escritório" },
+      { title: "FaroLex — acompanhamento de processos do escritório" },
       {
         name: "description",
         content:
           "Cadastre os processos do escritório, registre movimentações e receba o resumo do que mudou desde a última verificação.",
       },
-      { property: "og:title", content: "Faro Processual" },
+      { property: "og:title", content: "FaroLex" },
       {
         property: "og:description",
         content:
@@ -29,7 +29,7 @@ function Index() {
   return (
     <div className="min-h-screen bg-secondary">
       <header className="mx-auto flex max-w-5xl items-center justify-between px-4 py-6">
-        <img src="/faro-logo-navy.png" alt="Faro Processual" className="h-9 w-auto" />
+        <img src="/faro-logo-navy.png" alt="FaroLex" className="h-9 w-auto" />
         <Button asChild size="sm">
           <Link to="/auth">Entrar</Link>
         </Button>
@@ -38,7 +38,7 @@ function Index() {
       <main className="mx-auto max-w-5xl px-4 pb-20 pt-4">
         <img
           src="/faro-capa.jpg"
-          alt="Faro Processual — acompanhamento processual"
+          alt="FaroLex — acompanhamento processual"
           className="w-full rounded-xl border border-border shadow-sm"
         />
 

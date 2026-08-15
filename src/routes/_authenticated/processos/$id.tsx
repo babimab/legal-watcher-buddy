@@ -25,7 +25,7 @@ import { VincularDesdobramentoDialog } from "@/components/VincularDesdobramentoD
 export const Route = createFileRoute("/_authenticated/processos/$id")({
   head: () => ({
     meta: [
-      { title: "Detalhe do processo | Faro Processual" },
+      { title: "Detalhe do processo | FaroLex" },
       {
         name: "description",
         content: "Dados do processo e histórico de movimentações registradas pela equipe.",

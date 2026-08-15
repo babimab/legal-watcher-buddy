@@ -38,7 +38,7 @@ function AppLayout() {
       <header className="border-b border-border bg-sidebar text-sidebar-foreground">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3">
           <Link to="/processos" className="flex items-center">
-            <img src="/faro-logo-white.png" alt="Faro Processual" className="h-7 w-auto" />
+            <img src="/faro-logo-white.png" alt="FaroLex" className="h-7 w-auto" />
           </Link>
           <nav className="flex items-center gap-1 text-sm">
             <NavItem
@@ -85,7 +85,7 @@ function AppLayout() {
         <aside className="hidden w-36 shrink-0 lg:block">
           <img
             src="/faro-advogada.jpg"
-            alt="Faro Processual"
+            alt="FaroLex"
             className="sticky top-8 rounded-xl border border-border shadow-sm"
           />
         </aside>

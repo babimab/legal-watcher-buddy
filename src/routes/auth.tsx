@@ -13,12 +13,12 @@ import { lovable } from "@/integrations/lovable/index";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Entrar | Faro Processual" },
+      { title: "Entrar | FaroLex" },
       {
         name: "description",
         content: "Acesse o painel de controle dos processos judiciais do escritório.",
       },
-      { property: "og:title", content: "Entrar no Faro Processual" },
+      { property: "og:title", content: "Entrar no FaroLex" },
       {
         property: "og:description",
         content: "Acesse o painel de controle dos processos judiciais do escritório.",
@@ -93,7 +93,7 @@ function AuthPage() {
     <div className="flex min-h-screen items-center justify-center bg-secondary px-4 py-12">
       <div className="w-full max-w-md">
         <Link to="/" className="mb-6 flex items-center justify-center">
-          <img src="/faro-logo-navy.png" alt="Faro Processual" className="h-10 w-auto" />
+          <img src="/faro-logo-navy.png" alt="FaroLex" className="h-10 w-auto" />
         </Link>
         <Card>
           <CardHeader>

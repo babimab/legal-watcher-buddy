@@ -50,7 +50,7 @@ import { exibir } from "@/lib/processos";
 export const Route = createFileRoute("/_authenticated/grupos")({
   head: () => ({
     meta: [
-      { title: "Grupos | Faro Processual" },
+      { title: "Grupos | FaroLex" },
       {
         name: "description",
         content: "Organize os processos em equipes e pastas e libere o acesso em bloco.",

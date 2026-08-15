@@ -78,13 +78,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Faro Processual | Controle de processos judiciais" },
+      { title: "FaroLex | Controle de processos judiciais" },
       {
         name: "description",
         content:
           "Cadastre seus processos judiciais, registre movimentações e receba o relatório do que mudou desde a última verificação.",
       },
-      { property: "og:title", content: "Faro Processual" },
+      { property: "og:title", content: "FaroLex" },
       {
         property: "og:description",
         content:
