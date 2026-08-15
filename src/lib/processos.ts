@@ -199,6 +199,7 @@ export function exibir(texto: string | null | undefined): string | null {
 }
 
 export const TIPOS_MOVIMENTACAO = [
+  "Prazo",
   "Despacho",
   "Decisão",
   "Sentença",

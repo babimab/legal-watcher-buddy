@@ -437,6 +437,15 @@ function RelatorioPage() {
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-medium text-muted-foreground">Novo prazo:</span>
             <NovoPrazoDialog
+              tipo="Prazo"
+              processos={processos.data ?? []}
+              trigger={
+                <Button variant="outline" size="sm">
+                  Prazo
+                </Button>
+              }
+            />
+            <NovoPrazoDialog
               tipo="Audiência"
               processos={processos.data ?? []}
               trigger={
