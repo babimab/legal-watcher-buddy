@@ -269,6 +269,7 @@ export type Database = {
           id_externo: string | null
           monitorar: boolean
           numero_antigo: string | null
+          numero_cliente: string | null
           numero_cnj: string
           numero_interno: string | null
           observacoes: string | null
@@ -304,6 +305,7 @@ export type Database = {
           id_externo?: string | null
           monitorar?: boolean
           numero_antigo?: string | null
+          numero_cliente?: string | null
           numero_cnj: string
           numero_interno?: string | null
           observacoes?: string | null
@@ -339,6 +341,7 @@ export type Database = {
           id_externo?: string | null
           monitorar?: boolean
           numero_antigo?: string | null
+          numero_cliente?: string | null
           numero_cnj?: string
           numero_interno?: string | null
           observacoes?: string | null

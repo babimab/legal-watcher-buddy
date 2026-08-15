@@ -23,6 +23,8 @@ import {
   formatarCNJ,
   STATUS_OPCOES,
   FASE_OPCOES,
+  CATEGORIAS_CLIENTE,
+  categoriaCliente,
   ehResponsavelDaSigla,
   useSiglaAtual,
   OUTROS_ADVOGADOS_CONHECIDOS,
@@ -45,6 +47,7 @@ async function exportarProcessosExcel(processos: Processo[]) {
   planilha.columns = [
     { header: "Número CNJ", key: "numero_cnj", width: 22 },
     { header: "Cliente", key: "cliente", width: 26 },
+    { header: "Nº do cliente", key: "numero_cliente", width: 14 },
     { header: "Comarca", key: "comarca", width: 22 },
     { header: "UF", key: "uf", width: 10 },
     { header: "Responsável", key: "responsavel", width: 14 },
@@ -57,6 +60,7 @@ async function exportarProcessosExcel(processos: Processo[]) {
     planilha.addRow({
       numero_cnj: formatarCNJ(p.numero_cnj),
       cliente: exibir(p.cliente) ?? "",
+      numero_cliente: p.numero_cliente ?? "",
       comarca: p.comarca ?? "",
       uf: p.uf ?? "",
       responsavel: p.responsavel ?? "",
@@ -106,6 +110,7 @@ function ProcessosPage() {
   const [busca, setBusca] = useState("");
   const [status, setStatus] = useState("todos");
   const [fase, setFase] = useState("todas");
+  const [cliente, setCliente] = useState("todos");
   const [carteira, setCarteira] = useState("todas");
   const [uf, setUf] = useState("todas");
   const [sistema, setSistema] = useState("todos");
@@ -200,6 +205,7 @@ function ProcessosPage() {
     return (data ?? []).filter((p) => {
       const casaStatus = status === "todos" || p.status === status;
       const casaFase = fase === "todas" || (fase === "nenhuma" ? !p.fase : p.fase === fase);
+      const casaCliente = cliente === "todos" || categoriaCliente(p.cliente) === cliente;
       const casaCarteira = carteira === "todas" || p.carteira === carteira;
       const casaUf = uf === "todas" || p.uf === uf;
       const casaSistema = sistema === "todos" || p.sistema === sistema;
@@ -234,6 +240,7 @@ function ProcessosPage() {
       return (
         casaStatus &&
         casaFase &&
+        casaCliente &&
         casaCarteira &&
         casaUf &&
         casaSistema &&
@@ -249,6 +256,7 @@ function ProcessosPage() {
     busca,
     status,
     fase,
+    cliente,
     carteira,
     uf,
     sistema,
@@ -364,6 +372,19 @@ function ProcessosPage() {
             {FASE_OPCOES.map((f) => (
               <SelectItem key={f} value={f}>
                 {f}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={cliente} onValueChange={setCliente}>
+          <SelectTrigger className="w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os clientes</SelectItem>
+            {CATEGORIAS_CLIENTE.map((c) => (
+              <SelectItem key={c} value={c}>
+                {c}
               </SelectItem>
             ))}
           </SelectContent>

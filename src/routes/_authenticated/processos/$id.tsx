@@ -142,6 +142,7 @@ function ProcessoDetalhe() {
         <CardContent className="grid gap-4 sm:grid-cols-3">
           <Dado rotulo="Autor" valor={p.autor} />
           <Dado rotulo="Réu" valor={p.reu} />
+          <Dado rotulo="Número do cliente" valor={p.numero_cliente} />
           <Dado rotulo="Carteira" valor={p.carteira} />
           <Dado rotulo="Nº do caso" valor={p.numero_interno} />
           <Dado rotulo="Número antigo" valor={p.numero_antigo} />

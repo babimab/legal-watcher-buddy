@@ -6,6 +6,7 @@ export type Processo = {
   id: string;
   numero_cnj: string;
   cliente: string;
+  numero_cliente: string | null;
   parte_contraria: string | null;
   numero_interno: string | null;
   numero_antigo: string | null;
@@ -137,6 +138,22 @@ const CLIENTES_CONHECIDOS: { padrao: RegExp; nome: string }[] = [
   { padrao: /souza\s*cruz/i, nome: "Souza Cruz LTDA." },
   { padrao: /astro/i, nome: "Astromarítima" },
 ];
+
+export const CATEGORIAS_CLIENTE = ["Astro", "Souza Cruz", "Merck", "PRC", "Outros"] as const;
+
+// Agrupa o cliente do processo numa das categorias do filtro. Compara
+// normalizado (sem acento, minúsculo) pra não depender de como o nome
+// do cliente ficou salvo exatamente no banco.
+export function categoriaCliente(
+  cliente: string | null | undefined,
+): (typeof CATEGORIAS_CLIENTE)[number] {
+  const c = normalizarNome(cliente ?? "");
+  if (c.includes("astro")) return "Astro";
+  if (c.includes("souza cruz")) return "Souza Cruz";
+  if (c.includes("merck")) return "Merck";
+  if (c === "prc") return "PRC";
+  return "Outros";
+}
 
 export function identificarCliente(
   autor: string | null,

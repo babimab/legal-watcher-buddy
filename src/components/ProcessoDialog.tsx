@@ -70,6 +70,7 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
     const payload = {
       numero_cnj: String(form.get("numero_cnj") ?? "").trim(),
       cliente: String(form.get("cliente") ?? "").trim(),
+      numero_cliente: String(form.get("numero_cliente") ?? "").trim() || null,
       parte_contraria: String(form.get("parte_contraria") ?? "").trim() || null,
       tribunal: String(form.get("tribunal") ?? "").trim() || null,
       vara: String(form.get("vara") ?? "").trim() || null,
@@ -159,6 +160,11 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
             name="cliente"
             required
             defaultValue={processo?.cliente ?? iniciais?.cliente ?? ""}
+          />
+          <Campo
+            label="Número do cliente"
+            name="numero_cliente"
+            defaultValue={processo?.numero_cliente ?? iniciais?.numero_cliente ?? ""}
           />
           <Campo
             label="Parte contrária"
