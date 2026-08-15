@@ -29,6 +29,7 @@ import {
   UF_OPCOES,
   FASE_OPCOES,
   SOCIOS_CONHECIDOS,
+  listarProcessos,
   exibir,
   type Processo,
 } from "@/lib/processos";
@@ -51,6 +52,18 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
 
   const grupos = useQuery({ queryKey: ["grupos"], queryFn: listarGrupos, enabled: aberto });
   const pastas = useQuery({ queryKey: ["pastas"], queryFn: listarPastas, enabled: aberto });
+  const processos = useQuery({
+    queryKey: ["processos"],
+    queryFn: listarProcessos,
+    enabled: aberto,
+  });
+  const carteirasConhecidas = useMemo(
+    () =>
+      [
+        ...new Set((processos.data ?? []).map((p) => p.carteira).filter(Boolean) as string[]),
+      ].sort(),
+    [processos.data],
+  );
 
   const pastaAtualId = processo?.pasta_id ?? iniciais?.pasta_id ?? "";
   const grupoSelecionado =
@@ -86,6 +99,7 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
       })(),
       responsavel: String(form.get("responsavel") ?? "").trim() || null,
       socio: String(form.get("socio") ?? "").trim() || null,
+      carteira: String(form.get("carteira") ?? "").trim() || null,
       status: String(form.get("status") ?? "ativo"),
       valor_causa: valor ? Number(valor) : null,
       observacoes: String(form.get("observacoes") ?? "").trim() || null,
@@ -231,6 +245,20 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
             <datalist id="socios-sugeridos">
               {SOCIOS_CONHECIDOS.map((s) => (
                 <option key={s} value={s} />
+              ))}
+            </datalist>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="carteira">Carteira</Label>
+            <Input
+              id="carteira"
+              name="carteira"
+              list="carteiras-sugeridas"
+              defaultValue={processo?.carteira ?? iniciais?.carteira ?? ""}
+            />
+            <datalist id="carteiras-sugeridas">
+              {carteirasConhecidas.map((c) => (
+                <option key={c} value={c} />
               ))}
             </datalist>
           </div>
