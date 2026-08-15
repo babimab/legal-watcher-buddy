@@ -720,6 +720,14 @@ function ListaProcessos({ processos, vazio }: { processos: Processo[]; vazio: st
             ) : null}
             {p.responsavel ? <Badge variant="outline">{p.responsavel}</Badge> : null}
             {p.socio ? <Badge variant="outline">sócio {p.socio}</Badge> : null}
+            {p.valor_encerramento != null ? (
+              <Badge variant="secondary">
+                {p.valor_encerramento.toLocaleString("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                })}
+              </Badge>
+            ) : null}
             <span className="ml-auto">
               <EncerramentoDialog processo={p} />
             </span>
