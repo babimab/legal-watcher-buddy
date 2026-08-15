@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AlertTriangle, Download, Mail, Play } from "lucide-react";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -52,44 +52,82 @@ export const Route = createFileRoute("/_authenticated/relatorio")({
   component: RelatorioPage,
 });
 
-function exportarAndamentosExcel(itens: MovimentacaoComProcesso[], nomeArquivo: string) {
-  const linhas = itens.map((m) => ({
-    "Número CNJ": m.processos ? formatarCNJ(m.processos.numero_cnj) : "",
-    Cliente: exibir(m.processos?.cliente) ?? "",
-    Autor: m.processos?.autor ?? "",
-    Réu: m.processos?.reu ?? "",
-    "Parte contrária": m.processos?.parte_contraria ?? "",
-    Responsável: m.processos?.responsavel ?? "",
-    Sócio: m.processos?.socio ?? "",
-    Tipo: m.tipo ?? "",
-    Data: new Date(`${m.data_movimentacao}T12:00:00`),
-    Descrição: m.descricao,
-    Observação: m.observacao ?? "",
-  }));
-  const planilha = XLSX.utils.json_to_sheet(linhas, { cellDates: true });
-  planilha["!cols"] = [
-    { wch: 22 }, // Número CNJ
-    { wch: 26 }, // Cliente
-    { wch: 26 }, // Autor
-    { wch: 26 }, // Réu
-    { wch: 26 }, // Parte contrária
-    { wch: 12 }, // Responsável
-    { wch: 10 }, // Sócio
-    { wch: 14 }, // Tipo
-    { wch: 12 }, // Data
-    { wch: 60 }, // Descrição
-    { wch: 40 }, // Observação
+// Mesmo azul escuro usado no cabeçalho do site (--primary), pra planilha
+// exportada ficar com a cara do sistema.
+const COR_CABECALHO = "FF0D3A51";
+const COLUNAS_TEXTO_LIVRE = new Set(["descricao", "observacao"]);
+
+async function exportarAndamentosExcel(itens: MovimentacaoComProcesso[], nomeArquivo: string) {
+  const workbook = new ExcelJS.Workbook();
+  const planilha = workbook.addWorksheet("Andamentos");
+
+  planilha.columns = [
+    { header: "Número CNJ", key: "numero_cnj", width: 22 },
+    { header: "Cliente", key: "cliente", width: 26 },
+    { header: "Autor", key: "autor", width: 26 },
+    { header: "Réu", key: "reu", width: 26 },
+    { header: "Parte contrária", key: "parte_contraria", width: 26 },
+    { header: "Responsável", key: "responsavel", width: 14 },
+    { header: "Sócio", key: "socio", width: 10 },
+    { header: "Tipo", key: "tipo", width: 14 },
+    { header: "Data", key: "data", width: 12 },
+    { header: "Descrição", key: "descricao", width: 60 },
+    { header: "Observação", key: "observacao", width: 40 },
   ];
-  const intervalo = XLSX.utils.decode_range(planilha["!ref"] ?? "A1");
-  planilha["!autofilter"] = { ref: XLSX.utils.encode_range(intervalo) };
-  const dataCol = 8; // índice 0-based da coluna "Data"
-  for (let linha = intervalo.s.r + 1; linha <= intervalo.e.r; linha++) {
-    const celula = planilha[XLSX.utils.encode_cell({ r: linha, c: dataCol })];
-    if (celula) celula.z = "dd/mm/yyyy";
+
+  for (const m of itens) {
+    planilha.addRow({
+      numero_cnj: m.processos ? formatarCNJ(m.processos.numero_cnj) : "",
+      cliente: exibir(m.processos?.cliente) ?? "",
+      autor: m.processos?.autor ?? "",
+      reu: m.processos?.reu ?? "",
+      parte_contraria: m.processos?.parte_contraria ?? "",
+      responsavel: m.processos?.responsavel ?? "",
+      socio: m.processos?.socio ?? "",
+      tipo: m.tipo ?? "",
+      data: new Date(`${m.data_movimentacao}T12:00:00`),
+      descricao: m.descricao,
+      observacao: m.observacao ?? "",
+    });
   }
-  const livro = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(livro, planilha, "Andamentos");
-  XLSX.writeFile(livro, `${nomeArquivo}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+
+  const cabecalho = planilha.getRow(1);
+  cabecalho.height = 22;
+  cabecalho.eachCell((celula) => {
+    celula.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    celula.fill = { type: "pattern", pattern: "solid", fgColor: { argb: COR_CABECALHO } };
+    celula.alignment = { horizontal: "center", vertical: "middle" };
+  });
+
+  planilha.eachRow((linha, numeroLinha) => {
+    if (numeroLinha === 1) return;
+    linha.eachCell((celula, numeroColuna) => {
+      const chave = String(planilha.getColumn(numeroColuna).key);
+      const textoLivre = COLUNAS_TEXTO_LIVRE.has(chave);
+      celula.alignment = {
+        horizontal: textoLivre ? "left" : "center",
+        vertical: "middle",
+        wrapText: textoLivre,
+      };
+      if (chave === "data") celula.numFmt = "dd/mm/yyyy";
+    });
+  });
+
+  planilha.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 11 } };
+  planilha.views = [{ state: "frozen", ySplit: 1 }];
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${nomeArquivo}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 const NOME_ARQUIVO_POR_ABA: Record<string, string> = {
@@ -278,7 +316,11 @@ function RelatorioPage() {
           <Button
             variant="outline"
             disabled={itensDaAba.length === 0}
-            onClick={() => exportarAndamentosExcel(itensDaAba, NOME_ARQUIVO_POR_ABA[aba]!)}
+            onClick={() => {
+              void exportarAndamentosExcel(itensDaAba, NOME_ARQUIVO_POR_ABA[aba]!).catch(() =>
+                toast.error("Não consegui gerar o Excel."),
+              );
+            }}
           >
             <Download className="size-4" /> Exportar Excel
           </Button>
