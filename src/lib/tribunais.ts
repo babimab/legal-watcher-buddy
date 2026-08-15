@@ -102,12 +102,31 @@ export function linkTribunal(
 
   // Sistemas estaduais
   if (/esaj|saj/.test(sistema) || (!sistema && UF_ESAJ.includes(uf))) {
-    if (uf)
+    if (uf) {
+      const base = `https://esaj.tj${uf.toLowerCase()}.jus.br/cpopg`;
+      // Com o CNJ dá pra ir direto pro resultado da busca, em vez de cair
+      // na página de busca em branco.
+      if (seg) {
+        const params = new URLSearchParams({
+          conversationId: "",
+          cbPesquisa: "NUMPROC",
+          numeroDigitoAnoUnificado: `${seg.numero}-${seg.dv}.${seg.ano}`,
+          foroNumeroUnificado: seg.origem,
+          dePesquisaNuUnificado: `${seg.numero}-${seg.dv}.${seg.ano}.${seg.justica}.${seg.tribunal}.${seg.origem}`,
+          dePesquisa: "",
+        });
+        return {
+          url: `${base}/search.do?${params.toString()}`,
+          rotulo: `Abrir o e-SAJ do TJ${uf}`,
+          generico: false,
+        };
+      }
       return {
-        url: `https://esaj.tj${uf.toLowerCase()}.jus.br/cpopg/open.do`,
+        url: `${base}/open.do`,
         rotulo: `Abrir o e-SAJ do TJ${uf}`,
         generico: false,
       };
+    }
   }
 
   if (/projudi/.test(sistema)) {
