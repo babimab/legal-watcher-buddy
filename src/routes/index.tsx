@@ -1,18 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CalendarClock, FolderKanban, Scale, Upload } from "lucide-react";
+import { CalendarClock, FolderKanban, PawPrint, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Radar Processual — acompanhamento de processos do escritório" },
+      { title: "Faro Processual — acompanhamento de processos do escritório" },
       {
         name: "description",
         content:
           "Cadastre os processos do escritório, registre movimentações e receba o resumo do que mudou desde a última verificação.",
       },
-      { property: "og:title", content: "Radar Processual" },
+      { property: "og:title", content: "Faro Processual" },
       {
         property: "og:description",
         content:
@@ -30,8 +30,8 @@ function Index() {
     <div className="min-h-screen bg-secondary">
       <header className="mx-auto flex max-w-5xl items-center justify-between px-4 py-6">
         <span className="flex items-center gap-2 text-primary">
-          <Scale className="size-5" />
-          <span className="font-serif text-xl font-semibold">Radar Processual</span>
+          <PawPrint className="size-5" />
+          <span className="font-serif text-xl font-semibold">Faro Processual</span>
         </span>
         <Button asChild size="sm">
           <Link to="/auth">Entrar</Link>
@@ -40,12 +40,11 @@ function Index() {
 
       <main className="mx-auto max-w-5xl px-4 pb-20 pt-10">
         <h1 className="max-w-2xl font-serif text-4xl font-semibold leading-tight sm:text-5xl">
-          Todo processo do escritório em um radar só.
+          O faro certo para cada processo do escritório.
         </h1>
         <p className="mt-4 max-w-xl text-lg text-muted-foreground">
-          Cadastre a carteira, registre as movimentações e rode o relatório quando quiser: o
-          sistema mostra exatamente o que mudou desde a última verificação e quais prazos estão
-          em aberto.
+          Cadastre a carteira, registre as movimentações e rode o relatório quando quiser: o sistema
+          mostra exatamente o que mudou desde a última verificação e quais prazos estão em aberto.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Button asChild size="lg">

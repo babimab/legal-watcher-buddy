@@ -38,7 +38,7 @@ function AppLayout() {
       <header className="border-b border-border bg-sidebar text-sidebar-foreground">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-4 py-3">
           <Link to="/processos" className="font-serif text-lg font-semibold">
-            Radar Processual
+            Faro Processual
           </Link>
           <nav className="flex items-center gap-1 text-sm">
             <NavItem

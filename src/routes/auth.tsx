@@ -1,7 +1,7 @@
 import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Scale } from "lucide-react";
+import { PawPrint } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,12 +14,12 @@ import { lovable } from "@/integrations/lovable/index";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Entrar | Radar Processual" },
+      { title: "Entrar | Faro Processual" },
       {
         name: "description",
         content: "Acesse o painel de controle dos processos judiciais do escritório.",
       },
-      { property: "og:title", content: "Entrar no Radar Processual" },
+      { property: "og:title", content: "Entrar no Faro Processual" },
       {
         property: "og:description",
         content: "Acesse o painel de controle dos processos judiciais do escritório.",
@@ -94,8 +94,8 @@ function AuthPage() {
     <div className="flex min-h-screen items-center justify-center bg-secondary px-4 py-12">
       <div className="w-full max-w-md">
         <Link to="/" className="mb-6 flex items-center justify-center gap-2 text-primary">
-          <Scale className="size-5" />
-          <span className="font-serif text-xl font-semibold">Radar Processual</span>
+          <PawPrint className="size-5" />
+          <span className="font-serif text-xl font-semibold">Faro Processual</span>
         </Link>
         <Card>
           <CardHeader>

@@ -39,7 +39,7 @@ import {
 export const Route = createFileRoute("/_authenticated/relatorio")({
   head: () => ({
     meta: [
-      { title: "Relatório de novos andamentos | Radar Processual" },
+      { title: "Relatório de novos andamentos | Faro Processual" },
       {
         name: "description",
         content:
@@ -143,7 +143,7 @@ function linhaTabela(processo: string, cliente: string, data: string, andamento:
 }
 
 function montarMailto(destinatarios: string[], itens: MovimentacaoComProcesso[], titulo: string) {
-  const assunto = `Radar Processual — ${titulo}`;
+  const assunto = `Faro Processual — ${titulo}`;
   const cortado = itens.length > MAX_ITENS_NO_EMAIL;
   const visiveis = itens.slice(0, MAX_ITENS_NO_EMAIL);
 
