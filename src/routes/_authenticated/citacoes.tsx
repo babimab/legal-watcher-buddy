@@ -18,7 +18,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { exibir, formatarCNJ, listarProcessos, type Processo } from "@/lib/processos";
+import {
+  exibir,
+  formatarCNJ,
+  listarProcessos,
+  siglaOuEmailAtual,
+  type Processo,
+} from "@/lib/processos";
+import { acompanharCitacao, listarAcompanhamentoCitacoes, marcarConferido } from "@/lib/citacoes";
 
 export const Route = createFileRoute("/_authenticated/citacoes")({
   head: () => ({
@@ -202,12 +209,28 @@ function CitacoesPage() {
   const queryClient = useQueryClient();
 
   const processos = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
+  const acompanhamento = useQuery({
+    queryKey: ["acompanhamento-citacoes"],
+    queryFn: listarAcompanhamentoCitacoes,
+  });
 
   const processoPorCnj = useMemo(() => {
     const mapa = new Map<string, Processo>();
     for (const p of processos.data ?? []) mapa.set(p.numero_cnj.replace(/\D/g, ""), p);
     return mapa;
   }, [processos.data]);
+
+  const processoPorId = useMemo(() => {
+    const mapa = new Map<string, Processo>();
+    for (const p of processos.data ?? []) mapa.set(p.id, p);
+    return mapa;
+  }, [processos.data]);
+
+  const pendentesConferencia = useMemo(
+    () =>
+      (acompanhamento.data ?? []).filter((a) => !a.conferido && processoPorId.has(a.processo_id)),
+    [acompanhamento.data, processoPorId],
+  );
 
   const { casadas, semProcesso } = useMemo(() => {
     const casadas: LinhaCasada[] = [];
@@ -340,6 +363,22 @@ function CitacoesPage() {
         else ok += lote.length;
       }
 
+      // Marca cada processo como "em acompanhamento" — fica na lista da
+      // própria página até alguém conferir, mesmo depois de fechar/voltar.
+      // Uma linha por processo (upsert), mesmo que ele apareça em mais de
+      // uma linha da planilha selecionada.
+      const porProcesso = new Map<string, LinhaCasada>();
+      for (const l of escolhidas) porProcesso.set(l.processo.id, l);
+      for (const l of porProcesso.values()) {
+        await acompanharCitacao({
+          processo_id: l.processo.id,
+          origem: l.origem,
+          ultimo_andamento: l.andamento,
+          ultimo_andamento_em: l.data,
+          created_by: criador,
+        });
+      }
+
       const jaExistiam = escolhidas.length - novas.length;
       if (falhas.length > 0) {
         toast.warning(`${ok} andamento(s) importado(s). Erros: ${falhas.slice(0, 2).join(" | ")}`);
@@ -361,6 +400,16 @@ function CitacoesPage() {
 
   const totalSelecionadas = casadas.filter((l) => selecionadas.has(l.idx)).length;
 
+  const conferir = async (id: string) => {
+    try {
+      const quem = await siglaOuEmailAtual();
+      await marcarConferido(id, quem);
+      await queryClient.invalidateQueries({ queryKey: ["acompanhamento-citacoes"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não consegui marcar como conferido.");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -371,6 +420,65 @@ function CitacoesPage() {
           ou na fase do processo.
         </p>
       </div>
+
+      {pendentesConferencia.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif text-lg">
+              {pendentesConferencia.length} processo(s) em acompanhamento
+            </CardTitle>
+            <CardDescription>
+              Ficam nessa lista até alguém marcar como conferido — é a segunda conferência da
+              semana, sem precisar subir a planilha de novo.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto rounded-md border border-border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="p-2 text-left">Processo</th>
+                    <th className="p-2 text-left">Cliente</th>
+                    <th className="p-2 text-left">Origem</th>
+                    <th className="p-2 text-left">Último andamento</th>
+                    <th className="w-40 p-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendentesConferencia.map((a) => {
+                    const p = processoPorId.get(a.processo_id)!;
+                    return (
+                      <tr key={a.id} className="border-t border-border">
+                        <td className="p-2 font-mono text-xs">{formatarCNJ(p.numero_cnj)}</td>
+                        <td className="p-2">{exibir(p.cliente)}</td>
+                        <td className="p-2">
+                          {a.origem ? <Badge variant="outline">{a.origem}</Badge> : "—"}
+                        </td>
+                        <td className="max-w-96 truncate p-2 text-xs text-muted-foreground">
+                          {a.ultimo_andamento ?? "—"}
+                          {a.ultimo_andamento_em
+                            ? ` (${new Date(`${a.ultimo_andamento_em}T00:00:00`).toLocaleDateString("pt-BR")})`
+                            : ""}
+                        </td>
+                        <td className="p-2 text-right">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void conferir(a.id)}
+                          >
+                            <CheckCircle2 className="size-4" /> Marcar conferido
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>

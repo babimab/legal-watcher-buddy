@@ -298,6 +298,56 @@ export type Database = {
           },
         ];
       };
+      processo_citacoes: {
+        Row: {
+          conferido: boolean;
+          conferido_em: string | null;
+          conferido_por: string | null;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          origem: string | null;
+          processo_id: string;
+          ultimo_andamento: string | null;
+          ultimo_andamento_em: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          conferido?: boolean;
+          conferido_em?: string | null;
+          conferido_por?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          origem?: string | null;
+          processo_id: string;
+          ultimo_andamento?: string | null;
+          ultimo_andamento_em?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          conferido?: boolean;
+          conferido_em?: string | null;
+          conferido_por?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          origem?: string | null;
+          processo_id?: string;
+          ultimo_andamento?: string | null;
+          ultimo_andamento_em?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "processo_citacoes_processo_id_fkey";
+            columns: ["processo_id"];
+            isOneToOne: true;
+            referencedRelation: "processos";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       processos_historico: {
         Row: {
           alterado_em: string;

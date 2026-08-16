@@ -53,7 +53,7 @@ const PASSOS: Passo[] = [
     alvo: "nav-citacoes",
     titulo: "Citações",
     texto:
-      "Sobe a planilha de acompanhamento de citações/intimações e o sistema já sugere os andamentos, sem mexer na carteira do processo.",
+      "Sobe a planilha de acompanhamento de citações/intimações e o sistema já sugere os andamentos, sem mexer na carteira do processo. Os processos ficam numa lista ali mesmo até alguém marcar como conferido — dá pra voltar na semana e conferir de novo.",
   },
   {
     alvo: "nav-importar",
