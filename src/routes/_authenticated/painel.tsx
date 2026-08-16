@@ -79,8 +79,14 @@ function PainelPage() {
     return pastaPorId.get(pastaId)?.grupo_id === grupoAtual.id;
   };
 
+  // A carteira do painel conta só os processos ativos por padrão — um
+  // processo encerrado/baixado não deveria inflar a contagem "normal" de
+  // cada pasta/advogado. Pra ver os outros status é preciso ir em "Todos
+  // os processos" e trocar o filtro de Status lá.
   const processos = {
-    data: (processosQuery.data ?? []).filter((p) => pertenceAoGrupo(p.pasta_id)),
+    data: (processosQuery.data ?? []).filter(
+      (p) => pertenceAoGrupo(p.pasta_id) && p.status === "ativo",
+    ),
   };
   const pendencias = {
     data: (pendenciasQuery.data ?? []).filter((m: MovimentacaoComProcesso) =>

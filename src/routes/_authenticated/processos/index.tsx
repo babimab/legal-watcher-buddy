@@ -75,7 +75,9 @@ export const Route = createFileRoute("/_authenticated/processos/")({
 function ProcessosPage() {
   const search = Route.useSearch();
   const [busca, setBusca] = useState("");
-  const [status, setStatus] = useState("todos");
+  // Padrão é só ativo — processo encerrado/baixado/etc. só aparece se a
+  // pessoa escolher isso explicitamente no filtro de Status.
+  const [status, setStatus] = useState("ativo");
   const [fase, setFase] = useState(search.fase ?? "todas");
   const [cliente, setCliente] = useState(search.cliente ?? "todos");
   const [carteira, setCarteira] = useState("todas");
