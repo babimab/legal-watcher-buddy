@@ -61,6 +61,12 @@ const PASSOS: Passo[] = [
     texto: "Sobe uma planilha de andamentos pra cadastrar vários processos de uma vez.",
   },
   {
+    alvo: "nav-qualidade",
+    titulo: "Qualidade dos dados",
+    texto:
+      "Checagem automática da carteira: processo sem pasta, CNJ duplicado, acento corrompido. Dá pra corrigir o acento direto ali.",
+  },
+  {
     alvo: "nav-busca",
     titulo: "Busca rápida",
     texto: "Ctrl+K (ou Cmd+K) em qualquer tela abre essa busca pra achar um processo na hora.",

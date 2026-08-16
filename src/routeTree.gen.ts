@@ -18,6 +18,7 @@ import { Route as AuthenticatedImportarRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
 import { Route as AuthenticatedPerfilRouteImport } from './routes/_authenticated/perfil'
 import { Route as AuthenticatedPublicacoesRouteImport } from './routes/_authenticated/publicacoes'
+import { Route as AuthenticatedQualidadeDadosRouteImport } from './routes/_authenticated/qualidade-dados'
 import { Route as AuthenticatedRelatorioRouteImport } from './routes/_authenticated/relatorio'
 import { Route as AuthenticatedProcessosIndexRouteImport } from './routes/_authenticated/processos/index'
 import { Route as AuthenticatedProcessosIdRouteImport } from './routes/_authenticated/processos/$id'
@@ -67,6 +68,12 @@ const AuthenticatedPublicacoesRoute =
     path: '/publicacoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedQualidadeDadosRoute =
+  AuthenticatedQualidadeDadosRouteImport.update({
+    id: '/qualidade-dados',
+    path: '/qualidade-dados',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedRelatorioRoute = AuthenticatedRelatorioRouteImport.update({
   id: '/relatorio',
   path: '/relatorio',
@@ -94,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/painel': typeof AuthenticatedPainelRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/publicacoes': typeof AuthenticatedPublicacoesRoute
+  '/qualidade-dados': typeof AuthenticatedQualidadeDadosRoute
   '/relatorio': typeof AuthenticatedRelatorioRoute
   '/processos/$id': typeof AuthenticatedProcessosIdRoute
   '/processos/': typeof AuthenticatedProcessosIndexRoute
@@ -107,6 +115,7 @@ export interface FileRoutesByTo {
   '/painel': typeof AuthenticatedPainelRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/publicacoes': typeof AuthenticatedPublicacoesRoute
+  '/qualidade-dados': typeof AuthenticatedQualidadeDadosRoute
   '/relatorio': typeof AuthenticatedRelatorioRoute
   '/processos/$id': typeof AuthenticatedProcessosIdRoute
   '/processos': typeof AuthenticatedProcessosIndexRoute
@@ -122,6 +131,7 @@ export interface FileRoutesById {
   '/_authenticated/painel': typeof AuthenticatedPainelRoute
   '/_authenticated/perfil': typeof AuthenticatedPerfilRoute
   '/_authenticated/publicacoes': typeof AuthenticatedPublicacoesRoute
+  '/_authenticated/qualidade-dados': typeof AuthenticatedQualidadeDadosRoute
   '/_authenticated/relatorio': typeof AuthenticatedRelatorioRoute
   '/_authenticated/processos/$id': typeof AuthenticatedProcessosIdRoute
   '/_authenticated/processos/': typeof AuthenticatedProcessosIndexRoute
@@ -137,6 +147,7 @@ export interface FileRouteTypes {
     | '/painel'
     | '/perfil'
     | '/publicacoes'
+    | '/qualidade-dados'
     | '/relatorio'
     | '/processos/$id'
     | '/processos/'
@@ -150,6 +161,7 @@ export interface FileRouteTypes {
     | '/painel'
     | '/perfil'
     | '/publicacoes'
+    | '/qualidade-dados'
     | '/relatorio'
     | '/processos/$id'
     | '/processos'
@@ -164,6 +176,7 @@ export interface FileRouteTypes {
     | '/_authenticated/painel'
     | '/_authenticated/perfil'
     | '/_authenticated/publicacoes'
+    | '/_authenticated/qualidade-dados'
     | '/_authenticated/relatorio'
     | '/_authenticated/processos/$id'
     | '/_authenticated/processos/'
@@ -240,6 +253,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPublicacoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/qualidade-dados': {
+      id: '/_authenticated/qualidade-dados'
+      path: '/qualidade-dados'
+      fullPath: '/qualidade-dados'
+      preLoaderRoute: typeof AuthenticatedQualidadeDadosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/relatorio': {
       id: '/_authenticated/relatorio'
       path: '/relatorio'
@@ -271,6 +291,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPainelRoute: typeof AuthenticatedPainelRoute
   AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRoute
   AuthenticatedPublicacoesRoute: typeof AuthenticatedPublicacoesRoute
+  AuthenticatedQualidadeDadosRoute: typeof AuthenticatedQualidadeDadosRoute
   AuthenticatedRelatorioRoute: typeof AuthenticatedRelatorioRoute
   AuthenticatedProcessosIdRoute: typeof AuthenticatedProcessosIdRoute
   AuthenticatedProcessosIndexRoute: typeof AuthenticatedProcessosIndexRoute
@@ -283,6 +304,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPainelRoute: AuthenticatedPainelRoute,
   AuthenticatedPerfilRoute: AuthenticatedPerfilRoute,
   AuthenticatedPublicacoesRoute: AuthenticatedPublicacoesRoute,
+  AuthenticatedQualidadeDadosRoute: AuthenticatedQualidadeDadosRoute,
   AuthenticatedRelatorioRoute: AuthenticatedRelatorioRoute,
   AuthenticatedProcessosIdRoute: AuthenticatedProcessosIdRoute,
   AuthenticatedProcessosIndexRoute: AuthenticatedProcessosIndexRoute,

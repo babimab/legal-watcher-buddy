@@ -10,6 +10,7 @@ import {
   LineChart,
   LogOut,
   Newspaper,
+  ShieldCheck,
   Upload,
   User,
   Users,
@@ -139,6 +140,12 @@ function AppLayout() {
               icon={<Upload className="size-4" />}
               label="Importar"
               tourId="nav-importar"
+            />
+            <NavItem
+              to="/qualidade-dados"
+              icon={<ShieldCheck className="size-4" />}
+              label="Qualidade dos dados"
+              tourId="nav-qualidade"
             />
           </nav>
           <div className="ml-auto flex items-center gap-1">

@@ -278,7 +278,7 @@ export const TIPOS_MOVIMENTACAO = [
 // isso as listagens de tabela inteira buscam em páginas até esgotar.
 const TAMANHO_PAGINA = 1000;
 
-async function buscarTudoPaginado<T>(
+export async function buscarTudoPaginado<T>(
   pagina: (
     offset: number,
     limite: number,
