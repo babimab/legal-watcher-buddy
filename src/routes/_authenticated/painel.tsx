@@ -7,6 +7,7 @@ import {
   Download,
   FileWarning,
   Plus,
+  ShieldCheck,
   Users,
   Wallet,
   X,
@@ -407,6 +408,13 @@ function PainelPage() {
           andamento pendente de validação.
         </p>
       ) : null}
+
+      <Link
+        to="/qualidade-dados"
+        className="flex items-center gap-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+      >
+        <ShieldCheck className="size-4" /> Qualidade dos dados
+      </Link>
     </div>
   );
 }
