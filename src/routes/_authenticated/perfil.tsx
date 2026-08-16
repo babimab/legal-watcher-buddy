@@ -7,7 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { CARGO_OPCOES } from "@/lib/processos";
 
 export const Route = createFileRoute("/_authenticated/perfil")({
   head: () => ({
@@ -24,6 +32,7 @@ function PerfilPage() {
   const [email, setEmail] = useState("");
   const [nome, setNome] = useState("");
   const [sigla, setSigla] = useState("");
+  const [cargo, setCargo] = useState("Advogado");
   const [salvandoNome, setSalvandoNome] = useState(false);
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
@@ -36,11 +45,12 @@ function PerfilPage() {
       setUserId(data.user.id);
       const { data: perfil } = await supabase
         .from("profiles")
-        .select("nome, sigla")
+        .select("nome, sigla, cargo")
         .eq("id", data.user.id)
         .maybeSingle();
       setNome(perfil?.nome ?? "");
       setSigla(perfil?.sigla ?? "");
+      setCargo(perfil?.cargo ?? "Advogado");
     });
   }, []);
 
@@ -57,7 +67,7 @@ function PerfilPage() {
     setSalvandoNome(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ nome: nome.trim(), sigla: sigla.trim().toUpperCase() })
+      .update({ nome: nome.trim(), sigla: sigla.trim().toUpperCase(), cargo })
       .eq("id", userId);
     setSalvandoNome(false);
     if (error) {
@@ -132,6 +142,21 @@ function PerfilPage() {
                 As iniciais usadas nos processos como responsável — é o que liga "Meus processos" e
                 "Meus prazos" a você.
               </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cargo-perfil">Cargo</Label>
+              <Select value={cargo} onValueChange={setCargo}>
+                <SelectTrigger id="cargo-perfil">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CARGO_OPCOES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <Button type="submit" disabled={salvandoNome} className="w-fit">
               {salvandoNome ? "Salvando..." : "Salvar"}

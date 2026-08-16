@@ -177,6 +177,11 @@ export const OUTROS_ADVOGADOS_CONHECIDOS = ["BBS", "MLV", "JGV", "ELV"];
 // Siglas conhecidas pro campo Coordenador (sugestão no cadastro).
 export const COORDENADORES_CONHECIDOS = ["BDR", ...OUTROS_ADVOGADOS_CONHECIDOS];
 
+// Cargo da pessoa no escritório — base pra futuramente simplificar o que
+// cada perfil vê no menu (ex.: esconder itens administrativos de quem é
+// estagiário).
+export const CARGO_OPCOES = ["Advogado", "Estagiário", "Administrativo"] as const;
+
 // Clientes do escritório reconhecidos automaticamente na importação (autor
 // ou réu batendo com o padrão vira o "nosso lado" do processo, com o nome
 // já padronizado, independente de como veio escrito na planilha).

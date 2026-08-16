@@ -7,7 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { CARGO_OPCOES } from "@/lib/processos";
 
 function forcaSenha(senha: string): { nivel: "fraca" | "media" | "forte"; texto: string } | null {
   if (!senha) return null;
@@ -79,6 +87,7 @@ function AuthPage() {
   const [senha, setSenha] = useState("");
   const [nome, setNome] = useState("");
   const [sigla, setSigla] = useState("");
+  const [cargo, setCargo] = useState<string>("Advogado");
   const [carregando, setCarregando] = useState(false);
 
   useEffect(() => {
@@ -110,7 +119,7 @@ function AuthPage() {
       email,
       password: senha,
       options: {
-        data: { nome, sigla: sigla.trim().toUpperCase() || null },
+        data: { nome, sigla: sigla.trim().toUpperCase() || null, cargo },
         emailRedirectTo: `${window.location.origin}/painel`,
       },
     });
@@ -197,6 +206,21 @@ function AuthPage() {
                       As iniciais usadas nos processos como responsável (ex.: BDR, ELV) — é o que
                       liga "Meus processos" e "Meus prazos" a você.
                     </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cargo">Cargo</Label>
+                    <Select value={cargo} onValueChange={setCargo}>
+                      <SelectTrigger id="cargo">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CARGO_OPCOES.map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email-novo">E-mail</Label>

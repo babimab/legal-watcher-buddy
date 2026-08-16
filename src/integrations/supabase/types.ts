@@ -574,6 +574,7 @@ export type Database = {
       };
       profiles: {
         Row: {
+          cargo: string | null;
           created_at: string;
           email: string | null;
           id: string;
@@ -582,6 +583,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          cargo?: string | null;
           created_at?: string;
           email?: string | null;
           id: string;
@@ -590,6 +592,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          cargo?: string | null;
           created_at?: string;
           email?: string | null;
           id?: string;
