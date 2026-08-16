@@ -50,6 +50,12 @@ const PASSOS: Passo[] = [
     texto: "Sobe a planilha de publicações do TI e o sistema já sugere os andamentos novos.",
   },
   {
+    alvo: "nav-citacoes",
+    titulo: "Citações",
+    texto:
+      "Sobe a planilha de acompanhamento de citações/intimações e o sistema já sugere os andamentos, sem mexer na carteira do processo.",
+  },
+  {
     alvo: "nav-importar",
     titulo: "Importar",
     texto: "Sobe uma planilha de andamentos pra cadastrar vários processos de uma vez.",

@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   Archive,
   FolderKanban,
+  Gavel,
   LayoutDashboard,
   List,
   LineChart,
@@ -126,6 +127,12 @@ function AppLayout() {
               icon={<Newspaper className="size-4" />}
               label="Publicações"
               tourId="nav-publicacoes"
+            />
+            <NavItem
+              to="/citacoes"
+              icon={<Gavel className="size-4" />}
+              label="Citações"
+              tourId="nav-citacoes"
             />
             <NavItem
               to="/importar"
