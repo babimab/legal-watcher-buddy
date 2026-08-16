@@ -62,7 +62,9 @@ export async function exportarProcessosExcel(processos: Processo[], nomeArquivo 
   planilha.columns = [
     { header: "Número CNJ", key: "numero_cnj", width: 22 },
     { header: "Cliente", key: "cliente", width: 26 },
+    { header: "Parte adversa", key: "parte_contraria", width: 26 },
     { header: "Nº do cliente", key: "numero_cliente", width: 14 },
+    { header: "Número do caso", key: "numero_interno", width: 16 },
     { header: "Comarca", key: "comarca", width: 22 },
     { header: "UF", key: "uf", width: 10 },
     { header: "Responsável", key: "responsavel", width: 14 },
@@ -75,7 +77,9 @@ export async function exportarProcessosExcel(processos: Processo[], nomeArquivo 
     planilha.addRow({
       numero_cnj: formatarCNJ(p.numero_cnj),
       cliente: exibir(p.cliente) ?? "",
+      parte_contraria: p.parte_contraria ?? "",
       numero_cliente: p.numero_cliente ?? "",
+      numero_interno: p.numero_interno ?? "",
       comarca: p.comarca ?? "",
       uf: p.uf ?? "",
       responsavel: p.responsavel ?? "",
