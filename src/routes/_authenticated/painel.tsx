@@ -1,11 +1,21 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Download, FileWarning, Users, Wallet } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Download,
+  FileWarning,
+  Plus,
+  Users,
+  Wallet,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   listarNaoValidados,
@@ -17,7 +27,7 @@ import {
   type MovimentacaoComProcesso,
   type Processo,
 } from "@/lib/processos";
-import { listarGrupos, listarPastas } from "@/lib/grupos";
+import { criarPasta, listarGrupos, listarPastas, removerPasta } from "@/lib/grupos";
 import { exportarProcessosExcel } from "@/lib/excel";
 
 type PainelSearch = { grupo?: string };
@@ -45,6 +55,7 @@ function formatarValor(v: number) {
 function PainelPage() {
   const search = Route.useSearch();
   const minhaSigla = useSiglaAtual();
+  const queryClient = useQueryClient();
   const processosQuery = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
   const pendenciasQuery = useQuery({ queryKey: ["pendencias"], queryFn: listarPendencias });
   const naoValidadosQuery = useQuery({ queryKey: ["nao-validados"], queryFn: listarNaoValidados });
@@ -147,6 +158,36 @@ function PainelPage() {
     }
   };
 
+  const [novaPastaNome, setNovaPastaNome] = useState("");
+  const [criandoPasta, setCriandoPasta] = useState(false);
+
+  const criarPastaNoGrupo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!grupoAtual || !novaPastaNome.trim()) return;
+    setCriandoPasta(true);
+    try {
+      await criarPasta(grupoAtual.id, novaPastaNome.trim());
+      setNovaPastaNome("");
+      toast.success("Pasta criada.");
+      await queryClient.invalidateQueries({ queryKey: ["pastas"] });
+    } catch (e2) {
+      toast.error(e2 instanceof Error ? e2.message : "Não consegui criar a pasta.");
+    } finally {
+      setCriandoPasta(false);
+    }
+  };
+
+  const excluirPasta = async (pastaId: string, nome: string) => {
+    try {
+      await removerPasta(pastaId);
+      toast.success(`Pasta "${nome}" excluída. Os processos dela ficam sem pasta.`);
+      await queryClient.invalidateQueries({ queryKey: ["pastas"] });
+      await queryClient.invalidateQueries({ queryKey: ["processos"] });
+    } catch (e2) {
+      toast.error(e2 instanceof Error ? e2.message : "Não consegui excluir a pasta.");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -217,7 +258,25 @@ function PainelPage() {
 
       {grupoAtual ? (
         <div>
-          <h2 className="mb-3 font-serif text-xl font-semibold">Pastas</h2>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-serif text-xl font-semibold">Pastas</h2>
+            <form onSubmit={criarPastaNoGrupo} className="flex gap-2">
+              <Input
+                placeholder="Nova pasta (ex.: BDR)"
+                value={novaPastaNome}
+                onChange={(e) => setNovaPastaNome(e.target.value)}
+                className="h-9 w-48"
+              />
+              <Button
+                type="submit"
+                variant="outline"
+                size="sm"
+                disabled={criandoPasta || !novaPastaNome.trim()}
+              >
+                <Plus className="size-4" /> Adicionar
+              </Button>
+            </form>
+          </div>
           {porPasta.length === 0 ? (
             <Card>
               <CardContent className="py-8 text-center text-sm text-muted-foreground">
@@ -227,10 +286,20 @@ function PainelPage() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {porPasta.map(([chave, { nome, itens }]) => (
-                <Card key={chave}>
+                <Card key={chave} className="relative">
+                  {chave !== "sem-pasta" ? (
+                    <button
+                      type="button"
+                      aria-label={`Excluir pasta ${nome}`}
+                      className="absolute right-3 top-3 text-muted-foreground hover:text-destructive"
+                      onClick={() => excluirPasta(chave, nome)}
+                    >
+                      <X className="size-4" />
+                    </button>
+                  ) : null}
                   <CardContent className="flex h-full flex-col justify-between gap-4 py-5">
                     <div>
-                      <p className="font-serif text-lg font-semibold">{nome}</p>
+                      <p className="pr-6 font-serif text-lg font-semibold">{nome}</p>
                       <p className="text-sm text-muted-foreground">
                         {itens.length} processo{itens.length === 1 ? "" : "s"}
                       </p>
