@@ -190,6 +190,9 @@ function AppLayout() {
           <Outlet />
         </main>
       </div>
+      <footer className="border-t border-border py-4 text-center text-xs text-muted-foreground">
+        Essa aplicação foi criada por Bárbara Brandão.
+      </footer>
     </div>
   );
 }
