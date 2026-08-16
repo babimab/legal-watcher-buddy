@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CalendarClock, CheckCircle2, ExternalLink, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -50,6 +50,7 @@ export const Route = createFileRoute("/_authenticated/processos/$id")({
 function ProcessoDetalhe() {
   const { id } = Route.useParams();
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   const processo = useQuery({ queryKey: ["processo", id], queryFn: () => buscarProcesso(id) });
   const movs = useQuery({
@@ -97,12 +98,13 @@ function ProcessoDetalhe() {
 
   return (
     <div className="space-y-6">
-      <Link
-        to="/processos"
-        className="inline-flex items-center gap-2 text-sm text-muted-foreground"
+      <button
+        type="button"
+        onClick={() => router.history.back()}
+        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft className="size-4" /> Voltar para a carteira
-      </Link>
+        <ArrowLeft className="size-4" /> Voltar
+      </button>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
