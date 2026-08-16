@@ -11,6 +11,7 @@ import { exibir, formatarCNJ } from "@/lib/processos";
 import {
   cnjsDuplicados,
   corrigirAcento,
+  desdobramentosNaoVinculados,
   listarProblemasAcento,
   listarProcessosParaSaude,
   processosSemPasta,
@@ -47,11 +48,16 @@ function QualidadeDadosPage() {
 
   const semPasta = processos.data ? processosSemPasta(processos.data) : [];
   const duplicados = processos.data ? cnjsDuplicados(processos.data) : [];
+  const desdobramentos = processos.data ? desdobramentosNaoVinculados(processos.data) : [];
   const acentos = problemasAcento.data ?? [];
 
   const carregando = processos.isLoading || problemasAcento.isLoading;
   const semProblemas =
-    !carregando && semPasta.length === 0 && duplicados.length === 0 && acentos.length === 0;
+    !carregando &&
+    semPasta.length === 0 &&
+    duplicados.length === 0 &&
+    desdobramentos.length === 0 &&
+    acentos.length === 0;
 
   const corrigir = async (problema: ProblemaAcento) => {
     const chave = `${problema.tabela}-${problema.id}-${problema.campo}`;
@@ -179,6 +185,45 @@ function QualidadeDadosPage() {
                     >
                       {exibir(p.cliente)}
                       <Badge variant="outline">{p.status}</Badge>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {desdobramentos.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 font-serif text-lg">
+              <AlertTriangle className="size-5 text-amber-500" />
+              {desdobramentos.length} possível(is) desdobramento(s) não vinculado(s)
+            </CardTitle>
+            <CardDescription>
+              Mesmo número de caso, CNJs diferentes, e mais de um cadastrado como processo
+              independente — provavelmente um recurso/cumprimento/execução do outro. Abre o processo
+              e usa "Vincular desdobramento" pra corrigir.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {desdobramentos.map((grupo) => (
+              <div key={grupo.numeroInterno} className="rounded-md border border-border p-3">
+                <p className="mb-2 text-xs text-muted-foreground">Caso {grupo.numeroInterno}</p>
+                <div className="flex flex-wrap gap-2">
+                  {grupo.processos.map((p) => (
+                    <Link
+                      key={p.id}
+                      to="/processos/$id"
+                      params={{ id: p.id }}
+                      className="flex items-center gap-2 rounded-md border border-border px-2 py-1 text-sm hover:border-primary"
+                    >
+                      <span className="font-mono text-xs">{formatarCNJ(p.numero_cnj)}</span>
+                      {p.fase ? <Badge variant="secondary">{p.fase}</Badge> : null}
+                      {p.tipo_desdobramento ? (
+                        <Badge variant="outline">{p.tipo_desdobramento}</Badge>
+                      ) : null}
                     </Link>
                   ))}
                 </div>

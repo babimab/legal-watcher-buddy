@@ -233,6 +233,54 @@ export function cnjsDuplicados(processos: Processo[]): GrupoCnjDuplicado[] {
     }));
 }
 
+// --- Desdobramento provavelmente cadastrado como processo à parte ---
+// Recurso/cumprimento de sentença/execução costumam ganhar um número CNJ
+// novo, mas mantêm o mesmo "número do caso" (numero_interno) do processo
+// original — então dois ou mais processos "raiz" (sem processo_pai_id)
+// com o mesmo número de caso é sinal forte de que um deles deveria estar
+// vinculado ao outro via "Vincular desdobramento", em vez de flutuar como
+// processo independente.
+export type GrupoDesdobramentoNaoVinculado = {
+  numeroInterno: string;
+  processos: Pick<
+    Processo,
+    "id" | "numero_cnj" | "cliente" | "status" | "fase" | "tipo_desdobramento"
+  >[];
+};
+
+export function desdobramentosNaoVinculados(
+  processos: Processo[],
+): GrupoDesdobramentoNaoVinculado[] {
+  const porNumeroInterno = new Map<string, Processo[]>();
+  for (const p of processos) {
+    const numero = p.numero_interno?.trim();
+    if (!numero) continue;
+    const atual = porNumeroInterno.get(numero);
+    if (atual) atual.push(p);
+    else porNumeroInterno.set(numero, [p]);
+  }
+
+  return [...porNumeroInterno.entries()]
+    .filter(([, lista]) => {
+      if (lista.length < 2) return false;
+      const raizes = lista.filter((p) => !p.processo_pai_id);
+      // Uma família bem vinculada tem exatamente 1 raiz e o resto como
+      // filho dela — 2+ raízes com o mesmo número de caso é o problema.
+      return raizes.length > 1;
+    })
+    .map(([numeroInterno, lista]) => ({
+      numeroInterno,
+      processos: lista.map((p) => ({
+        id: p.id,
+        numero_cnj: p.numero_cnj,
+        cliente: p.cliente,
+        status: p.status,
+        fase: p.fase,
+        tipo_desdobramento: p.tipo_desdobramento,
+      })),
+    }));
+}
+
 export async function listarProcessosParaSaude(): Promise<Processo[]> {
   return listarProcessos();
 }
