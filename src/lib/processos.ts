@@ -271,13 +271,40 @@ export const TIPOS_MOVIMENTACAO = [
   "Outro",
 ] as const;
 
+// O Supabase corta qualquer select("*") em 1000 linhas por padrão. Como a
+// carteira já passou disso, uma busca sem paginação perde silenciosamente
+// os processos/andamentos mais antigos (ex.: a página de Citações via só
+// "1 processo" mesmo com os outros existindo e visíveis pro usuário) — por
+// isso as listagens de tabela inteira buscam em páginas até esgotar.
+const TAMANHO_PAGINA = 1000;
+
+async function buscarTudoPaginado<T>(
+  pagina: (
+    offset: number,
+    limite: number,
+  ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const tudo: T[] = [];
+  let offset = 0;
+  for (;;) {
+    const { data, error } = await pagina(offset, TAMANHO_PAGINA);
+    if (error) throw error;
+    const linhas = data ?? [];
+    tudo.push(...linhas);
+    if (linhas.length < TAMANHO_PAGINA) break;
+    offset += TAMANHO_PAGINA;
+  }
+  return tudo;
+}
+
 export async function listarProcessos(): Promise<Processo[]> {
-  const { data, error } = await supabase
-    .from("processos")
-    .select("*")
-    .order("updated_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as Processo[];
+  return buscarTudoPaginado<Processo>((offset, limite) =>
+    supabase
+      .from("processos")
+      .select("*")
+      .order("updated_at", { ascending: false })
+      .range(offset, offset + limite - 1),
+  );
 }
 
 export async function buscarProcesso(id: string): Promise<Processo> {
@@ -346,38 +373,50 @@ export async function listarMovimentacoesDesde(
 }
 
 export async function listarUltimasMovimentacoes(): Promise<Map<string, Movimentacao>> {
-  const { data, error } = await supabase
-    .from("movimentacoes")
-    .select("*")
-    .order("data_movimentacao", { ascending: false })
-    .order("created_at", { ascending: false });
-  if (error) throw error;
+  const todas = await buscarTudoPaginado<Movimentacao>((offset, limite) =>
+    supabase
+      .from("movimentacoes")
+      .select("*")
+      .order("data_movimentacao", { ascending: false })
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limite - 1),
+  );
   const ultimas = new Map<string, Movimentacao>();
-  for (const m of (data ?? []) as Movimentacao[]) {
+  for (const m of todas) {
     if (!ultimas.has(m.processo_id)) ultimas.set(m.processo_id, m);
   }
   return ultimas;
 }
 
 export async function listarPendencias(): Promise<MovimentacaoComProcesso[]> {
-  const { data, error } = await supabase
-    .from("movimentacoes")
-    .select(`*, processos(${CAMPOS_PROCESSO_RELATORIO})`)
-    .eq("exige_acao", true)
-    .eq("concluida", false)
-    .order("prazo", { ascending: true, nullsFirst: false });
-  if (error) throw error;
-  return (data ?? []) as unknown as MovimentacaoComProcesso[];
+  return buscarTudoPaginado<MovimentacaoComProcesso>(
+    (offset, limite) =>
+      supabase
+        .from("movimentacoes")
+        .select(`*, processos(${CAMPOS_PROCESSO_RELATORIO})`)
+        .eq("exige_acao", true)
+        .eq("concluida", false)
+        .order("prazo", { ascending: true, nullsFirst: false })
+        .range(offset, offset + limite - 1) as unknown as PromiseLike<{
+        data: MovimentacaoComProcesso[] | null;
+        error: { message: string } | null;
+      }>,
+  );
 }
 
 export async function listarNaoValidados(): Promise<MovimentacaoComProcesso[]> {
-  const { data, error } = await supabase
-    .from("movimentacoes")
-    .select(`*, processos(${CAMPOS_PROCESSO_RELATORIO})`)
-    .eq("validado", false)
-    .order("data_movimentacao", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as unknown as MovimentacaoComProcesso[];
+  return buscarTudoPaginado<MovimentacaoComProcesso>(
+    (offset, limite) =>
+      supabase
+        .from("movimentacoes")
+        .select(`*, processos(${CAMPOS_PROCESSO_RELATORIO})`)
+        .eq("validado", false)
+        .order("data_movimentacao", { ascending: false })
+        .range(offset, offset + limite - 1) as unknown as PromiseLike<{
+        data: MovimentacaoComProcesso[] | null;
+        error: { message: string } | null;
+      }>,
+  );
 }
 
 export async function ultimaVerificacao() {
