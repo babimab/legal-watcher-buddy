@@ -11,7 +11,6 @@ import {
   Newspaper,
   Upload,
   User,
-  Users,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -71,21 +70,15 @@ function AppLayout() {
             <NavItem
               to="/painel"
               icon={<LayoutDashboard className="size-4" />}
-              label="Souza Cruz"
-              search={{ cliente: "Souza Cruz" }}
+              label="Equipe Souza Cruz"
+              search={{ grupo: "Equipe Souza Cruz" }}
               tourId="nav-clientes"
             />
             <NavItem
               to="/painel"
               icon={<LayoutDashboard className="size-4" />}
-              label="Astro"
-              search={{ cliente: "Astro" }}
-            />
-            <NavItem
-              to="/painel"
-              icon={<LayoutDashboard className="size-4" />}
-              label="Merck/Outros"
-              search={{ cliente: "Merck,PRC,Outros" }}
+              label="Equipe Astro"
+              search={{ grupo: "Equipe Astro" }}
             />
             <NavItem
               to="/processos"
@@ -113,12 +106,6 @@ function AppLayout() {
               label="Meus prazos"
               search={{ aba: "pendencias", advogado: "eu" }}
               contador={meusPrazosUrgentes}
-            />
-            <NavItem
-              to="/grupos"
-              icon={<Users className="size-4" />}
-              label="Grupos"
-              tourId="nav-grupos"
             />
             <NavItem
               to="/relatorio"

@@ -14,9 +14,9 @@ const PASSOS: Passo[] = [
   },
   {
     alvo: "nav-clientes",
-    titulo: "Painéis por carteira",
+    titulo: "Painéis de equipe",
     texto:
-      "Souza Cruz, Astro e Merck/Outros (aqui do lado) — cada um mostra as pastas por advogado, com um botão pra exportar a planilha direto.",
+      "Equipe Souza Cruz e Equipe Astro (aqui do lado) — cada um mostra as pastas por advogado daquela equipe, com um botão pra exportar a planilha direto. Dentro de cada um também tem um atalho pra gerenciar quem faz parte da equipe.",
   },
   {
     alvo: "nav-meus-processos",
@@ -33,11 +33,6 @@ const PASSOS: Passo[] = [
     titulo: "Relatórios",
     texto:
       "Andamentos novos e prazos pendentes. É aqui também que se valida os andamentos sugeridos pela aba de Publicações.",
-  },
-  {
-    alvo: "nav-grupos",
-    titulo: "Grupos",
-    texto: "Controla quem tem acesso a quais pastas e clientes.",
   },
   {
     alvo: "nav-encerramento",

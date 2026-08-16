@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Download, FileWarning, Wallet } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, FileWarning, Users, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -14,18 +14,17 @@ import {
   exibir,
   ehResponsavelDaSigla,
   useSiglaAtual,
-  categoriaCliente,
   type MovimentacaoComProcesso,
   type Processo,
 } from "@/lib/processos";
-import { listarPastas } from "@/lib/grupos";
+import { listarGrupos, listarPastas } from "@/lib/grupos";
 import { exportarProcessosExcel } from "@/lib/excel";
 
-type PainelSearch = { cliente?: string };
+type PainelSearch = { grupo?: string };
 
 export const Route = createFileRoute("/_authenticated/painel")({
   validateSearch: (search: Record<string, unknown>): PainelSearch => ({
-    ...(typeof search["cliente"] === "string" ? { cliente: search["cliente"] } : {}),
+    ...(typeof search["grupo"] === "string" ? { grupo: search["grupo"] } : {}),
   }),
   head: () => ({
     meta: [
@@ -50,27 +49,37 @@ function PainelPage() {
   const pendenciasQuery = useQuery({ queryKey: ["pendencias"], queryFn: listarPendencias });
   const naoValidadosQuery = useQuery({ queryKey: ["nao-validados"], queryFn: listarNaoValidados });
   const pastasQuery = useQuery({ queryKey: ["pastas"], queryFn: listarPastas });
+  const gruposQuery = useQuery({ queryKey: ["grupos"], queryFn: listarGrupos });
 
-  const categorias = search.cliente ? search.cliente.split(",") : null;
-  const titulo = categorias ? categorias.join(" / ") : null;
+  const pastaPorId = useMemo(
+    () => new Map((pastasQuery.data ?? []).map((p) => [p.id, p])),
+    [pastasQuery.data],
+  );
 
-  const filtrarPorCliente = <T extends { cliente?: string | null }>(itens: T[]) =>
-    categorias ? itens.filter((i) => categorias.includes(categoriaCliente(i.cliente))) : itens;
+  // O painel é por grupo (Equipe Souza Cruz, Equipe Astro), não por texto
+  // de cliente — um processo de Merck que fica na pasta do JGV dentro da
+  // Equipe Souza Cruz é contado ali, do jeito que é na planilha real dele.
+  const grupoAtual = (gruposQuery.data ?? []).find((g) => g.nome === search.grupo) ?? null;
+  const titulo = grupoAtual?.nome ?? null;
 
-  const processos = { data: filtrarPorCliente(processosQuery.data ?? []) };
+  const pertenceAoGrupo = (pastaId: string | null | undefined) => {
+    if (!grupoAtual) return true;
+    if (!pastaId) return false;
+    return pastaPorId.get(pastaId)?.grupo_id === grupoAtual.id;
+  };
+
+  const processos = {
+    data: (processosQuery.data ?? []).filter((p) => pertenceAoGrupo(p.pasta_id)),
+  };
   const pendencias = {
-    data: categorias
-      ? (pendenciasQuery.data ?? []).filter((m: MovimentacaoComProcesso) =>
-          categorias.includes(categoriaCliente(m.processos?.cliente)),
-        )
-      : (pendenciasQuery.data ?? []),
+    data: (pendenciasQuery.data ?? []).filter((m: MovimentacaoComProcesso) =>
+      pertenceAoGrupo(m.processos?.pasta_id),
+    ),
   };
   const naoValidados = {
-    data: categorias
-      ? (naoValidadosQuery.data ?? []).filter((m: MovimentacaoComProcesso) =>
-          categorias.includes(categoriaCliente(m.processos?.cliente)),
-        )
-      : (naoValidadosQuery.data ?? []),
+    data: (naoValidadosQuery.data ?? []).filter((m: MovimentacaoComProcesso) =>
+      pertenceAoGrupo(m.processos?.pasta_id),
+    ),
   };
 
   const meusProcessos = useMemo(
@@ -109,16 +118,10 @@ function PainelPage() {
 
   const valorTotal = valorPorCarteira.reduce((soma, [, v]) => soma + v, 0);
 
-  const pastaPorId = useMemo(
-    () => new Map((pastasQuery.data ?? []).map((p) => [p.id, p])),
-    [pastasQuery.data],
-  );
-
-  // Só faz sentido nos painéis por carteira (Souza Cruz, Astro, Merck/Outros)
-  // — é onde as pastas representam o advogado responsável por aquele bloco
-  // de processos.
+  // Só faz sentido nos painéis de equipe (Souza Cruz, Astro) — é onde as
+  // pastas representam o advogado responsável por aquele bloco de processos.
   const porPasta = useMemo(() => {
-    if (!categorias) return [];
+    if (!grupoAtual) return [];
     const contagem = new Map<string, { nome: string; itens: Processo[] }>();
     for (const p of processos.data) {
       const pasta = p.pasta_id ? pastaPorId.get(p.pasta_id) : undefined;
@@ -129,7 +132,7 @@ function PainelPage() {
       else contagem.set(chave, { nome, itens: [p] });
     }
     return [...contagem.entries()].sort(([, a], [, b]) => b.itens.length - a.itens.length);
-  }, [categorias, processos.data, pastaPorId]);
+  }, [grupoAtual, processos.data, pastaPorId]);
 
   const [exportandoPasta, setExportandoPasta] = useState<string | null>(null);
 
@@ -146,12 +149,21 @@ function PainelPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-serif text-3xl font-semibold">Painel{titulo ? ` — ${titulo}` : ""}</h1>
-        <p className="text-muted-foreground">
-          {titulo ? `Resumo da carteira ${titulo}` : "Resumo do escritório"} —{" "}
-          {meusProcessos.length} processo(s) seus, {processos.data?.length ?? 0} no total.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-serif text-3xl font-semibold">{titulo ?? "Painel"}</h1>
+          <p className="text-muted-foreground">
+            {titulo ? "Resumo dessa equipe" : "Resumo do escritório"} — {meusProcessos.length}{" "}
+            processo(s) seus, {processos.data?.length ?? 0} no total.
+          </p>
+        </div>
+        {titulo ? (
+          <Button asChild variant="outline" size="sm">
+            <Link to="/grupos">
+              <Users className="size-4" /> Gerenciar equipe
+            </Link>
+          </Button>
+        ) : null}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -203,7 +215,7 @@ function PainelPage() {
         </Card>
       </div>
 
-      {categorias ? (
+      {grupoAtual ? (
         <Card>
           <CardHeader>
             <CardTitle className="font-serif text-lg">Pastas</CardTitle>

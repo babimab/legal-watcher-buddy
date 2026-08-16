@@ -172,10 +172,11 @@ function AuthPage() {
                       id="senha-nova"
                       type="password"
                       required
-                      minLength={6}
+                      minLength={8}
                       value={senha}
                       onChange={(e) => setSenha(e.target.value)}
                     />
+                    <p className="text-xs text-muted-foreground">Mínimo de 8 caracteres.</p>
                   </div>
                   <Button type="submit" className="w-full" disabled={carregando}>
                     Criar conta
