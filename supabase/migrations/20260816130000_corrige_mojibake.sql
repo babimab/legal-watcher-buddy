@@ -2,29 +2,50 @@
 -- (acentos, ç, ª/º) foram lidos como Windows-1252 na hora de importar, e
 -- viraram coisa tipo "CÃvel" em vez de "Cível", "InstrutÃ³ria" em vez de
 -- "Instrutória", "AraguaÃ­na" em vez de "Araguaína", "Vara Ãšnica" em vez
--- de "Vara Única", "SENTENÃ‡A" em vez de "SENTENÇA".
+-- de "Vara Única", "SENTENÃ‡A" em vez de "SENTENÇA", "JUÃZO" em vez de
+-- "JUÍZO".
 --
--- (Usa Windows-1252, não Latin-1 puro: pra letras como Ç/É/Ó/Ú, o segundo
--- byte da sequência UTF-8 cai numa faixa onde as duas codificações
--- divergem — só o Windows-1252 reverte esses casos corretamente.)
+-- O Windows-1252 "de verdade" do Postgres deixa 5 posições sem definição
+-- (0x81, 0x8D, 0x8F, 0x90, 0x9D — usadas por Á/Í/Ï/Ð/Ý maiúsculas em
+-- UTF-8) e erra nelas. Mas quem corrompeu esse texto originalmente
+-- (ferramenta baseada em navegador/JS) usa a variante do padrão da web,
+-- que preenche esses 5 buracos em vez de rejeitar. Por isso primeiro
+-- normaliza os caracteres especiais do Windows-1252 pros bytes 0x80-0x9F
+-- correspondentes (incluindo os 5 buracos), e só depois faz a reversão
+-- via Latin-1 (que aceita todo o intervalo 0x00-0xFF, sem buraco nenhum).
 --
--- A correção é reversível de forma exata: reinterpretar o texto corrompido
--- como Windows-1252 recupera os bytes originais em UTF-8, e decodificar
--- esses bytes como UTF-8 devolve o texto certo. Só mexe em valores que
--- batem com o padrão de corrupção (contêm "Ã" ou "Â") — o resto fica
--- intocado, e se a reversão não for um UTF-8 válido (sinal de que o texto
--- já estava certo, tipo "JOÃO" ou "CÂMARA"), o valor original é mantido.
+-- Só mexe em valores que batem com o padrão de corrupção (contêm "Ã" ou
+-- "Â") — o resto fica intocado, e se a reversão não resultar num UTF-8
+-- válido (sinal de que o texto já estava certo, tipo "JOÃO" ou "CÂMARA"),
+-- o valor original é mantido.
 
 CREATE OR REPLACE FUNCTION public.corrigir_mojibake(_texto text)
 RETURNS text LANGUAGE plpgsql IMMUTABLE AS $$
 DECLARE
+  -- caracteres que o Windows-1252 usa pros bytes 0x80-0x9F (nessa ordem),
+  -- incluindo os 5 buracos (0x81/0x8D/0x8F/0x90/0x9D) preenchidos com o
+  -- próprio código de controle, do jeito que navegador/JS decodificam.
+  _de text := chr(8364) || chr(129) || chr(8218) || chr(402) || chr(8222) || chr(8230)
+    || chr(8224) || chr(8225) || chr(710) || chr(8240) || chr(352) || chr(8249)
+    || chr(338) || chr(141) || chr(381) || chr(143) || chr(144) || chr(8216)
+    || chr(8217) || chr(8220) || chr(8221) || chr(8226) || chr(8211) || chr(8212)
+    || chr(732) || chr(8482) || chr(353) || chr(8250) || chr(339) || chr(157)
+    || chr(382) || chr(376);
+  _para text := chr(128) || chr(129) || chr(130) || chr(131) || chr(132) || chr(133)
+    || chr(134) || chr(135) || chr(136) || chr(137) || chr(138) || chr(139)
+    || chr(140) || chr(141) || chr(142) || chr(143) || chr(144) || chr(145)
+    || chr(146) || chr(147) || chr(148) || chr(149) || chr(150) || chr(151)
+    || chr(152) || chr(153) || chr(154) || chr(155) || chr(156) || chr(157)
+    || chr(158) || chr(159);
+  _normalizado text;
   _corrigido text;
 BEGIN
   IF _texto IS NULL OR _texto !~ '[ÃÂ]' THEN
     RETURN _texto;
   END IF;
   BEGIN
-    _corrigido := convert_from(convert_to(_texto, 'WIN1252'), 'UTF8');
+    _normalizado := translate(_texto, _de, _para);
+    _corrigido := convert_from(convert_to(_normalizado, 'LATIN1'), 'UTF8');
   EXCEPTION WHEN OTHERS THEN
     RETURN _texto;
   END;
