@@ -119,7 +119,7 @@ function AppLayout() {
             <NavItem
               to="/relatorio"
               icon={<Archive className="size-4" />}
-              label="Encerramento"
+              label="Encerramento Souza Cruz"
               search={{ aba: "encerramento" }}
               tourId="nav-encerramento"
             />

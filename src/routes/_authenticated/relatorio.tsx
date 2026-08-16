@@ -494,7 +494,7 @@ function RelatorioPage() {
             {aba === "pendencias"
               ? "Prazos"
               : aba === "encerramento"
-                ? "Encerramento"
+                ? "Encerramento Souza Cruz"
                 : aba === "encerramento-astro"
                   ? "Encerramento Astro"
                   : "Relatórios"}
@@ -670,7 +670,7 @@ function RelatorioPage() {
         <>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-serif text-xl font-semibold">
-              Encerramento ({encerramentoExibido.length})
+              Encerramento Souza Cruz ({encerramentoExibido.length})
             </h2>
             <Link
               to="/relatorio"
@@ -764,7 +764,7 @@ function RelatorioPage() {
                 search={{ aba: "encerramento", advogado }}
                 className="inline-flex items-center gap-1 text-sm text-primary underline-offset-4 hover:underline"
               >
-                Ver Encerramento
+                Ver Encerramento Souza Cruz
               </Link>
             </CardContent>
           </Card>

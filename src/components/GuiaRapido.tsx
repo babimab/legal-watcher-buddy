@@ -41,7 +41,7 @@ const PASSOS: Passo[] = [
   },
   {
     alvo: "nav-encerramento",
-    titulo: "Encerramento",
+    titulo: "Encerramento Souza Cruz",
     texto: "Revisão dos processos prontos pra fechar, com valor e observação pra Eliane.",
   },
   {
