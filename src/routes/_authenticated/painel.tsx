@@ -134,6 +134,14 @@ function PainelPage() {
   const porPasta = useMemo(() => {
     if (!grupoAtual) return [];
     const contagem = new Map<string, { nome: string; itens: Processo[] }>();
+
+    // Toda pasta do grupo entra aqui, mesmo com zero processo — senão uma
+    // pasta recém-criada (ou ainda vazia) simplesmente some do painel.
+    for (const pasta of pastasQuery.data ?? []) {
+      if (pasta.grupo_id !== grupoAtual.id) continue;
+      contagem.set(pasta.id, { nome: exibir(pasta.nome), itens: [] });
+    }
+
     for (const p of processos.data) {
       const pasta = p.pasta_id ? pastaPorId.get(p.pasta_id) : undefined;
       const chave = pasta?.id ?? "sem-pasta";
@@ -142,8 +150,14 @@ function PainelPage() {
       if (atual) atual.itens.push(p);
       else contagem.set(chave, { nome, itens: [p] });
     }
-    return [...contagem.entries()].sort(([, a], [, b]) => b.itens.length - a.itens.length);
-  }, [grupoAtual, processos.data, pastaPorId]);
+
+    return [...contagem.entries()].sort(([chaveA, a], [chaveB, b]) => {
+      if (chaveA === "sem-pasta") return 1;
+      if (chaveB === "sem-pasta") return -1;
+      if (a.itens.length !== b.itens.length) return b.itens.length - a.itens.length;
+      return a.nome.localeCompare(b.nome, "pt-BR");
+    });
+  }, [grupoAtual, processos.data, pastaPorId, pastasQuery.data]);
 
   const [exportandoPasta, setExportandoPasta] = useState<string | null>(null);
 
@@ -318,7 +332,7 @@ function PainelPage() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        disabled={exportandoPasta === chave}
+                        disabled={exportandoPasta === chave || itens.length === 0}
                         onClick={() => exportarPasta(chave, nome, itens)}
                       >
                         <Download className="size-4" />
