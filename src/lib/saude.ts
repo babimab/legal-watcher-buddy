@@ -281,6 +281,60 @@ export function desdobramentosNaoVinculados(
     }));
 }
 
+// --- Possível desdobramento por parte adversa repetida ---
+// Processos com a mesma parte adversa dentro da mesma pasta costumam ser
+// fases do mesmo caso (recurso, cumprimento de sentença, execução...).
+// Diferente da checagem por número de caso, essa é só um indício — por
+// isso vira planilha pra revisão manual, não correção automática.
+export type GrupoParteAdversa = {
+  parteAdversa: string;
+  processos: Pick<
+    Processo,
+    | "id"
+    | "numero_cnj"
+    | "cliente"
+    | "classe"
+    | "comarca"
+    | "vara"
+    | "status"
+    | "fase"
+    | "processo_pai_id"
+    | "tipo_desdobramento"
+  >[];
+};
+
+export function gruposPorParteAdversa(processos: Processo[], pastaId: string): GrupoParteAdversa[] {
+  const porParte = new Map<string, { original: string; itens: Processo[] }>();
+  for (const p of processos) {
+    if (p.pasta_id !== pastaId) continue;
+    const bruta = p.parte_contraria?.trim();
+    if (!bruta) continue;
+    const chave = bruta.toLowerCase();
+    const atual = porParte.get(chave);
+    if (atual) atual.itens.push(p);
+    else porParte.set(chave, { original: bruta, itens: [p] });
+  }
+
+  return [...porParte.values()]
+    .filter(({ itens }) => itens.length > 1)
+    .map(({ original, itens }) => ({
+      parteAdversa: original,
+      processos: itens.map((p) => ({
+        id: p.id,
+        numero_cnj: p.numero_cnj,
+        cliente: p.cliente,
+        classe: p.classe,
+        comarca: p.comarca,
+        vara: p.vara,
+        status: p.status,
+        fase: p.fase,
+        processo_pai_id: p.processo_pai_id,
+        tipo_desdobramento: p.tipo_desdobramento,
+      })),
+    }))
+    .sort((a, b) => b.processos.length - a.processos.length);
+}
+
 export async function listarProcessosParaSaude(): Promise<Processo[]> {
   return listarProcessos();
 }

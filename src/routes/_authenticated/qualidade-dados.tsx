@@ -1,17 +1,20 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { AlertTriangle, CheckCircle2, Wand2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { exibir, formatarCNJ } from "@/lib/processos";
+import { listarGrupos, listarPastas } from "@/lib/grupos";
+import { exportarGruposParteAdversaExcel } from "@/lib/excel";
 import {
   cnjsDuplicados,
   corrigirAcento,
   desdobramentosNaoVinculados,
+  gruposPorParteAdversa,
   listarProblemasAcento,
   listarProcessosParaSaude,
   processosSemPasta,
@@ -42,14 +45,37 @@ function QualidadeDadosPage() {
     queryKey: ["problemas-acento"],
     queryFn: listarProblemasAcento,
   });
+  const grupos = useQuery({ queryKey: ["grupos"], queryFn: listarGrupos });
+  const pastas = useQuery({ queryKey: ["pastas"], queryFn: listarPastas });
 
   const [corrigindo, setCorrigindo] = useState<Set<string>>(new Set());
   const [corrigindoTodos, setCorrigindoTodos] = useState(false);
+  const [exportandoParteAdversa, setExportandoParteAdversa] = useState(false);
 
   const semPasta = processos.data ? processosSemPasta(processos.data) : [];
   const duplicados = processos.data ? cnjsDuplicados(processos.data) : [];
   const desdobramentos = processos.data ? desdobramentosNaoVinculados(processos.data) : [];
   const acentos = problemasAcento.data ?? [];
+
+  // Pasta BDR (Equipe Souza Cruz) — planilha de possíveis desdobramentos
+  // por parte adversa repetida, pra revisão manual.
+  const pastaBdr = (pastas.data ?? []).find((pa) => {
+    const grupo = (grupos.data ?? []).find((g) => g.id === pa.grupo_id);
+    return grupo?.nome === "Equipe Souza Cruz" && pa.nome === "BDR";
+  });
+  const gruposParteAdversaBdr =
+    processos.data && pastaBdr ? gruposPorParteAdversa(processos.data, pastaBdr.id) : [];
+
+  const exportarParteAdversa = async () => {
+    setExportandoParteAdversa(true);
+    try {
+      await exportarGruposParteAdversaExcel(gruposParteAdversaBdr, "possiveis-desdobramentos-bdr");
+    } catch {
+      toast.error("Não consegui gerar a planilha.");
+    } finally {
+      setExportandoParteAdversa(false);
+    }
+  };
 
   const carregando = processos.isLoading || problemasAcento.isLoading;
   const semProblemas =
@@ -230,6 +256,36 @@ function QualidadeDadosPage() {
               </div>
             ))}
           </CardContent>
+        </Card>
+      ) : null}
+
+      {gruposParteAdversaBdr.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <CardTitle className="flex items-center gap-2 font-serif text-lg">
+                  <AlertTriangle className="size-5 text-amber-500" />
+                  {gruposParteAdversaBdr.length} parte(s) adversa(s) repetida(s) na pasta BDR
+                </CardTitle>
+                <CardDescription>
+                  Processos com a mesma parte adversa costumam ser fases do mesmo caso — é só um
+                  indício, por isso vira planilha pra você revisar e marcar com calma, em vez de
+                  ligar automático.
+                </CardDescription>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => void exportarParteAdversa()}
+                disabled={exportandoParteAdversa}
+              >
+                <Download className="size-4" />
+                {exportandoParteAdversa ? "Gerando..." : "Exportar planilha"}
+              </Button>
+            </div>
+          </CardHeader>
         </Card>
       ) : null}
 

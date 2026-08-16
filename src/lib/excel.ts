@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 
 import { formatarCNJ, exibir, type Processo } from "@/lib/processos";
+import type { GrupoParteAdversa } from "@/lib/saude";
 
 // Mesmo azul escuro usado no cabeçalho do site (--primary), pra planilha
 // exportada ficar com a cara do sistema.
@@ -91,6 +92,74 @@ export async function exportarProcessosExcel(processos: Processo[], nomeArquivo 
 
   estilizarCabecalho(planilha);
   centralizarLinhas(planilha, new Set());
+  finalizarPlanilha(planilha);
+
+  await baixarPlanilha(workbook, nomeArquivo);
+}
+
+/**
+ * Planilha pra revisão manual: agrupa processos com a mesma parte adversa
+ * (indício de desdobramento) e deixa colunas em branco pra marcar se é
+ * desdobramento, de qual tipo, e qual é o processo principal do grupo.
+ */
+export async function exportarGruposParteAdversaExcel(
+  grupos: GrupoParteAdversa[],
+  nomeArquivo = "possiveis-desdobramentos",
+) {
+  const workbook = new ExcelJS.Workbook();
+  const planilha = workbook.addWorksheet("Possíveis desdobramentos");
+
+  planilha.columns = [
+    { header: "Parte adversa", key: "parte_adversa", width: 30 },
+    { header: "Número CNJ", key: "numero_cnj", width: 22 },
+    { header: "Cliente", key: "cliente", width: 22 },
+    { header: "Classe", key: "classe", width: 26 },
+    { header: "Comarca", key: "comarca", width: 20 },
+    { header: "Vara", key: "vara", width: 22 },
+    { header: "Fase", key: "fase", width: 16 },
+    { header: "Status", key: "status", width: 12 },
+    { header: "Já vinculado?", key: "ja_vinculado", width: 14 },
+    { header: "É desdobramento? (Sim/Não)", key: "e_desdobramento", width: 22 },
+    {
+      header: "Tipo (Recurso/Cumprimento de sentença/Execução/Embargos/Agravo/Outro)",
+      key: "tipo",
+      width: 40,
+    },
+    { header: "Processo principal (CNJ)", key: "principal", width: 22 },
+  ];
+
+  const BORDA_GRUPO: Partial<ExcelJS.Borders> = {
+    top: { style: "medium", color: { argb: "FF0D3A51" } },
+  };
+
+  for (const grupo of grupos) {
+    let primeira = true;
+    for (const p of grupo.processos) {
+      const linha = planilha.addRow({
+        parte_adversa: grupo.parteAdversa,
+        numero_cnj: formatarCNJ(p.numero_cnj),
+        cliente: exibir(p.cliente) ?? "",
+        classe: p.classe ?? "",
+        comarca: p.comarca ?? "",
+        vara: p.vara ?? "",
+        fase: p.fase ?? "",
+        status: p.status,
+        ja_vinculado: p.processo_pai_id ? `Sim (${exibir(p.tipo_desdobramento) ?? "?"})` : "Não",
+        e_desdobramento: "",
+        tipo: "",
+        principal: "",
+      });
+      if (primeira) {
+        linha.eachCell((celula) => {
+          celula.border = BORDA_GRUPO;
+        });
+        primeira = false;
+      }
+    }
+  }
+
+  estilizarCabecalho(planilha);
+  centralizarLinhas(planilha, new Set(["classe"]));
   finalizarPlanilha(planilha);
 
   await baixarPlanilha(workbook, nomeArquivo);
