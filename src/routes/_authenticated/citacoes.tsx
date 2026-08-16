@@ -3,10 +3,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
-import { Upload, CheckCircle2 } from "lucide-react";
+import { Upload, CheckCircle2, FolderPlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,8 +18,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { exibir, formatarCNJ, listarProcessos, type Processo } from "@/lib/processos";
+import { criarPasta, listarGrupos, listarPastas, moverProcessoParaPasta } from "@/lib/grupos";
 
 export const Route = createFileRoute("/_authenticated/citacoes")({
   head: () => ({
@@ -199,9 +208,34 @@ function CitacoesPage() {
   const [selecionadas, setSelecionadas] = useState<Set<number>>(new Set());
   const [importando, setImportando] = useState(false);
   const [detalhe, setDetalhe] = useState<LinhaCasada | null>(null);
+  const [grupoId, setGrupoId] = useState("");
+  const [pastaId, setPastaId] = useState("");
+  const [novaPasta, setNovaPasta] = useState("");
+  const [criandoPasta, setCriandoPasta] = useState(false);
   const queryClient = useQueryClient();
 
   const processos = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
+  const grupos = useQuery({ queryKey: ["grupos"], queryFn: listarGrupos });
+  const pastas = useQuery({ queryKey: ["pastas"], queryFn: listarPastas });
+  const pastasDoGrupo = useMemo(
+    () => (pastas.data ?? []).filter((p) => p.grupo_id === grupoId),
+    [pastas.data, grupoId],
+  );
+
+  const criarPastaNova = async () => {
+    if (!grupoId || !novaPasta.trim()) return;
+    setCriandoPasta(true);
+    try {
+      await criarPasta(grupoId, novaPasta.trim());
+      setNovaPasta("");
+      await queryClient.invalidateQueries({ queryKey: ["pastas"] });
+      toast.success("Pasta criada.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não consegui criar a pasta.");
+    } finally {
+      setCriandoPasta(false);
+    }
+  };
 
   const processoPorCnj = useMemo(() => {
     const mapa = new Map<string, Processo>();
@@ -340,13 +374,30 @@ function CitacoesPage() {
         else ok += lote.length;
       }
 
+      // Esses processos já existem no FaroLex — a planilha de Citações é só
+      // outro jeito de acompanhar o mesmo processo enquanto a citação não
+      // sai. Além do andamento, também deixa eles arquivados na pasta
+      // escolhida (se a pessoa escolheu uma).
+      let movidos = 0;
+      if (pastaId) {
+        for (const id of idsProcessos) {
+          try {
+            await moverProcessoParaPasta(id, pastaId);
+            movidos++;
+          } catch {
+            // segue tentando os outros mesmo se um falhar
+          }
+        }
+      }
+
       const jaExistiam = escolhidas.length - novas.length;
       if (falhas.length > 0) {
         toast.warning(`${ok} andamento(s) importado(s). Erros: ${falhas.slice(0, 2).join(" | ")}`);
       } else {
         toast.success(
           `${ok} andamento(s) novo(s) sugerido(s), prontos pra validar na aba de Relatórios.` +
-            (jaExistiam > 0 ? ` (${jaExistiam} já existiam e foram ignorados.)` : ""),
+            (jaExistiam > 0 ? ` (${jaExistiam} já existiam e foram ignorados.)` : "") +
+            (movidos > 0 ? ` ${movidos} processo(s) movido(s) pra pasta escolhida.` : ""),
         );
         setLinhas([]);
         setSelecionadas(new Set());
@@ -366,9 +417,10 @@ function CitacoesPage() {
       <div>
         <h1 className="font-serif text-3xl font-semibold">Citações</h1>
         <p className="text-muted-foreground">
-          Envie a planilha de acompanhamento de citações/intimações. O sistema cruza o número do
-          processo com o que já está cadastrado aqui e já sugere o andamento — sem mexer na carteira
-          ou na fase do processo.
+          Envie a planilha de acompanhamento de citações/intimações. Esses processos já existem no
+          FaroLex — o sistema cruza pelo número e já sugere o andamento, sem mexer na carteira ou na
+          fase. Você também pode arquivar eles numa pasta (ex.: "Aguardando Citação"), pra
+          acompanhar separado.
         </p>
       </div>
 
@@ -389,6 +441,74 @@ function CitacoesPage() {
               if (f) void ler(f);
             }}
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-serif text-lg">Arquivar numa pasta (opcional)</CardTitle>
+          <CardDescription>
+            Se escolher uma pasta, os processos importados abaixo são movidos pra ela — útil pra
+            manter juntos os que estão aguardando citação, por exemplo.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Grupo</Label>
+            <Select
+              value={grupoId}
+              onValueChange={(v) => {
+                setGrupoId(v);
+                setPastaId("");
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Sem grupo" />
+              </SelectTrigger>
+              <SelectContent>
+                {(grupos.data ?? []).map((g) => (
+                  <SelectItem key={g.id} value={g.id}>
+                    {exibir(g.nome)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Pasta</Label>
+            <Select value={pastaId} onValueChange={setPastaId} disabled={!grupoId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sem pasta" />
+              </SelectTrigger>
+              <SelectContent>
+                {pastasDoGrupo.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {exibir(p.nome)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {grupoId ? (
+            <div className="space-y-1 sm:col-span-2">
+              <Label className="text-xs text-muted-foreground">Criar pasta nova nesse grupo</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Ex.: Aguardando Citação"
+                  value={novaPasta}
+                  onChange={(e) => setNovaPasta(e.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!novaPasta.trim() || criandoPasta}
+                  onClick={criarPastaNova}
+                >
+                  <FolderPlus className="size-4" /> Criar
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -492,7 +612,9 @@ function CitacoesPage() {
               <Upload className="size-4" />
               {importando
                 ? "Importando..."
-                : `Sugerir ${totalSelecionadas} andamento(s) pros processos`}
+                : pastaId
+                  ? `Sugerir ${totalSelecionadas} andamento(s) e mover pra pasta`
+                  : `Sugerir ${totalSelecionadas} andamento(s) pros processos`}
             </Button>
             <p className="flex items-center gap-1 text-xs text-muted-foreground">
               <CheckCircle2 className="size-3.5" /> Os andamentos sugeridos entram como não

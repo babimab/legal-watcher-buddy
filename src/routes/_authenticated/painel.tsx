@@ -216,47 +216,52 @@ function PainelPage() {
       </div>
 
       {grupoAtual ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-serif text-lg">Pastas</CardTitle>
-            <CardDescription>Processos agrupados por pasta (advogado responsável).</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {porPasta.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum processo cadastrado ainda.</p>
-            ) : (
-              porPasta.map(([chave, { nome, itens }]) => (
-                <div key={chave} className="flex items-center justify-between text-sm">
-                  {chave === "sem-pasta" ? (
-                    <span className="text-muted-foreground">{nome}</span>
-                  ) : (
-                    <Link
-                      to="/processos"
-                      search={{ pasta: chave }}
-                      className="underline-offset-4 hover:underline"
-                    >
-                      {nome}
-                    </Link>
-                  )}
-                  <span className="flex items-center gap-2">
-                    <Badge variant="outline">{itens.length}</Badge>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="size-7"
-                      aria-label={`Exportar planilha de ${nome}`}
-                      disabled={exportandoPasta === chave}
-                      onClick={() => exportarPasta(chave, nome, itens)}
-                    >
-                      <Download className="size-3.5" />
-                    </Button>
-                  </span>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
+        <div>
+          <h2 className="mb-3 font-serif text-xl font-semibold">Pastas</h2>
+          {porPasta.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                Nenhum processo cadastrado ainda.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {porPasta.map(([chave, { nome, itens }]) => (
+                <Card key={chave}>
+                  <CardContent className="flex h-full flex-col justify-between gap-4 py-5">
+                    <div>
+                      <p className="font-serif text-lg font-semibold">{nome}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {itens.length} processo{itens.length === 1 ? "" : "s"}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {chave !== "sem-pasta" ? (
+                        <Button asChild variant="outline" size="sm" className="flex-1">
+                          <Link to="/processos" search={{ pasta: chave }}>
+                            Ver processos
+                          </Link>
+                        </Button>
+                      ) : (
+                        <span className="flex-1" />
+                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={exportandoPasta === chave}
+                        onClick={() => exportarPasta(chave, nome, itens)}
+                      >
+                        <Download className="size-4" />
+                        Exportar
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
