@@ -74,7 +74,7 @@ export async function siglaOuEmailAtual(): Promise<string | null> {
 
 export const STATUS_OPCOES = ["ativo", "suspenso", "arquivado", "baixado", "encerrado"] as const;
 
-export const FASE_OPCOES = ["Instrutória", "Recursal", "Encerramento"] as const;
+export const FASE_OPCOES = ["Instrutória", "Recursal", "Encerramento", "Execução"] as const;
 
 export const CRITICIDADE_OPCOES = ["Alta", "Média", "Baixa"] as const;
 
