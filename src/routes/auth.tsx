@@ -176,7 +176,10 @@ function AuthPage() {
                       value={senha}
                       onChange={(e) => setSenha(e.target.value)}
                     />
-                    <p className="text-xs text-muted-foreground">Mínimo de 8 caracteres.</p>
+                    <p className="text-xs text-muted-foreground">
+                      Mínimo de 8 caracteres. Evite senhas simples (ex.: só números em sequência) —
+                      elas podem ser recusadas no cadastro.
+                    </p>
                   </div>
                   <Button type="submit" className="w-full" disabled={carregando}>
                     Criar conta
