@@ -45,6 +45,12 @@ const PASSOS: Passo[] = [
     texto: "Revisão dos processos prontos pra fechar, com valor e observação pra Eliane.",
   },
   {
+    alvo: "nav-encerramento-astro",
+    titulo: "Encerramento Astro",
+    texto:
+      "A mesma ideia, mas só pra pasta de cobrança da Astro — fica separado do Encerramento da Souza Cruz de propósito, pra não misturar as duas listas.",
+  },
+  {
     alvo: "nav-publicacoes",
     titulo: "Publicações",
     texto: "Sobe a planilha de publicações do TI e o sistema já sugere os andamentos novos.",

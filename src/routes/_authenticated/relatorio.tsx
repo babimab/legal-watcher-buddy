@@ -35,6 +35,7 @@ import {
   type MovimentacaoComProcesso,
   type Processo,
 } from "@/lib/processos";
+import { listarGrupos, listarPastas } from "@/lib/grupos";
 import {
   estilizarCabecalho,
   centralizarLinhas,
@@ -302,6 +303,24 @@ function RelatorioPage() {
   const processos = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
   const encerramento = (processos.data ?? []).filter((p) => p.fase === "Encerramento");
 
+  // Encerramento da Astro é um fluxo à parte, de propósito: só a pasta de
+  // cobrança, sem depender da fase (as ações de cobrança não seguem a
+  // mesma fase Instrutória/Recursal/Encerramento da Souza Cruz) e nunca
+  // misturado com a lista acima, que é só da Souza Cruz.
+  const grupos = useQuery({ queryKey: ["grupos"], queryFn: listarGrupos });
+  const pastas = useQuery({ queryKey: ["pastas"], queryFn: listarPastas });
+  const pastaCobrancaAstroId = useMemo(() => {
+    const grupoAstro = (grupos.data ?? []).find((g) => g.nome === "Equipe Astro");
+    if (!grupoAstro) return null;
+    const pasta = (pastas.data ?? []).find(
+      (p) => p.grupo_id === grupoAstro.id && p.nome === "Perfis MLV (acoes de cobranca)",
+    );
+    return pasta?.id ?? null;
+  }, [grupos.data, pastas.data]);
+  const encerramentoAstro = (processos.data ?? []).filter(
+    (p) => pastaCobrancaAstroId && p.pasta_id === pastaCobrancaAstroId,
+  );
+
   const [advogado, setAdvogado] = useState(search.advogado ?? "todos");
   const [urgencia, setUrgencia] = useState(search.urgencia ?? "todos");
   const [soProntos, setSoProntos] = useState(false);
@@ -388,6 +407,21 @@ function RelatorioPage() {
   const encerramentoProntos = encerramentoFiltrado.filter((p) => p.pronto_para_encerrar);
   const encerramentoExibido = soProntos ? encerramentoProntos : encerramentoFiltrado;
 
+  const encerramentoAstroPorAdvogado =
+    advogado === "todos"
+      ? encerramentoAstro
+      : encerramentoAstro.filter((p) =>
+          advogado === "eu"
+            ? ehResponsavelDaSigla(p.responsavel, minhaSigla)
+            : p.responsavel === advogado,
+        );
+  const encerramentoAstroProntos = encerramentoAstroPorAdvogado.filter(
+    (p) => p.pronto_para_encerrar,
+  );
+  const encerramentoAstroExibido = soProntos
+    ? encerramentoAstroProntos
+    : encerramentoAstroPorAdvogado;
+
   const itensDaAba =
     aba === "semana"
       ? semanaFiltrada
@@ -397,7 +431,7 @@ function RelatorioPage() {
           ? ultimosFiltrados
           : aba === "pendencias"
             ? pendenciasFiltradas
-            : aba === "encerramento"
+            : aba === "encerramento" || aba === "encerramento-astro"
               ? []
               : novidadesFiltradas;
 
@@ -413,12 +447,13 @@ function RelatorioPage() {
       return;
     }
 
-    if (aba === "encerramento") {
-      if (encerramentoProntos.length === 0) {
+    if (aba === "encerramento" || aba === "encerramento-astro") {
+      const prontos = aba === "encerramento" ? encerramentoProntos : encerramentoAstroProntos;
+      if (prontos.length === 0) {
         toast.error("Nenhum processo marcado como pronto para encerrar ainda.");
         return;
       }
-      window.location.href = montarMailtoEncerramento(destinatarios, encerramentoProntos);
+      window.location.href = montarMailtoEncerramento(destinatarios, prontos);
       return;
     }
 
@@ -460,7 +495,9 @@ function RelatorioPage() {
               ? "Prazos"
               : aba === "encerramento"
                 ? "Encerramento"
-                : "Relatórios"}
+                : aba === "encerramento-astro"
+                  ? "Encerramento Astro"
+                  : "Relatórios"}
           </h1>
           <p className="text-muted-foreground">
             {desde
@@ -513,7 +550,7 @@ function RelatorioPage() {
               </SelectContent>
             </Select>
           ) : null}
-          {aba === "encerramento" ? (
+          {aba === "encerramento" || aba === "encerramento-astro" ? (
             <label className="flex items-center gap-2 rounded-md border border-input px-3 text-sm">
               <Checkbox checked={soProntos} onCheckedChange={(v) => setSoProntos(v === true)} />
               Só os prontos para encerrar
@@ -522,13 +559,24 @@ function RelatorioPage() {
           <Button
             variant="outline"
             disabled={
-              aba === "encerramento" ? encerramentoExibido.length === 0 : itensDaAba.length === 0
+              aba === "encerramento"
+                ? encerramentoExibido.length === 0
+                : aba === "encerramento-astro"
+                  ? encerramentoAstroExibido.length === 0
+                  : itensDaAba.length === 0
             }
             onClick={() => {
               if (aba === "encerramento") {
                 void exportarProcessosExcel(encerramentoExibido, "processos-encerramento").catch(
                   () => toast.error("Não consegui gerar o Excel."),
                 );
+                return;
+              }
+              if (aba === "encerramento-astro") {
+                void exportarProcessosExcel(
+                  encerramentoAstroExibido,
+                  "processos-encerramento-astro",
+                ).catch(() => toast.error("Não consegui gerar o Excel."));
                 return;
               }
               void exportarAndamentosExcel(itensDaAba, NOME_ARQUIVO_POR_ABA[aba]!).catch(() =>
@@ -654,6 +702,49 @@ function RelatorioPage() {
           <ListaProcessos
             processos={encerramentoExibido}
             vazio="Nenhum processo em fase de Encerramento."
+          />
+        </>
+      ) : aba === "encerramento-astro" ? (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-serif text-xl font-semibold">
+              Encerramento Astro ({encerramentoAstroExibido.length})
+            </h2>
+            <Link
+              to="/relatorio"
+              search={{ aba: "novidades", advogado }}
+              className="text-sm text-primary underline-offset-4 hover:underline"
+            >
+              Ver relatório de andamentos
+            </Link>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Só a pasta de cobrança da Equipe Astro — não mistura com o Encerramento da Souza Cruz.
+          </p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              type="text"
+              placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br"
+              value={emails}
+              onChange={(e) => setEmails(e.target.value)}
+              className="max-w-sm"
+            />
+            <Button
+              variant="outline"
+              disabled={encerramentoAstroProntos.length === 0}
+              onClick={() => void abrirEmail()}
+            >
+              <Mail className="size-4" />
+              Mandar prontos ({encerramentoAstroProntos.length})
+            </Button>
+          </div>
+
+          <ListaProcessos
+            processos={encerramentoAstroExibido}
+            vazio="Nenhum processo na pasta de cobrança da Astro."
+            descricaoEncerramento="Preenche o que precisa pra dar baixa nesse processo de cobrança."
+            mostrarDecisoesNoLd={false}
           />
         </>
       ) : (
@@ -832,7 +923,17 @@ function Lista({
   );
 }
 
-function ListaProcessos({ processos, vazio }: { processos: Processo[]; vazio: string }) {
+function ListaProcessos({
+  processos,
+  vazio,
+  descricaoEncerramento,
+  mostrarDecisoesNoLd = true,
+}: {
+  processos: Processo[];
+  vazio: string;
+  descricaoEncerramento?: string;
+  mostrarDecisoesNoLd?: boolean;
+}) {
   if (processos.length === 0)
     return (
       <Card>
@@ -861,7 +962,9 @@ function ListaProcessos({ processos, vazio }: { processos: Processo[]; vazio: st
             {p.responsavel ? <Badge variant="outline">{p.responsavel}</Badge> : null}
             {p.socio ? <Badge variant="outline">sócio {p.socio}</Badge> : null}
             {p.fase ? <Badge variant="secondary">{p.fase}</Badge> : null}
-            {p.decisoes_no_ld ? <Badge variant="outline">Decisões no LD</Badge> : null}
+            {mostrarDecisoesNoLd && p.decisoes_no_ld ? (
+              <Badge variant="outline">Decisões no LD</Badge>
+            ) : null}
             <span className="ml-auto flex items-center gap-3">
               {p.valor_encerramento != null ? (
                 <span className="text-base font-semibold text-foreground">
@@ -871,7 +974,11 @@ function ListaProcessos({ processos, vazio }: { processos: Processo[]; vazio: st
                   })}
                 </span>
               ) : null}
-              <EncerramentoDialog processo={p} />
+              <EncerramentoDialog
+                processo={p}
+                descricao={descricaoEncerramento}
+                mostrarDecisoesNoLd={mostrarDecisoesNoLd}
+              />
             </span>
           </div>
         </li>

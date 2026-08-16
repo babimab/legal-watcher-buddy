@@ -124,6 +124,13 @@ function AppLayout() {
               tourId="nav-encerramento"
             />
             <NavItem
+              to="/relatorio"
+              icon={<Archive className="size-4" />}
+              label="Encerramento Astro"
+              search={{ aba: "encerramento-astro" }}
+              tourId="nav-encerramento-astro"
+            />
+            <NavItem
               to="/publicacoes"
               icon={<Newspaper className="size-4" />}
               label="Publicações"

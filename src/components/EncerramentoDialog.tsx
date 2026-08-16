@@ -19,7 +19,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { type Processo } from "@/lib/processos";
 
-export function EncerramentoDialog({ processo }: { processo: Processo }) {
+export function EncerramentoDialog({
+  processo,
+  descricao = "Preenche o que a Eliane precisa pra dar baixa nesse processo.",
+  mostrarDecisoesNoLd = true,
+}: {
+  processo: Processo;
+  descricao?: string | undefined;
+  mostrarDecisoesNoLd?: boolean;
+}) {
   const [aberto, setAberto] = useState(false);
   const [pronto, setPronto] = useState(processo.pronto_para_encerrar);
   const [decisoesNoLd, setDecisoesNoLd] = useState(processo.decisoes_no_ld);
@@ -67,23 +75,23 @@ export function EncerramentoDialog({ processo }: { processo: Processo }) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="font-serif">Dados de encerramento</DialogTitle>
-          <DialogDescription>
-            Preenche o que a Eliane precisa pra dar baixa nesse processo.
-          </DialogDescription>
+          <DialogDescription>{descricao}</DialogDescription>
         </DialogHeader>
         <form onSubmit={salvar} className="space-y-4">
           <div className="flex items-center gap-2">
             <Checkbox id="pronto" checked={pronto} onCheckedChange={(v) => setPronto(v === true)} />
             <Label htmlFor="pronto">Pronto para encerrar</Label>
           </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="decisoes_no_ld"
-              checked={decisoesNoLd}
-              onCheckedChange={(v) => setDecisoesNoLd(v === true)}
-            />
-            <Label htmlFor="decisoes_no_ld">Preenchida Decisões no LD</Label>
-          </div>
+          {mostrarDecisoesNoLd ? (
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="decisoes_no_ld"
+                checked={decisoesNoLd}
+                onCheckedChange={(v) => setDecisoesNoLd(v === true)}
+              />
+              <Label htmlFor="decisoes_no_ld">Preenchida Decisões no LD</Label>
+            </div>
+          ) : null}
           <div className="space-y-2">
             <Label htmlFor="valor_encerramento">Valor</Label>
             <Input
