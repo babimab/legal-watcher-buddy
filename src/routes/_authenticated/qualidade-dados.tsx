@@ -209,7 +209,11 @@ function QualidadeDadosPage() {
                       params={{ id: p.id }}
                       className="flex items-center gap-2 rounded-md border border-border px-2 py-1 text-sm hover:border-primary"
                     >
-                      {exibir(p.cliente)}
+                      <span>
+                        {exibir(p.cliente)}
+                        {p.parte_contraria ? ` x ${exibir(p.parte_contraria)}` : ""}
+                      </span>
+                      {p.responsavel ? <Badge variant="outline">{p.responsavel}</Badge> : null}
                       <Badge variant="outline">{p.status}</Badge>
                     </Link>
                   ))}
@@ -246,6 +250,11 @@ function QualidadeDadosPage() {
                       className="flex items-center gap-2 rounded-md border border-border px-2 py-1 text-sm hover:border-primary"
                     >
                       <span className="font-mono text-xs">{formatarCNJ(p.numero_cnj)}</span>
+                      <span>
+                        {exibir(p.cliente)}
+                        {p.parte_contraria ? ` x ${exibir(p.parte_contraria)}` : ""}
+                      </span>
+                      {p.responsavel ? <Badge variant="outline">{p.responsavel}</Badge> : null}
                       {p.fase ? <Badge variant="secondary">{p.fase}</Badge> : null}
                       {p.tipo_desdobramento ? (
                         <Badge variant="outline">{p.tipo_desdobramento}</Badge>

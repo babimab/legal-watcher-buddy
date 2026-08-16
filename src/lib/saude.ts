@@ -208,7 +208,10 @@ export function processosSemPasta(processos: Processo[]): ProcessoSemPasta[] {
 // --- CNJ duplicado ---
 export type GrupoCnjDuplicado = {
   cnjDigits: string;
-  processos: Pick<Processo, "id" | "numero_cnj" | "cliente" | "status" | "responsavel">[];
+  processos: Pick<
+    Processo,
+    "id" | "numero_cnj" | "cliente" | "parte_contraria" | "status" | "responsavel"
+  >[];
 };
 
 export function cnjsDuplicados(processos: Processo[]): GrupoCnjDuplicado[] {
@@ -227,6 +230,7 @@ export function cnjsDuplicados(processos: Processo[]): GrupoCnjDuplicado[] {
         id: p.id,
         numero_cnj: p.numero_cnj,
         cliente: p.cliente,
+        parte_contraria: p.parte_contraria,
         status: p.status,
         responsavel: p.responsavel,
       })),
@@ -244,7 +248,14 @@ export type GrupoDesdobramentoNaoVinculado = {
   numeroInterno: string;
   processos: Pick<
     Processo,
-    "id" | "numero_cnj" | "cliente" | "status" | "fase" | "tipo_desdobramento"
+    | "id"
+    | "numero_cnj"
+    | "cliente"
+    | "parte_contraria"
+    | "responsavel"
+    | "status"
+    | "fase"
+    | "tipo_desdobramento"
   >[];
 };
 
@@ -274,6 +285,8 @@ export function desdobramentosNaoVinculados(
         id: p.id,
         numero_cnj: p.numero_cnj,
         cliente: p.cliente,
+        parte_contraria: p.parte_contraria,
+        responsavel: p.responsavel,
         status: p.status,
         fase: p.fase,
         tipo_desdobramento: p.tipo_desdobramento,
