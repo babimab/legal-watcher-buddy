@@ -11,6 +11,7 @@ import {
   Newspaper,
   Upload,
   User,
+  Users,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -106,6 +107,12 @@ function AppLayout() {
               label="Meus prazos"
               search={{ aba: "pendencias", advogado: "eu" }}
               contador={meusPrazosUrgentes}
+            />
+            <NavItem
+              to="/grupos"
+              icon={<Users className="size-4" />}
+              label="Grupos"
+              tourId="nav-grupos"
             />
             <NavItem
               to="/relatorio"

@@ -9,6 +9,52 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 
+function forcaSenha(senha: string): { nivel: "fraca" | "media" | "forte"; texto: string } | null {
+  if (!senha) return null;
+
+  // Só um tipo de caractere (ex.: só números, ou só letras minúsculas) é
+  // fraco mesmo que seja longo — "123456789" não deve passar por "média".
+  const classes = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter((r) => r.test(senha)).length;
+  if (classes <= 1) return { nivel: "fraca", texto: "Senha fraca" };
+
+  let pontos = 0;
+  if (senha.length >= 8) pontos++;
+  if (senha.length >= 12) pontos++;
+  if (classes >= 3) pontos++;
+  if (classes >= 4) pontos++;
+
+  if (pontos <= 1) return { nivel: "fraca", texto: "Senha fraca" };
+  if (pontos <= 2) return { nivel: "media", texto: "Senha média" };
+  return { nivel: "forte", texto: "Senha boa" };
+}
+
+const CORES_FORCA: Record<"fraca" | "media" | "forte", string> = {
+  fraca: "bg-destructive",
+  media: "bg-amber-500",
+  forte: "bg-emerald-500",
+};
+
+const LARGURAS_FORCA: Record<"fraca" | "media" | "forte", string> = {
+  fraca: "w-1/3",
+  media: "w-2/3",
+  forte: "w-full",
+};
+
+function BarraForcaSenha({ senha }: { senha: string }) {
+  const forca = forcaSenha(senha);
+  if (!forca) return null;
+  return (
+    <div className="space-y-1">
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className={`h-full rounded-full transition-all ${CORES_FORCA[forca.nivel]} ${LARGURAS_FORCA[forca.nivel]}`}
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">{forca.texto}</p>
+    </div>
+  );
+}
+
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
@@ -176,6 +222,7 @@ function AuthPage() {
                       value={senha}
                       onChange={(e) => setSenha(e.target.value)}
                     />
+                    <BarraForcaSenha senha={senha} />
                     <p className="text-xs text-muted-foreground">
                       Mínimo de 8 caracteres. Evite senhas simples (ex.: só números em sequência) —
                       elas podem ser recusadas no cadastro.

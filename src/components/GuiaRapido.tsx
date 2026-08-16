@@ -35,6 +35,11 @@ const PASSOS: Passo[] = [
       "Andamentos novos e prazos pendentes. É aqui também que se valida os andamentos sugeridos pela aba de Publicações.",
   },
   {
+    alvo: "nav-grupos",
+    titulo: "Grupos",
+    texto: "Libera acesso a pastas e clientes pra quem precisar — é aqui que se gerencia a equipe.",
+  },
+  {
     alvo: "nav-encerramento",
     titulo: "Encerramento",
     texto: "Revisão dos processos prontos pra fechar, com valor e observação pra Eliane.",
