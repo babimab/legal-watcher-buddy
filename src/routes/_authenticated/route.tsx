@@ -21,7 +21,12 @@ import { Badge } from "@/components/ui/badge";
 import { BuscaGlobal } from "@/components/BuscaGlobal";
 import { GuiaRapido } from "@/components/GuiaRapido";
 import { supabase } from "@/integrations/supabase/client";
-import { listarPendencias, ehResponsavelDaSigla, useSiglaAtual } from "@/lib/processos";
+import {
+  listarPendencias,
+  ehResponsavelDaSigla,
+  useSiglaAtual,
+  useCargoAtual,
+} from "@/lib/processos";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -38,6 +43,7 @@ function AppLayout() {
 
   const pendencias = useQuery({ queryKey: ["pendencias"], queryFn: listarPendencias });
   const minhaSigla = useSiglaAtual();
+  const ehEstagiaria = useCargoAtual() === "Estagiário";
   const emSeteDias = new Date();
   emSeteDias.setDate(emSeteDias.getDate() + 7);
   const emSeteDiasISO = emSeteDias.toISOString().slice(0, 10);
@@ -110,26 +116,32 @@ function AppLayout() {
               search={{ aba: "pendencias", advogado: "eu" }}
               contador={meusPrazosUrgentes}
             />
-            <NavItem
-              to="/grupos"
-              icon={<Users className="size-4" />}
-              label="Grupos"
-              tourId="nav-grupos"
-            />
-            <NavItem
-              to="/relatorio"
-              icon={<Archive className="size-4" />}
-              label="Encerramento Souza Cruz"
-              search={{ aba: "encerramento" }}
-              tourId="nav-encerramento"
-            />
-            <NavItem
-              to="/relatorio"
-              icon={<Archive className="size-4" />}
-              label="Encerramento Astro"
-              search={{ aba: "encerramento-astro" }}
-              tourId="nav-encerramento-astro"
-            />
+            {ehEstagiaria ? null : (
+              <NavItem
+                to="/grupos"
+                icon={<Users className="size-4" />}
+                label="Grupos"
+                tourId="nav-grupos"
+              />
+            )}
+            {ehEstagiaria ? null : (
+              <NavItem
+                to="/relatorio"
+                icon={<Archive className="size-4" />}
+                label="Encerramento Souza Cruz"
+                search={{ aba: "encerramento" }}
+                tourId="nav-encerramento"
+              />
+            )}
+            {ehEstagiaria ? null : (
+              <NavItem
+                to="/relatorio"
+                icon={<Archive className="size-4" />}
+                label="Encerramento Astro"
+                search={{ aba: "encerramento-astro" }}
+                tourId="nav-encerramento-astro"
+              />
+            )}
             <NavItem
               to="/publicacoes"
               icon={<Newspaper className="size-4" />}
@@ -142,18 +154,22 @@ function AppLayout() {
               label="Citações"
               tourId="nav-citacoes"
             />
-            <NavItem
-              to="/importar"
-              icon={<Upload className="size-4" />}
-              label="Importar"
-              tourId="nav-importar"
-            />
-            <NavItem
-              to="/qualidade-dados"
-              icon={<ShieldCheck className="size-4" />}
-              label="Qualidade dos dados"
-              tourId="nav-qualidade"
-            />
+            {ehEstagiaria ? null : (
+              <NavItem
+                to="/importar"
+                icon={<Upload className="size-4" />}
+                label="Importar"
+                tourId="nav-importar"
+              />
+            )}
+            {ehEstagiaria ? null : (
+              <NavItem
+                to="/qualidade-dados"
+                icon={<ShieldCheck className="size-4" />}
+                label="Qualidade dos dados"
+                tourId="nav-qualidade"
+              />
+            )}
           </nav>
           <div className="ml-auto flex items-center gap-1">
             <GuiaRapido />

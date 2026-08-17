@@ -149,25 +149,42 @@ export function ehResponsavelDaSigla(responsavel: string | null | undefined, sig
   return (APELIDOS_ANTIGOS[sigla] ?? []).some((a) => normalizarNome(a) === respNormalizado);
 }
 
+async function carregarUsuarioAtual() {
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) return { sigla: null, cargo: null, email: null };
+  const { data: perfil } = await supabase
+    .from("profiles")
+    .select("sigla, cargo")
+    .eq("id", data.user.id)
+    .maybeSingle();
+  return {
+    sigla: perfil?.sigla ?? null,
+    cargo: perfil?.cargo ?? null,
+    email: data.user.email ?? null,
+  };
+}
+
 // Sigla da pessoa logada agora. Vem do perfil (campo cadastrado no
 // registro) sempre que existir; senão cai pro e-mail como antes, pra não
 // quebrar quem criou conta antes desse campo existir.
 export function useSiglaAtual(): string | null {
   const { data } = useQuery({
     queryKey: ["usuario-atual"],
-    queryFn: async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) return { sigla: null, email: null };
-      const { data: perfil } = await supabase
-        .from("profiles")
-        .select("sigla")
-        .eq("id", data.user.id)
-        .maybeSingle();
-      return { sigla: perfil?.sigla ?? null, email: data.user.email ?? null };
-    },
+    queryFn: carregarUsuarioAtual,
     staleTime: Infinity,
   });
   return data?.sigla || siglaDoEmail(data?.email ?? null);
+}
+
+// Cargo da pessoa logada agora (Advogado/Estagiário/Administrativo) —
+// usado pra simplificar o menu pra quem é estagiária.
+export function useCargoAtual(): string | null {
+  const { data } = useQuery({
+    queryKey: ["usuario-atual"],
+    queryFn: carregarUsuarioAtual,
+    staleTime: Infinity,
+  });
+  return data?.cargo ?? null;
 }
 
 // Siglas dos outros advogados do escritório, pra já aparecerem no filtro

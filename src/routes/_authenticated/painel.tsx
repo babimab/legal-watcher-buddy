@@ -25,6 +25,7 @@ import {
   exibir,
   ehResponsavelDaSigla,
   useSiglaAtual,
+  useCargoAtual,
   type MovimentacaoComProcesso,
   type Processo,
 } from "@/lib/processos";
@@ -56,6 +57,7 @@ function formatarValor(v: number) {
 function PainelPage() {
   const search = Route.useSearch();
   const minhaSigla = useSiglaAtual();
+  const ehEstagiaria = useCargoAtual() === "Estagiário";
   const queryClient = useQueryClient();
   const processosQuery = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
   const pendenciasQuery = useQuery({ queryKey: ["pendencias"], queryFn: listarPendencias });
@@ -409,12 +411,14 @@ function PainelPage() {
         </p>
       ) : null}
 
-      <Link
-        to="/qualidade-dados"
-        className="flex items-center gap-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-      >
-        <ShieldCheck className="size-4" /> Qualidade dos dados
-      </Link>
+      {ehEstagiaria ? null : (
+        <Link
+          to="/qualidade-dados"
+          className="flex items-center gap-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        >
+          <ShieldCheck className="size-4" /> Qualidade dos dados
+        </Link>
+      )}
     </div>
   );
 }

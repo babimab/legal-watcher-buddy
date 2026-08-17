@@ -3,8 +3,19 @@ import { HelpCircle, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { useCargoAtual } from "@/lib/processos";
 
 type Passo = { alvo: string; titulo: string; texto: string };
+
+// Itens que somem do menu pra quem é estagiária (ver route.tsx) — o guia
+// não deve descrever um passo que a pessoa não vai encontrar na tela.
+const ALVOS_OCULTOS_ESTAGIARIA = new Set([
+  "nav-grupos",
+  "nav-encerramento",
+  "nav-encerramento-astro",
+  "nav-importar",
+  "nav-qualidade",
+]);
 
 const PASSOS: Passo[] = [
   {
@@ -94,6 +105,10 @@ export function GuiaRapido() {
   const [passo, setPasso] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [chaveVisto, setChaveVisto] = useState<string | null>(null);
+  const ehEstagiaria = useCargoAtual() === "Estagiário";
+  const passos = ehEstagiaria
+    ? PASSOS.filter((p) => !ALVOS_OCULTOS_ESTAGIARIA.has(p.alvo))
+    : PASSOS;
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -107,7 +122,7 @@ export function GuiaRapido() {
   useEffect(() => {
     if (!aberto) return;
     const atualizar = () => {
-      const el = document.querySelector(`[data-tour="${PASSOS[passo]!.alvo}"]`);
+      const el = document.querySelector(`[data-tour="${passos[passo]!.alvo}"]`);
       setRect(el ? el.getBoundingClientRect() : null);
     };
     atualizar();
@@ -117,7 +132,7 @@ export function GuiaRapido() {
       window.removeEventListener("resize", atualizar);
       window.removeEventListener("scroll", atualizar, true);
     };
-  }, [aberto, passo]);
+  }, [aberto, passo, passos]);
 
   const encerrar = () => {
     setAberto(false);
@@ -131,7 +146,7 @@ export function GuiaRapido() {
   };
 
   const proximo = () => {
-    if (passo >= PASSOS.length - 1) {
+    if (passo >= passos.length - 1) {
       encerrar();
       return;
     }
@@ -154,7 +169,7 @@ export function GuiaRapido() {
     );
   }
 
-  const atual = PASSOS[passo]!;
+  const atual = passos[passo]!;
   const top = rect ? rect.bottom + 10 : 80;
   const left = rect ? Math.max(8, Math.min(rect.left, window.innerWidth - 328)) : 20;
 
@@ -191,7 +206,7 @@ export function GuiaRapido() {
         <p className="mt-1 text-sm text-muted-foreground">{atual.texto}</p>
         <div className="mt-3 flex items-center justify-between">
           <span className="text-xs text-muted-foreground">
-            {passo + 1} / {PASSOS.length}
+            {passo + 1} / {passos.length}
           </span>
           <div className="flex gap-2">
             {passo > 0 ? (
@@ -200,7 +215,7 @@ export function GuiaRapido() {
               </Button>
             ) : null}
             <Button type="button" size="sm" onClick={proximo}>
-              {passo >= PASSOS.length - 1 ? "Concluir" : "Próximo"}
+              {passo >= passos.length - 1 ? "Concluir" : "Próximo"}
             </Button>
           </div>
         </div>
