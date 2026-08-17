@@ -445,6 +445,7 @@ export type Database = {
           fonte: string;
           id: string;
           id_externo: string | null;
+          link_tribunal_manual: string | null;
           monitorar: boolean;
           numero_antigo: string | null;
           numero_cliente: string | null;
@@ -488,6 +489,7 @@ export type Database = {
           fonte?: string;
           id?: string;
           id_externo?: string | null;
+          link_tribunal_manual?: string | null;
           monitorar?: boolean;
           numero_antigo?: string | null;
           numero_cliente?: string | null;
@@ -531,6 +533,7 @@ export type Database = {
           fonte?: string;
           id?: string;
           id_externo?: string | null;
+          link_tribunal_manual?: string | null;
           monitorar?: boolean;
           numero_antigo?: string | null;
           numero_cliente?: string | null;

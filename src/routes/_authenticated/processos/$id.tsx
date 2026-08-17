@@ -27,6 +27,7 @@ import { RelacionadosProcesso } from "@/components/RelacionadosProcesso";
 import { HistoricoProcesso } from "@/components/HistoricoProcesso";
 import { ExcluirProcessoDialog } from "@/components/ExcluirProcessoDialog";
 import { VincularDesdobramentoDialog } from "@/components/VincularDesdobramentoDialog";
+import { EditarLinkTribunalDialog } from "@/components/EditarLinkTribunalDialog";
 
 export const Route = createFileRoute("/_authenticated/processos/$id")({
   head: () => ({
@@ -96,7 +97,10 @@ function ProcessoDetalhe() {
     return <p className="text-muted-foreground">Processo não encontrado.</p>;
 
   const p = processo.data;
-  const link = linkTribunal(p);
+  const linkAuto = linkTribunal(p);
+  const link = p.link_tribunal_manual
+    ? { url: p.link_tribunal_manual, rotulo: "Abrir processo (link manual)" }
+    : linkAuto;
 
   return (
     <div className="space-y-6">
@@ -139,6 +143,7 @@ function ProcessoDetalhe() {
               <ExternalLink className="size-4" /> {link.rotulo}
             </a>
           </Button>
+          <EditarLinkTribunalDialog processoId={p.id} linkAtual={p.link_tribunal_manual} />
 
           <ProcessoDialog
             processo={p}

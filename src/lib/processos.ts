@@ -38,6 +38,7 @@ export type Processo = {
   fonte: string;
   monitorar: boolean;
   cor: string | null;
+  link_tribunal_manual: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -286,6 +287,17 @@ export const CORES_FUNDO_CLASSES: Record<(typeof CORES_OPCOES)[number], string> 
 
 export async function atualizarCorProcesso(id: string, cor: string | null): Promise<void> {
   const { error } = await supabase.from("processos").update({ cor }).eq("id", id);
+  if (error) throw error;
+}
+
+// Sobrescreve o link automático pro sistema do tribunal (ver
+// lib/tribunais.ts) quando o algoritmo erra. Qualquer pessoa com acesso
+// ao processo pode ajustar — não é algo que exija cargo especial.
+export async function atualizarLinkTribunalManual(id: string, link: string | null): Promise<void> {
+  const { error } = await supabase
+    .from("processos")
+    .update({ link_tribunal_manual: link })
+    .eq("id", id);
   if (error) throw error;
 }
 
