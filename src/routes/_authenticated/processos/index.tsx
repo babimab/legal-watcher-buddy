@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Download, Plus, Search } from "lucide-react";
+import { Download, Plus, Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,7 @@ import {
   CORES_OPCOES,
   CORES_CLASSES,
   CORES_BORDA_CLASSES,
+  CORES_FUNDO_CLASSES,
   type Processo,
 } from "@/lib/processos";
 import { listarGrupos, listarPastas, type Pasta } from "@/lib/grupos";
@@ -618,7 +619,11 @@ function ProcessoCard({
     <Link
       to="/processos/$id"
       params={{ id: p.id }}
-      className={`block rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary ${corAtual ? `border-l-4 ${CORES_BORDA_CLASSES[corAtual]}` : ""}`}
+      className={`block rounded-lg border border-border p-4 transition-colors hover:border-primary ${
+        corAtual
+          ? `border-l-4 ${CORES_BORDA_CLASSES[corAtual]} ${CORES_FUNDO_CLASSES[corAtual]}`
+          : "bg-card"
+      }`}
     >
       <div className="mb-2 flex items-center gap-1.5">
         {CORES_OPCOES.map((c) => (
@@ -639,6 +644,21 @@ function ProcessoCard({
             }`}
           />
         ))}
+        {corAtual ? (
+          <button
+            type="button"
+            aria-label="Tirar cor"
+            title="Tirar cor"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              mudarCor.mutate(null);
+            }}
+            className="ml-0.5 text-muted-foreground hover:text-foreground"
+          >
+            <X className="size-3.5" />
+          </button>
+        ) : null}
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <span className="font-mono text-sm">{formatarCNJ(p.numero_cnj)}</span>

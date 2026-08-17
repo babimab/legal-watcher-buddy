@@ -256,6 +256,15 @@ export const CORES_BORDA_CLASSES: Record<(typeof CORES_OPCOES)[number], string> 
   cinza: "border-l-gray-400",
 };
 
+// Tom claro pra pintar o card inteiro (funciona em cima do border-l acima).
+export const CORES_FUNDO_CLASSES: Record<(typeof CORES_OPCOES)[number], string> = {
+  amarelo: "bg-yellow-50",
+  verde: "bg-emerald-50",
+  azul: "bg-blue-50",
+  vermelho: "bg-red-50",
+  cinza: "bg-gray-100",
+};
+
 export async function atualizarCorProcesso(id: string, cor: string | null): Promise<void> {
   const { error } = await supabase.from("processos").update({ cor }).eq("id", id);
   if (error) throw error;
