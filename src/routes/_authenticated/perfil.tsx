@@ -1,11 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { KeyRound, User } from "lucide-react";
+import { KeyRound, ShieldCheck, User } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -15,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { CARGO_OPCOES } from "@/lib/processos";
+import { CARGO_OPCOES, useSouAdminCargo, listarPerfis, atualizarCargoDe } from "@/lib/processos";
 
 export const Route = createFileRoute("/_authenticated/perfil")({
   head: () => ({
@@ -28,6 +30,7 @@ export const Route = createFileRoute("/_authenticated/perfil")({
 });
 
 function PerfilPage() {
+  const souAdminCargo = useSouAdminCargo();
   const [userId, setUserId] = useState("");
   const [email, setEmail] = useState("");
   const [nome, setNome] = useState("");
@@ -144,19 +147,29 @@ function PerfilPage() {
               </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cargo-perfil">Cargo</Label>
-              <Select value={cargo} onValueChange={setCargo}>
-                <SelectTrigger id="cargo-perfil">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CARGO_OPCOES.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Cargo</Label>
+              {souAdminCargo ? (
+                <Select value={cargo} onValueChange={setCargo}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CARGO_OPCOES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div>
+                  <Badge variant="outline">{cargo}</Badge>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Só quem administra o sistema pode alterar o cargo. Fale com a BDR se precisar
+                    corrigir.
+                  </p>
+                </div>
+              )}
             </div>
             <Button type="submit" disabled={salvandoNome} className="w-fit">
               {salvandoNome ? "Salvando..." : "Salvar"}
@@ -206,6 +219,69 @@ function PerfilPage() {
           </form>
         </CardContent>
       </Card>
+
+      {souAdminCargo ? <CargoDaEquipeCard /> : null}
     </div>
+  );
+}
+
+// Só a BDR vê e usa isso (o banco também trava por RLS/trigger — ver
+// migração cargo_apenas_admin — então mesmo que outra pessoa forçasse a
+// chamada, a alteração não pegaria).
+function CargoDaEquipeCard() {
+  const queryClient = useQueryClient();
+  const perfis = useQuery({ queryKey: ["todos-perfis"], queryFn: listarPerfis });
+
+  const mudarCargo = useMutation({
+    mutationFn: ({ id, cargo }: { id: string; cargo: string }) => atualizarCargoDe(id, cargo),
+    onSuccess: async () => {
+      toast.success("Cargo atualizado.");
+      await queryClient.invalidateQueries({ queryKey: ["todos-perfis"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 font-serif text-lg">
+          <ShieldCheck className="size-4" /> Cargo da equipe
+        </CardTitle>
+        <CardDescription>
+          Só você pode alterar o cargo de outras pessoas. Cada um vê só o seu no próprio perfil.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {perfis.isLoading ? (
+          <p className="text-sm text-muted-foreground">Carregando...</p>
+        ) : (
+          <ul className="divide-y divide-border rounded-lg border border-border">
+            {(perfis.data ?? []).map((p) => (
+              <li key={p.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{p.nome ?? p.email ?? "Usuário"}</p>
+                  <p className="truncate text-xs text-muted-foreground">{p.email}</p>
+                </div>
+                <Select
+                  value={p.cargo ?? "Advogado"}
+                  onValueChange={(valor) => mudarCargo.mutate({ id: p.id, cargo: valor })}
+                >
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CARGO_OPCOES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   );
 }

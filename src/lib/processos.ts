@@ -187,6 +187,42 @@ export function useCargoAtual(): string | null {
   return data?.cargo ?? null;
 }
 
+// Única conta que pode alterar o cargo de outras pessoas (ver migração
+// cargo_apenas_admin — trava a mesma regra no banco via RLS/trigger, essa
+// checagem aqui é só pra decidir o que mostrar na tela).
+const EMAIL_ADMIN_CARGO = "bdr@bcw.com.br";
+
+export function useSouAdminCargo(): boolean {
+  const { data } = useQuery({
+    queryKey: ["usuario-atual"],
+    queryFn: carregarUsuarioAtual,
+    staleTime: Infinity,
+  });
+  return (data?.email ?? "").toLowerCase() === EMAIL_ADMIN_CARGO;
+}
+
+export type PerfilResumo = {
+  id: string;
+  nome: string | null;
+  email: string | null;
+  sigla: string | null;
+  cargo: string | null;
+};
+
+export async function listarPerfis(): Promise<PerfilResumo[]> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, nome, email, sigla, cargo")
+    .order("nome");
+  if (error) throw error;
+  return data;
+}
+
+export async function atualizarCargoDe(userId: string, cargo: string): Promise<void> {
+  const { error } = await supabase.from("profiles").update({ cargo }).eq("id", userId);
+  if (error) throw error;
+}
+
 // Siglas dos outros advogados do escritório, pra já aparecerem no filtro
 // de Advogado mesmo antes de eles terem processo cadastrado.
 export const OUTROS_ADVOGADOS_CONHECIDOS = ["BBS", "MLV", "JGV", "ELV"];
