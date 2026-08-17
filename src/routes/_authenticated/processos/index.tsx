@@ -78,6 +78,10 @@ function ProcessosPage() {
   // Padrão é só ativo — processo encerrado/baixado/etc. só aparece se a
   // pessoa escolher isso explicitamente no filtro de Status.
   const [status, setStatus] = useState("ativo");
+  // Padrão esconde quem já foi vinculado como desdobramento de outro
+  // processo (ele já aparece dentro do processo principal) — só some da
+  // lista de novo se a pessoa escolher ver todos.
+  const [desdobramento, setDesdobramento] = useState("ocultar");
   const [fase, setFase] = useState(search.fase ?? "todas");
   const [cliente, setCliente] = useState(search.cliente ?? "todos");
   const [carteira, setCarteira] = useState("todas");
@@ -175,6 +179,7 @@ function ProcessosPage() {
     const termo = busca.trim().toLowerCase();
     return (data ?? []).filter((p) => {
       const casaStatus = status === "todos" || p.status === status;
+      const casaDesdobramento = desdobramento === "todos" || !p.processo_pai_id;
       const casaFase = fase === "todas" || (fase === "nenhuma" ? !p.fase : p.fase === fase);
       const casaCliente = cliente === "todos" || categoriaCliente(p.cliente) === cliente;
       const casaCarteira = carteira === "todas" || p.carteira === carteira;
@@ -210,6 +215,7 @@ function ProcessosPage() {
           .some((v) => String(v).toLowerCase().includes(termo));
       return (
         casaStatus &&
+        casaDesdobramento &&
         casaFase &&
         casaCliente &&
         casaCarteira &&
@@ -226,6 +232,7 @@ function ProcessosPage() {
     data,
     busca,
     status,
+    desdobramento,
     fase,
     cliente,
     carteira,
@@ -344,6 +351,15 @@ function ProcessosPage() {
                 {s}
               </SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+        <Select value={desdobramento} onValueChange={setDesdobramento}>
+          <SelectTrigger className="w-56">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ocultar">Sem desdobramentos vinculados</SelectItem>
+            <SelectItem value="todos">Mostrar desdobramentos vinculados</SelectItem>
           </SelectContent>
         </Select>
         <Select value={fase} onValueChange={setFase}>
