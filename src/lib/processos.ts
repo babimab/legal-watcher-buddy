@@ -202,6 +202,25 @@ export function useSouAdminCargo(): boolean {
   return (data?.email ?? "").toLowerCase() === EMAIL_ADMIN_CARGO;
 }
 
+// Regra de quem pode excluir processo (ver migração
+// exclusao_processos_regras — trava a mesma regra no banco via RLS; essa
+// checagem aqui é só pra decidir o que mostrar na tela): BDR e ELV
+// excluem qualquer um; outros advogados só o da própria banca
+// (responsavel bate com a sigla); estagiário/administrativo não excluem.
+const EMAILS_EXCLUSAO_TOTAL = ["bdr@bcw.com.br", "elv@bcw.com.br"];
+
+export function usePodeExcluirProcesso(responsavelDoProcesso: string | null): boolean {
+  const { data } = useQuery({
+    queryKey: ["usuario-atual"],
+    queryFn: carregarUsuarioAtual,
+    staleTime: Infinity,
+  });
+  if (EMAILS_EXCLUSAO_TOTAL.includes((data?.email ?? "").toLowerCase())) return true;
+  if (data?.cargo !== "Advogado") return false;
+  const minhaSigla = data?.sigla || siglaDoEmail(data?.email ?? null);
+  return ehResponsavelDaSigla(responsavelDoProcesso, minhaSigla);
+}
+
 export type PerfilResumo = {
   id: string;
   nome: string | null;

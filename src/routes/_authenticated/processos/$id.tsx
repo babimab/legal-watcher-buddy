@@ -18,6 +18,7 @@ import {
   exibir,
   variantCriticidade,
   siglaOuEmailAtual,
+  usePodeExcluirProcesso,
 } from "@/lib/processos";
 import { linkTribunal } from "@/lib/tribunais";
 import { AcessosProcesso } from "@/components/AcessosProcesso";
@@ -53,6 +54,7 @@ function ProcessoDetalhe() {
   const router = useRouter();
 
   const processo = useQuery({ queryKey: ["processo", id], queryFn: () => buscarProcesso(id) });
+  const souPodeExcluir = usePodeExcluirProcesso(processo.data?.responsavel ?? null);
   const movs = useQuery({
     queryKey: ["movimentacoes", id],
     queryFn: () => listarMovimentacoes(id),
@@ -154,7 +156,9 @@ function ProcessoDetalhe() {
               </Button>
             }
           />
-          <ExcluirProcessoDialog processoId={p.id} numeroCnj={p.numero_cnj} cliente={p.cliente} />
+          {souPodeExcluir ? (
+            <ExcluirProcessoDialog processoId={p.id} numeroCnj={p.numero_cnj} cliente={p.cliente} />
+          ) : null}
         </div>
       </div>
 
