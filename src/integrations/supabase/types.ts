@@ -157,6 +157,41 @@ export type Database = {
           },
         ];
       };
+      processo_comunicacoes: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          nome_arquivo_origem: string | null;
+          processo_id: string;
+          texto: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          nome_arquivo_origem?: string | null;
+          processo_id: string;
+          texto: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          nome_arquivo_origem?: string | null;
+          processo_id?: string;
+          texto?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "processo_comunicacoes_processo_id_fkey";
+            columns: ["processo_id"];
+            isOneToOne: false;
+            referencedRelation: "processos";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       documentos: {
         Row: {
           caminho: string;

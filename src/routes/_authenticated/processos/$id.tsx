@@ -23,6 +23,7 @@ import {
 import { linkTribunal } from "@/lib/tribunais";
 import { AcessosProcesso } from "@/components/AcessosProcesso";
 import { DocumentosProcesso } from "@/components/DocumentosProcesso";
+import { ComunicacoesDecisao } from "@/components/ComunicacoesDecisao";
 import { RelacionadosProcesso } from "@/components/RelacionadosProcesso";
 import { HistoricoProcesso } from "@/components/HistoricoProcesso";
 import { ExcluirProcessoDialog } from "@/components/ExcluirProcessoDialog";
@@ -212,6 +213,8 @@ function ProcessoDetalhe() {
       <AcessosProcesso processoId={p.id} />
 
       <DocumentosProcesso processoId={p.id} />
+
+      <ComunicacoesDecisao processoId={p.id} />
 
       <RelacionadosProcesso processoId={p.id} />
 
