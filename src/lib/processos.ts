@@ -37,6 +37,7 @@ export type Processo = {
   ultima_verificacao_em: string | null;
   fonte: string;
   monitorar: boolean;
+  cor: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -234,6 +235,31 @@ export const COORDENADORES_CONHECIDOS = ["BDR", ...OUTROS_ADVOGADOS_CONHECIDOS];
 // cada perfil vê no menu (ex.: esconder itens administrativos de quem é
 // estagiário).
 export const CARGO_OPCOES = ["Advogado", "Estagiário", "Administrativo"] as const;
+
+// Marcador de cor livre no card do processo — sem significado fixo, cada
+// um usa do jeito que quiser (ex.: vermelho = atenção, verde = ok).
+export const CORES_OPCOES = ["amarelo", "verde", "azul", "vermelho", "cinza"] as const;
+
+export const CORES_CLASSES: Record<(typeof CORES_OPCOES)[number], string> = {
+  amarelo: "bg-yellow-400",
+  verde: "bg-emerald-500",
+  azul: "bg-blue-500",
+  vermelho: "bg-red-500",
+  cinza: "bg-gray-400",
+};
+
+export const CORES_BORDA_CLASSES: Record<(typeof CORES_OPCOES)[number], string> = {
+  amarelo: "border-l-yellow-400",
+  verde: "border-l-emerald-500",
+  azul: "border-l-blue-500",
+  vermelho: "border-l-red-500",
+  cinza: "border-l-gray-400",
+};
+
+export async function atualizarCorProcesso(id: string, cor: string | null): Promise<void> {
+  const { error } = await supabase.from("processos").update({ cor }).eq("id", id);
+  if (error) throw error;
+}
 
 // Clientes do escritório reconhecidos automaticamente na importação (autor
 // ou réu batendo com o padrão vira o "nosso lado" do processo, com o nome

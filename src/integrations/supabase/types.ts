@@ -436,6 +436,7 @@ export type Database = {
           cliente: string;
           comarca: string | null;
           coordenador: string | null;
+          cor: string | null;
           created_at: string;
           created_by: string | null;
           criticidade: string | null;
@@ -478,6 +479,7 @@ export type Database = {
           cliente: string;
           comarca?: string | null;
           coordenador?: string | null;
+          cor?: string | null;
           created_at?: string;
           created_by?: string | null;
           criticidade?: string | null;
@@ -520,6 +522,7 @@ export type Database = {
           cliente?: string;
           comarca?: string | null;
           coordenador?: string | null;
+          cor?: string | null;
           created_at?: string;
           created_by?: string | null;
           criticidade?: string | null;

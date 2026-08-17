@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Download, Plus, Search } from "lucide-react";
@@ -30,6 +30,10 @@ import {
   SOCIOS_CONHECIDOS,
   exibir,
   variantCriticidade,
+  atualizarCorProcesso,
+  CORES_OPCOES,
+  CORES_CLASSES,
+  CORES_BORDA_CLASSES,
   type Processo,
 } from "@/lib/processos";
 import { listarGrupos, listarPastas, type Pasta } from "@/lib/grupos";
@@ -599,12 +603,43 @@ function ProcessoCard({
   pastaPorId: Map<string, Pasta>;
   ultimaMovimentacao: { data_movimentacao: string; descricao: string } | undefined;
 }) {
+  const queryClient = useQueryClient();
+  const mudarCor = useMutation({
+    mutationFn: (cor: string | null) => atualizarCorProcesso(p.id, cor),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["processos"] });
+    },
+    onError: () => toast.error("Não consegui marcar a cor."),
+  });
+
+  const corAtual = p.cor as (typeof CORES_OPCOES)[number] | null;
+
   return (
     <Link
       to="/processos/$id"
       params={{ id: p.id }}
-      className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary"
+      className={`block rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary ${corAtual ? `border-l-4 ${CORES_BORDA_CLASSES[corAtual]}` : ""}`}
     >
+      <div className="mb-2 flex items-center gap-1.5">
+        {CORES_OPCOES.map((c) => (
+          <button
+            key={c}
+            type="button"
+            aria-label={`Marcar ${c}`}
+            title={c}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              mudarCor.mutate(corAtual === c ? null : c);
+            }}
+            className={`size-3.5 rounded-full ${CORES_CLASSES[c]} ${
+              corAtual === c
+                ? "ring-2 ring-offset-1 ring-foreground/60"
+                : "opacity-40 hover:opacity-100"
+            }`}
+          />
+        ))}
+      </div>
       <div className="flex flex-wrap items-center gap-3">
         <span className="font-mono text-sm">{formatarCNJ(p.numero_cnj)}</span>
         <Badge variant={p.status === "ativo" ? "default" : "secondary"}>{p.status}</Badge>
