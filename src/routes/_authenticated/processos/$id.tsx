@@ -304,6 +304,21 @@ function ProcessoDetalhe() {
                         : "Exige providência"}
                     </Badge>
                   ) : null}
+                  <MovimentacaoDialog
+                    processoId={p.id}
+                    movimentacao={m}
+                    trigger={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Editar movimentação"
+                        className="ml-auto size-7"
+                      >
+                        <Pencil className="size-3.5" />
+                      </Button>
+                    }
+                  />
                 </div>
                 <p className="mt-2 whitespace-pre-wrap text-sm">{m.descricao}</p>
                 {m.observacao ? (

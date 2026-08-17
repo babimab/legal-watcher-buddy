@@ -1,9 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
-import { Upload, CheckCircle2 } from "lucide-react";
+import { Upload, CheckCircle2, Pencil } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -441,7 +441,7 @@ function CitacoesPage() {
                     <th className="p-2 text-left">Cliente</th>
                     <th className="p-2 text-left">Origem</th>
                     <th className="p-2 text-left">Último andamento</th>
-                    <th className="w-40 p-2"></th>
+                    <th className="w-56 p-2"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -461,14 +461,21 @@ function CitacoesPage() {
                             : ""}
                         </td>
                         <td className="p-2 text-right">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => void conferir(a.id)}
-                          >
-                            <CheckCircle2 className="size-4" /> Marcar conferido
-                          </Button>
+                          <div className="flex justify-end gap-1">
+                            <Button asChild type="button" size="sm" variant="ghost">
+                              <Link to="/processos/$id" params={{ id: p.id }}>
+                                <Pencil className="size-4" /> Editar
+                              </Link>
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void conferir(a.id)}
+                            >
+                              <CheckCircle2 className="size-4" /> Marcar conferido
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     );
