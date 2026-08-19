@@ -527,14 +527,15 @@ function ProcessosPage() {
             value={grupoId}
             onValueChange={(v) => {
               void navigate({
-                search: (anterior: ProcessosSearch) => ({
-                  ...anterior,
-                  grupo: v === "todos" ? undefined : v,
-                  pasta: undefined,
-                }),
+                search: (anterior: ProcessosSearch) =>
+                  combinar(anterior, {
+                    grupo: v === "todos" ? undefined : v,
+                    pasta: undefined,
+                  }),
                 replace: true,
               });
             }}
+
 
           >
             <SelectTrigger className="w-52">
