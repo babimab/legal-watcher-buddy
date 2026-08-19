@@ -605,9 +605,14 @@ export async function listarNaoValidados(): Promise<MovimentacaoComProcesso[]> {
 }
 
 export async function ultimaVerificacao() {
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError) throw authError;
+  if (!authData.user) return null;
+
   const { data, error } = await supabase
     .from("verificacoes")
     .select("*")
+    .eq("executado_por", authData.user.id)
     .order("executado_em", { ascending: false })
     .limit(1)
     .maybeSingle();
