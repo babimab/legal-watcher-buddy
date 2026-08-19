@@ -24,17 +24,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { TIPOS_MOVIMENTACAO, type Movimentacao } from "@/lib/processos";
+import { supabaseSolto } from "@/lib/supabase-solto";
+import { FASE_OPCOES, TIPOS_MOVIMENTACAO, type Movimentacao } from "@/lib/processos";
+
+type MovimentacaoComFase = Movimentacao & {
+  fase_anterior?: string | null;
+  fase_nova?: string | null;
+};
 
 export function MovimentacaoDialog({
   processoId,
   trigger,
   movimentacao,
+  faseAtual,
 }: {
   processoId: string;
   trigger: ReactNode;
   /** Quando informada, o dialog vira edição dessa movimentação em vez de criar uma nova. */
-  movimentacao?: Movimentacao;
+  movimentacao?: MovimentacaoComFase;
+  /** Fase atualmente salva no processo. */
+  faseAtual?: string | null;
 }) {
   const editando = !!movimentacao;
   const [aberto, setAberto] = useState(false);
@@ -47,37 +56,86 @@ export function MovimentacaoDialog({
     const form = new FormData(e.currentTarget);
     setSalvando(true);
     const prazo = String(form.get("prazo") ?? "");
+    const faseEscolhida = String(form.get("fase_processual") ?? "manter");
+    const atualizarFase = faseEscolhida !== "manter" && faseEscolhida !== (faseAtual ?? "");
 
-    const dados = {
+    const dadosBase = {
       data_movimentacao: String(form.get("data_movimentacao") ?? ""),
       descricao: String(form.get("descricao") ?? "").trim(),
       tipo: String(form.get("tipo") ?? "") || null,
       exige_acao: exigeAcao,
       prazo: prazo || null,
     };
+    const dados = {
+      ...dadosBase,
+      ...(atualizarFase
+        ? { fase_anterior: faseAtual ?? null, fase_nova: faseEscolhida }
+        : {}),
+    };
 
-    const { error } = editando
-      ? await supabase.from("movimentacoes").update(dados).eq("id", movimentacao.id)
+    let movimentacaoCriadaId: string | null = null;
+    const resultado = editando
+      ? await supabaseSolto.from("movimentacoes").update(dados).eq("id", movimentacao.id)
       : await (async () => {
           const { data: userData } = await supabase.auth.getUser();
-          return supabase
+          const resposta = await supabaseSolto
             .from("movimentacoes")
-            .insert({ ...dados, processo_id: processoId, created_by: userData.user?.id ?? null });
+            .insert({ ...dados, processo_id: processoId, created_by: userData.user?.id ?? null })
+            .select("id")
+            .single();
+          movimentacaoCriadaId = resposta.data?.id ?? null;
+          return resposta;
         })();
 
-    if (!error && !editando) {
-      await supabase
-        .from("processos")
-        .update({ ultima_verificacao_em: new Date().toISOString() })
-        .eq("id", processoId);
-    }
-    setSalvando(false);
-
-    if (error) {
-      toast.error(error.message);
+    if (resultado.error) {
+      setSalvando(false);
+      toast.error(resultado.error.message);
       return;
     }
-    toast.success(editando ? "Movimentação atualizada." : "Movimentação registrada.");
+
+    const atualizacaoProcesso = {
+      ...(!editando ? { ultima_verificacao_em: new Date().toISOString() } : {}),
+      ...(atualizarFase ? { fase: faseEscolhida } : {}),
+    };
+
+    if (Object.keys(atualizacaoProcesso).length > 0) {
+      const { error: erroProcesso } = await supabase
+        .from("processos")
+        .update(atualizacaoProcesso)
+        .eq("id", processoId);
+
+      if (erroProcesso) {
+        // Mantém processo e movimentação coerentes se a segunda gravação falhar.
+        if (!editando && movimentacaoCriadaId) {
+          await supabaseSolto.from("movimentacoes").delete().eq("id", movimentacaoCriadaId);
+        } else if (editando && movimentacao) {
+          await supabaseSolto
+            .from("movimentacoes")
+            .update({
+              data_movimentacao: movimentacao.data_movimentacao,
+              descricao: movimentacao.descricao,
+              tipo: movimentacao.tipo,
+              exige_acao: movimentacao.exige_acao,
+              prazo: movimentacao.prazo,
+              fase_anterior: movimentacao.fase_anterior ?? null,
+              fase_nova: movimentacao.fase_nova ?? null,
+            })
+            .eq("id", movimentacao.id);
+        }
+        setSalvando(false);
+        toast.error(`Não foi possível atualizar o processo: ${erroProcesso.message}`);
+        return;
+      }
+    }
+
+    setSalvando(false);
+    toast.success(
+      atualizarFase
+        ? `${editando ? "Movimentação atualizada" : "Movimentação registrada"} e fase alterada para ${faseEscolhida}.`
+        : editando
+          ? "Movimentação atualizada."
+          : "Movimentação registrada.",
+    );
     await queryClient.invalidateQueries();
     if (!editando) setExigeAcao(false);
     setAberto(false);
@@ -93,8 +151,8 @@ export function MovimentacaoDialog({
           </DialogTitle>
           <DialogDescription>
             {editando
-              ? "Corrige data, tipo, descrição ou prazo dessa movimentação."
-              : "Ela entra no próximo relatório de novidades da equipe."}
+              ? "Corrija os dados do andamento e, se necessário, atualize também a fase processual."
+              : "Registre o andamento e, se ele mudar a etapa do processo, atualize a fase na mesma tela."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={salvar} className="space-y-4">
@@ -151,6 +209,27 @@ export function MovimentacaoDialog({
               <Input id="prazo" name="prazo" type="date" defaultValue={movimentacao?.prazo ?? ""} />
             </div>
           ) : null}
+          <div className="space-y-2">
+            <Label>Atualizar fase processual</Label>
+            <Select name="fase_processual" defaultValue="manter">
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="manter">
+                  {faseAtual ? `Manter fase atual (${faseAtual})` : "Manter fase atual"}
+                </SelectItem>
+                {FASE_OPCOES.map((fase) => (
+                  <SelectItem key={fase} value={fase}>
+                    {fase}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Opcional. Se escolher uma fase, ela também será atualizada no cadastro do processo.
+            </p>
+          </div>
           <DialogFooter>
             <Button type="submit" disabled={salvando}>
               {salvando ? "Salvando..." : editando ? "Salvar" : "Registrar"}
