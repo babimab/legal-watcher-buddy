@@ -47,3 +47,5 @@ jobs:
           git diff --cached --check
           git commit -m "Oculta importacoes historicas das novidades"
           git push
+
+# trigger
