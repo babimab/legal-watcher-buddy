@@ -26,6 +26,7 @@ import {
   formatarCNJ,
   listarMovimentacoesDesde,
   listarMovimentacoesPorData,
+  listarMovimentacoesPorPeriodo,
   listarPendencias,
   listarProcessos,
   ultimaVerificacao,
@@ -133,6 +134,7 @@ const NOME_ARQUIVO_POR_ABA: Record<string, string> = {
   semana: "andamentos-da-semana",
   mes: "andamentos-do-mes",
   ultimos: "ultimos-andamentos",
+  periodo: "andamentos-do-periodo",
   pendencias: "prazos-pendentes",
 };
 
@@ -141,6 +143,7 @@ const TITULO_POR_ABA: Record<string, string> = {
   semana: "Andamentos da última semana",
   mes: "Andamentos do último mês",
   ultimos: `Últimos ${LIMITE_ULTIMOS_ANDAMENTOS} andamentos`,
+  periodo: "Andamentos do período",
   pendencias: "Prazos pendentes",
 };
 
@@ -355,6 +358,9 @@ function RelatorioPage() {
   const queryClient = useQueryClient();
   const [rodando, setRodando] = useState(false);
   const [aba, setAba] = useState(search.aba ?? "novidades");
+  const [periodoDe, setPeriodoDe] = useState("");
+  const [periodoAte, setPeriodoAte] = useState("");
+  const periodoValido = !!periodoDe && !!periodoAte && periodoDe <= periodoAte;
 
   const verificacao = useQuery({ queryKey: ["verificacao"], queryFn: ultimaVerificacao });
   const desde = verificacao.data?.executado_em ?? null;
@@ -373,6 +379,12 @@ function RelatorioPage() {
   const mes = useQuery({
     queryKey: ["mes"],
     queryFn: () => listarMovimentacoesPorData(new Date(Date.now() - 30 * 864e5).toISOString()),
+  });
+
+  const periodo = useQuery({
+    queryKey: ["periodo", periodoDe, periodoAte],
+    queryFn: () => listarMovimentacoesPorPeriodo(periodoDe, periodoAte),
+    enabled: periodoValido,
   });
 
   // Aqui a ordem é pela data real da movimentação; created_at serve só
@@ -428,6 +440,7 @@ function RelatorioPage() {
       ...(novidades.data ?? []),
       ...(semana.data ?? []),
       ...(mes.data ?? []),
+      ...(periodo.data ?? []),
       ...(ultimos.data ?? []),
       ...(pendencias.data ?? []),
     ];
@@ -441,7 +454,7 @@ function RelatorioPage() {
       temMeus: !!minhaSigla,
       outros: valores.filter((v) => !ehResponsavelDaSigla(v, minhaSigla)).sort(),
     };
-  }, [novidades.data, semana.data, mes.data, ultimos.data, pendencias.data, minhaSigla]);
+  }, [novidades.data, semana.data, mes.data, periodo.data, ultimos.data, pendencias.data, minhaSigla]);
 
   const pastasOrdenadas = useMemo(
     () => [...(pastas.data ?? [])].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),
@@ -471,6 +484,7 @@ function RelatorioPage() {
   const novidadesFiltradas = aplicarFiltrosRelatorio(novidadesSemImportacao);
   const semanaFiltrada = aplicarFiltrosRelatorio(semana.data ?? []);
   const mesFiltrado = aplicarFiltrosRelatorio(mes.data ?? []);
+  const periodoFiltrado = aplicarFiltrosRelatorio(periodo.data ?? []);
   const ultimosFiltrados = aplicarFiltrosRelatorio(ultimos.data ?? []);
 
   const hojeISO = new Date().toISOString().slice(0, 10);
@@ -531,7 +545,9 @@ function RelatorioPage() {
       ? semanaFiltrada
       : aba === "mes"
         ? mesFiltrado
-        : aba === "ultimos"
+        : aba === "periodo"
+          ? periodoFiltrado
+          : aba === "ultimos"
           ? ultimosFiltrados
           : aba === "pendencias"
             ? pendenciasFiltradas
@@ -540,6 +556,15 @@ function RelatorioPage() {
               : novidadesFiltradas;
 
   const [emails, setEmails] = useState("");
+
+  const tituloDaAba =
+    aba === "periodo" && periodoValido
+      ? `Andamentos de ${new Date(`${periodoDe}T12:00:00`).toLocaleDateString("pt-BR")} a ${new Date(`${periodoAte}T12:00:00`).toLocaleDateString("pt-BR")}`
+      : TITULO_POR_ABA[aba]!;
+  const nomeArquivoDaAba =
+    aba === "periodo" && periodoValido
+      ? `andamentos-${periodoDe}-a-${periodoAte}`
+      : NOME_ARQUIVO_POR_ABA[aba]!;
 
   const abrirEmail = async () => {
     const destinatarios = emails
@@ -563,7 +588,7 @@ function RelatorioPage() {
 
     // Link mailto não consegue anexar arquivo sozinho — baixa a planilha
     // junto e avisa pra arrastar ela pro e-mail que vai abrir.
-    await exportarAndamentosExcel(itensDaAba, NOME_ARQUIVO_POR_ABA[aba]!).catch(() => {
+    await exportarAndamentosExcel(itensDaAba, nomeArquivoDaAba).catch(() => {
       toast.error("Não consegui gerar a planilha, mas vou abrir o e-mail mesmo assim.");
     });
     toast.success("Planilha baixada — arraste o arquivo pro e-mail que vai abrir para anexar.", {
@@ -572,7 +597,7 @@ function RelatorioPage() {
     window.location.href = montarMailto(
       destinatarios,
       itensDaAba,
-      TITULO_POR_ABA[aba]!,
+      tituloDaAba,
       processos.data ?? [],
     );
   };
@@ -705,7 +730,7 @@ function RelatorioPage() {
                 ).catch(() => toast.error("Não consegui gerar o Excel."));
                 return;
               }
-              void exportarAndamentosExcel(itensDaAba, NOME_ARQUIVO_POR_ABA[aba]!).catch(() =>
+              void exportarAndamentosExcel(itensDaAba, nomeArquivoDaAba).catch(() =>
                 toast.error("Não consegui gerar o Excel."),
               );
             }}
@@ -912,11 +937,38 @@ function RelatorioPage() {
             </Button>
           </div>
 
+          {aba === "periodo" ? (
+            <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">
+              <label className="space-y-1 text-sm">
+                <span className="font-medium">De</span>
+                <Input
+                  type="date"
+                  value={periodoDe}
+                  onChange={(e) => setPeriodoDe(e.target.value)}
+                  className="w-44"
+                />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="font-medium">Até</span>
+                <Input
+                  type="date"
+                  value={periodoAte}
+                  onChange={(e) => setPeriodoAte(e.target.value)}
+                  className="w-44"
+                />
+              </label>
+              {periodoDe && periodoAte && periodoDe > periodoAte ? (
+                <span className="pb-2 text-sm text-destructive">A data inicial deve ser anterior ou igual à final.</span>
+              ) : null}
+            </div>
+          ) : null}
+
           <Tabs value={aba} onValueChange={setAba}>
             <TabsList>
               <TabsTrigger value="novidades">Novidades ({novidadesFiltradas.length})</TabsTrigger>
               <TabsTrigger value="semana">Semana ({semanaFiltrada.length})</TabsTrigger>
               <TabsTrigger value="mes">Mês ({mesFiltrado.length})</TabsTrigger>
+              <TabsTrigger value="periodo">Período ({periodoFiltrado.length})</TabsTrigger>
               <TabsTrigger value="ultimos">
                 Últimos andamentos ({ultimosFiltrados.length})
               </TabsTrigger>
@@ -930,6 +982,16 @@ function RelatorioPage() {
             </TabsContent>
             <TabsContent value="mes" className="mt-4">
               <Lista itens={mesFiltrado} vazio="Nenhuma movimentação nos últimos 30 dias." />
+            </TabsContent>
+            <TabsContent value="periodo" className="mt-4">
+              <Lista
+                itens={periodoFiltrado}
+                vazio={
+                  periodoValido
+                    ? "Nenhuma movimentação encontrada nesse período."
+                    : "Escolha as datas inicial e final para gerar o relatório."
+                }
+              />
             </TabsContent>
             <TabsContent value="ultimos" className="mt-4">
               <Lista itens={ultimosFiltrados} vazio="Nenhum andamento registrado ainda." />

@@ -537,6 +537,21 @@ export async function listarMovimentacoesPorData(
   return (data ?? []) as unknown as MovimentacaoComProcesso[];
 }
 
+export async function listarMovimentacoesPorPeriodo(
+  de: string,
+  ate: string,
+): Promise<MovimentacaoComProcesso[]> {
+  const { data, error } = await supabase
+    .from("movimentacoes")
+    .select(`*, processos(${CAMPOS_PROCESSO_RELATORIO})`)
+    .gte("data_movimentacao", de)
+    .lte("data_movimentacao", ate)
+    .order("data_movimentacao", { ascending: false })
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as unknown as MovimentacaoComProcesso[];
+}
+
 export async function listarUltimasMovimentacoes(): Promise<Map<string, Movimentacao>> {
   const todas = await buscarTudoPaginado<Movimentacao>(
     (offset, limite) =>
