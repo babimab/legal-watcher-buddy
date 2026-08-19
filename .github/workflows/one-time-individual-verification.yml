@@ -41,3 +41,5 @@ jobs:
           git diff --cached --check
           git commit -m "Torna verificacao de novidades individual"
           git push
+
+# trigger
