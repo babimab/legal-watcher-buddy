@@ -1,0 +1,43 @@
+name: One-time individual verification patch
+
+on:
+  push:
+    paths:
+      - .github/workflows/one-time-individual-verification.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Run individual verification patch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Make verification per user
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('src/lib/processos.ts')
+          text = path.read_text(encoding='utf-8')
+
+          old = '''export async function ultimaVerificacao() {\n  const { data, error } = await supabase\n    .from("verificacoes")\n    .select("*")\n    .order("executado_em", { ascending: false })\n    .limit(1)\n    .maybeSingle();\n  if (error) throw error;\n  return data;\n}'''
+
+          new = '''export async function ultimaVerificacao() {\n  const { data: authData, error: authError } = await supabase.auth.getUser();\n  if (authError) throw authError;\n  if (!authData.user) return null;\n\n  const { data, error } = await supabase\n    .from("verificacoes")\n    .select("*")\n    .eq("executado_por", authData.user.id)\n    .order("executado_em", { ascending: false })\n    .limit(1)\n    .maybeSingle();\n  if (error) throw error;\n  return data;\n}'''
+
+          if text.count(old) != 1:
+              raise SystemExit('ultimaVerificacao block not found exactly once')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+      - name: Commit approved change
+        run: |
+          git config user.name "FaroLex automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/lib/processos.ts
+          git diff --cached --check
+          git commit -m "Torna verificacao de novidades individual"
+          git push
