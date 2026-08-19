@@ -465,7 +465,10 @@ function RelatorioPage() {
   const aplicarFiltrosRelatorio = (itens: MovimentacaoComProcesso[]) =>
     filtrarPorPasta(filtrarPorAdvogado(itens));
 
-  const novidadesFiltradas = aplicarFiltrosRelatorio(novidades.data ?? []);
+  // Importações de planilhas são histórico e não devem aparecer como novidade.
+  // Movimentações manuais e de publicações continuam entrando normalmente.
+  const novidadesSemImportacao = (novidades.data ?? []).filter((m) => m.fonte !== "planilha");
+  const novidadesFiltradas = aplicarFiltrosRelatorio(novidadesSemImportacao);
   const semanaFiltrada = aplicarFiltrosRelatorio(semana.data ?? []);
   const mesFiltrado = aplicarFiltrosRelatorio(mes.data ?? []);
   const ultimosFiltrados = aplicarFiltrosRelatorio(ultimos.data ?? []);
@@ -580,7 +583,7 @@ function RelatorioPage() {
     const { error } = await supabase.from("verificacoes").insert({
       tipo: "manual",
       periodo_inicio: desde,
-      total_movimentacoes: novidades.data?.length ?? 0,
+      total_movimentacoes: novidadesSemImportacao.length,
       executado_por: userData.user?.id ?? null,
     });
     setRodando(false);
