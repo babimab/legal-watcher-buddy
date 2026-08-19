@@ -151,31 +151,106 @@ function saudacao() {
   return "boa noite";
 }
 
-// Formato em blocos (não em colunas alinhadas com espaços): a maioria dos
-// clientes de e-mail exibe o corpo em fonte proporcional, então colunas
-// "alinhadas" com padEnd ficam tortas na prática — daí o "tosco".
-function blocoAndamento(
-  indice: number,
-  processo: string,
-  cliente: string,
-  data: string,
-  andamento: string,
-) {
-  const cabecalho = cliente ? `${processo} — ${cliente}` : processo;
-  return `${indice}. ${cabecalho} (${data})\n${andamento}`;
+type DadosEmailProcesso = Pick<
+  Processo,
+  | "cliente"
+  | "parte_contraria"
+  | "autor"
+  | "reu"
+  | "numero_interno"
+  | "numero_cliente"
+  | "vara"
+  | "comarca"
+  | "uf"
+>;
+
+function normalizarParte(valor: string | null | undefined) {
+  return (valor ?? "")
+    .trim()
+    .toLocaleLowerCase("pt-BR")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
 }
 
-function montarMailto(destinatarios: string[], itens: MovimentacaoComProcesso[], titulo: string) {
+function nomeParteAdversa(processo: DadosEmailProcesso | null | undefined) {
+  if (!processo) return "";
+  if (processo.parte_contraria?.trim()) return processo.parte_contraria.trim();
+
+  const cliente = normalizarParte(processo.cliente);
+  const ehCliente = (parte: string | null | undefined) => {
+    const nome = normalizarParte(parte);
+    if (!nome) return false;
+    if (
+      nome.includes("souza cruz") ||
+      nome.includes("astromaritima") ||
+      nome.includes("astro navegacao") ||
+      nome.includes("merck")
+    ) {
+      return true;
+    }
+    return !!cliente && (nome.includes(cliente) || cliente.includes(nome));
+  };
+
+  if (processo.autor && !ehCliente(processo.autor)) return processo.autor;
+  if (processo.reu && !ehCliente(processo.reu)) return processo.reu;
+  return processo.autor ?? processo.reu ?? "";
+}
+
+function linhaClienteCaso(processo: DadosEmailProcesso | null | undefined) {
+  if (!processo) return "";
+  return [
+    processo.cliente ? `Cliente: ${exibir(processo.cliente)}` : "",
+    processo.numero_interno ? `Caso: ${processo.numero_interno}` : "",
+    processo.numero_cliente ? `Nº cliente: ${processo.numero_cliente}` : "",
+  ]
+    .filter(Boolean)
+    .join(" | ");
+}
+
+function linhaJuizoUf(processo: DadosEmailProcesso | null | undefined) {
+  if (!processo) return "";
+  const juizo =
+    processo.vara && processo.comarca
+      ? `${processo.vara} de ${processo.comarca}`
+      : processo.vara || processo.comarca || "";
+  return [juizo ? `Juízo: ${juizo}` : "", processo.uf ? `UF: ${processo.uf}` : ""]
+    .filter(Boolean)
+    .join(" | ");
+}
+
+function blocoAndamento(indice: number, m: MovimentacaoComProcesso, processoCompleto?: Processo) {
+  const processo = processoCompleto ?? m.processos;
+  const numero = m.processos ? formatarCNJ(m.processos.numero_cnj) : "—";
+  const adversa = nomeParteAdversa(processo);
+  const cabecalho = [numero, adversa].filter(Boolean).join(" — ");
+  const clienteCaso = linhaClienteCaso(processo);
+  const juizoUf = linhaJuizoUf(processo);
+  const data = new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR");
+
+  return [
+    `${indice}. ${cabecalho}`,
+    clienteCaso ? `   ${clienteCaso}` : "",
+    juizoUf ? `   ${juizoUf}` : "",
+    `   Data: ${data}`,
+    `   Andamento: ${m.descricao}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function montarMailto(
+  destinatarios: string[],
+  itens: MovimentacaoComProcesso[],
+  titulo: string,
+  processosCompletos: Processo[],
+) {
   const assunto = `FaroLex — ${titulo}`;
   const cortado = itens.length > MAX_ITENS_NO_EMAIL;
   const visiveis = itens.slice(0, MAX_ITENS_NO_EMAIL);
-
-  const blocos = visiveis.map((m, i) => {
-    const numero = m.processos ? formatarCNJ(m.processos.numero_cnj) : "—";
-    const cliente = exibir(m.processos?.cliente) ?? "";
-    const data = new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR");
-    return blocoAndamento(i + 1, numero, cliente, data, m.descricao);
-  });
+  const porId = new Map(processosCompletos.map((p) => [p.id, p]));
+  const blocos = visiveis.map((m, i) =>
+    blocoAndamento(i + 1, m, m.processos ? porId.get(m.processos.id) : undefined),
+  );
   const linhaCortado = cortado
     ? `\n\n... e mais ${itens.length - MAX_ITENS_NO_EMAIL} andamento(s). A lista completa está na planilha em anexo.`
     : "";
@@ -196,15 +271,24 @@ function montarMailtoEncerramento(destinatarios: string[], processos: Processo[]
 
   const blocos = processos.map((p, i) => {
     const numero = formatarCNJ(p.numero_cnj);
-    const cliente = exibir(p.cliente) ?? "";
-    const numeroCliente = p.numero_cliente ? ` (nº ${p.numero_cliente})` : "";
-    const caso = p.numero_interno ? `\n   Caso: ${p.numero_interno}` : "";
+    const adversa = nomeParteAdversa(p);
+    const cabecalho = [numero, adversa].filter(Boolean).join(" — ");
+    const clienteCaso = linhaClienteCaso(p);
+    const juizoUf = linhaJuizoUf(p);
     const valor =
       p.valor_encerramento != null
         ? p.valor_encerramento.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
         : "sem valor informado";
-    const observacao = p.observacao_encerramento ? `\n   Obs.: ${p.observacao_encerramento}` : "";
-    return `${i + 1}. ${numero} — ${cliente}${numeroCliente}${caso}\n   Valor: ${valor}${observacao}`;
+
+    return [
+      `${i + 1}. ${cabecalho}`,
+      clienteCaso ? `   ${clienteCaso}` : "",
+      juizoUf ? `   ${juizoUf}` : "",
+      `   Valor: ${valor}`,
+      p.observacao_encerramento ? `   Obs.: ${p.observacao_encerramento}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
   });
 
   const corpo = `Olá, ${saudacao()}.
@@ -466,7 +550,12 @@ function RelatorioPage() {
     toast.success("Planilha baixada — arraste o arquivo pro e-mail que vai abrir para anexar.", {
       duration: 6000,
     });
-    window.location.href = montarMailto(destinatarios, itensDaAba, TITULO_POR_ABA[aba]!);
+    window.location.href = montarMailto(
+      destinatarios,
+      itensDaAba,
+      TITULO_POR_ABA[aba]!,
+      processos.data ?? [],
+    );
   };
 
   const rodar = async () => {
