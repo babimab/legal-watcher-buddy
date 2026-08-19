@@ -17,4 +17,145 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply
+      - name: Apply changes
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(text, old, new, label):
+              if text.count(old) != 1:
+                  raise SystemExit(f'{label}: expected 1 match, found {text.count(old)}')
+              return text.replace(old, new, 1)
+
+          # 1) Domain type
+          path = Path('src/lib/processos.ts')
+          text = path.read_text(encoding='utf-8')
+          text = replace_once(
+              text,
+              '  fonte: string;\n  validado: boolean;',
+              '  fonte: string;\n  destacar_email: boolean;\n  validado: boolean;',
+              'Movimentacao type',
+          )
+          path.write_text(text, encoding='utf-8')
+
+          # 2) Movement dialog
+          path = Path('src/components/MovimentacaoDialog.tsx')
+          text = path.read_text(encoding='utf-8')
+          text = replace_once(
+              text,
+              '  const [exigeAcao, setExigeAcao] = useState(movimentacao?.exige_acao ?? false);\n  const [salvando, setSalvando] = useState(false);',
+              '  const [exigeAcao, setExigeAcao] = useState(movimentacao?.exige_acao ?? false);\n  const [destacarEmail, setDestacarEmail] = useState(movimentacao?.destacar_email ?? false);\n  const [salvando, setSalvando] = useState(false);',
+              'dialog state',
+          )
+          text = replace_once(
+              text,
+              '      exige_acao: exigeAcao,\n      prazo: prazo || null,',
+              '      exige_acao: exigeAcao,\n      destacar_email: destacarEmail,\n      prazo: prazo || null,',
+              'dialog save payload',
+          )
+          text = replace_once(
+              text,
+              '              exige_acao: movimentacao.exige_acao,\n              prazo: movimentacao.prazo,',
+              '              exige_acao: movimentacao.exige_acao,\n              destacar_email: movimentacao.destacar_email,\n              prazo: movimentacao.prazo,',
+              'dialog rollback',
+          )
+          text = replace_once(
+              text,
+              '    if (!editando) setExigeAcao(false);\n    setAberto(false);',
+              '    if (!editando) {\n      setExigeAcao(false);\n      setDestacarEmail(false);\n    }\n    setAberto(false);',
+              'dialog reset',
+          )
+          text = replace_once(
+              text,
+              '''          <div className="flex items-center gap-2">\n            <Checkbox\n              id="exige_acao"\n              checked={exigeAcao}\n              onCheckedChange={(v) => setExigeAcao(v === true)}\n            />\n            <Label htmlFor="exige_acao">Exige providência minha</Label>\n          </div>''',
+              '''          <div className="flex items-center gap-2">\n            <Checkbox\n              id="destacar_email"\n              checked={destacarEmail}\n              onCheckedChange={(v) => setDestacarEmail(v === true)}\n            />\n            <Label htmlFor="destacar_email">Destacar no e-mail</Label>\n          </div>\n          <p className="-mt-2 text-xs text-muted-foreground">\n            Quando marcado, este andamento aparece no corpo do e-mail ao cliente. A planilha continua trazendo todos.\n          </p>\n          <div className="flex items-center gap-2">\n            <Checkbox\n              id="exige_acao"\n              checked={exigeAcao}\n              onCheckedChange={(v) => setExigeAcao(v === true)}\n            />\n            <Label htmlFor="exige_acao">Exige providência minha</Label>\n          </div>''',
+              'dialog checkbox UI',
+          )
+          path.write_text(text, encoding='utf-8')
+
+          # 3) Supabase generated types
+          path = Path('src/integrations/supabase/types.ts')
+          text = path.read_text(encoding='utf-8')
+          for section in ('Row', 'Insert', 'Update'):
+              old = '          descricao: string\n          exige_acao: boolean\n' if section == 'Row' else None
+          text = replace_once(
+              text,
+              '          descricao: string\n          exige_acao: boolean\n          fonte: string\n',
+              '          descricao: string\n          destacar_email: boolean\n          exige_acao: boolean\n          fonte: string\n',
+              'types Row',
+          )
+          text = replace_once(
+              text,
+              '          descricao: string\n          exige_acao?: boolean\n          fonte?: string\n',
+              '          descricao: string\n          destacar_email?: boolean\n          exige_acao?: boolean\n          fonte?: string\n',
+              'types Insert',
+          )
+          text = replace_once(
+              text,
+              '          descricao?: string\n          exige_acao?: boolean\n          fonte?: string\n',
+              '          descricao?: string\n          destacar_email?: boolean\n          exige_acao?: boolean\n          fonte?: string\n',
+              'types Update',
+          )
+          path.write_text(text, encoding='utf-8')
+
+          # 4) Report: email highlight + period as top action
+          path = Path('src/routes/_authenticated/relatorio.tsx')
+          text = path.read_text(encoding='utf-8')
+          text = replace_once(
+              text,
+              'import { AlertTriangle, CalendarPlus, CheckCircle2, Download, Mail, Play } from "lucide-react";',
+              'import { AlertTriangle, CalendarPlus, CalendarRange, CheckCircle2, Download, Mail, Play } from "lucide-react";',
+              'report icon import',
+          )
+          text = replace_once(
+              text,
+              '    { header: "Observação", key: "observacao", width: 40 },',
+              '    { header: "Destacar no e-mail", key: "destacar_email", width: 20 },\n    { header: "Observação", key: "observacao", width: 40 },',
+              'excel column',
+          )
+          text = replace_once(
+              text,
+              '      descricao: m.descricao,\n      observacao: m.observacao ?? "",',
+              '      descricao: m.descricao,\n      destacar_email: m.destacar_email ? "Sim" : "Não",\n      observacao: m.observacao ?? "",',
+              'excel row',
+          )
+          text = replace_once(
+              text,
+              '''    // Link mailto não consegue anexar arquivo sozinho — baixa a planilha\n    // junto e avisa pra arrastar ela pro e-mail que vai abrir.\n    await exportarAndamentosExcel(itensDaAba, nomeArquivoDaAba).catch(() => {''',
+              '''    const itensDestacados = itensDaAba.filter((m) => m.destacar_email);\n\n    // A planilha sempre leva todos os andamentos do relatório.\n    await exportarAndamentosExcel(itensDaAba, nomeArquivoDaAba).catch(() => {''',
+              'email export comment',
+          )
+          text = replace_once(
+              text,
+              '''    toast.success("Planilha baixada — arraste o arquivo pro e-mail que vai abrir para anexar.", {\n      duration: 6000,\n    });\n    window.location.href = montarMailto(\n      destinatarios,\n      itensDaAba,''',
+              '''    if (itensDestacados.length === 0) {\n      toast.warning(\n        "Nenhum andamento foi marcado como ‘Destacar no e-mail’. A planilha foi gerada com todos os andamentos, mas o e-mail não será aberto.",\n        { duration: 7000 },\n      );\n      return;\n    }\n\n    toast.success(\n      `Planilha completa baixada. O corpo do e-mail levará ${itensDestacados.length} andamento(s) destacado(s).`,\n      { duration: 6000 },\n    );\n    window.location.href = montarMailto(\n      destinatarios,\n      itensDestacados,''',
+              'email highlighted items',
+          )
+          # Add top period button before Excel export
+          text = replace_once(
+              text,
+              '''          <Button\n            variant="outline"\n            disabled={''',
+              '''          {!ehAbaEncerramento && aba !== "pendencias" ? (\n            <Button\n              variant={aba === "periodo" ? "default" : "outline"}\n              onClick={() => setAba(aba === "periodo" ? "novidades" : "periodo")}\n            >\n              <CalendarRange className="size-4" />\n              {aba === "periodo" ? "Fechar período" : "Relatório por período"}\n            </Button>\n          ) : null}\n          <Button\n            variant="outline"\n            disabled={''',
+              'period top button',
+          )
+          # Replace period-in-tabs block with conditional period panel versus tabs
+          old_block = '''          {aba === "periodo" ? (\n            <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">\n              <label className="space-y-1 text-sm">\n                <span className="font-medium">De</span>\n                <Input\n                  type="date"\n                  value={periodoDe}\n                  onChange={(e) => setPeriodoDe(e.target.value)}\n                  className="w-44"\n                />\n              </label>\n              <label className="space-y-1 text-sm">\n                <span className="font-medium">Até</span>\n                <Input\n                  type="date"\n                  value={periodoAte}\n                  onChange={(e) => setPeriodoAte(e.target.value)}\n                  className="w-44"\n                />\n              </label>\n              {periodoDe && periodoAte && periodoDe > periodoAte ? (\n                <span className="pb-2 text-sm text-destructive">A data inicial deve ser anterior ou igual à final.</span>\n              ) : null}\n            </div>\n          ) : null}\n\n          <Tabs value={aba} onValueChange={setAba}>\n            <TabsList>\n              <TabsTrigger value="novidades">Novidades ({novidadesFiltradas.length})</TabsTrigger>\n              <TabsTrigger value="semana">Semana ({semanaFiltrada.length})</TabsTrigger>\n              <TabsTrigger value="mes">Mês ({mesFiltrado.length})</TabsTrigger>\n              <TabsTrigger value="periodo">Período ({periodoFiltrado.length})</TabsTrigger>\n              <TabsTrigger value="ultimos">\n                Últimos andamentos ({ultimosFiltrados.length})\n              </TabsTrigger>\n            </TabsList>\n\n            <TabsContent value="novidades" className="mt-4">\n              <Lista itens={novidadesFiltradas} vazio="Nada novo desde a última verificação." />\n            </TabsContent>\n            <TabsContent value="semana" className="mt-4">\n              <Lista itens={semanaFiltrada} vazio="Nenhuma movimentação nos últimos 7 dias." />\n            </TabsContent>\n            <TabsContent value="mes" className="mt-4">\n              <Lista itens={mesFiltrado} vazio="Nenhuma movimentação nos últimos 30 dias." />\n            </TabsContent>\n            <TabsContent value="periodo" className="mt-4">\n              <Lista\n                itens={periodoFiltrado}\n                vazio={\n                  periodoValido\n                    ? "Nenhuma movimentação encontrada nesse período."\n                    : "Escolha as datas inicial e final para gerar o relatório."\n                }\n              />\n            </TabsContent>\n            <TabsContent value="ultimos" className="mt-4">\n              <Lista itens={ultimosFiltrados} vazio="Nenhum andamento registrado ainda." />\n            </TabsContent>\n          </Tabs>'''
+          new_block = '''          {aba === "periodo" ? (\n            <div className="space-y-4">\n              <Card>\n                <CardHeader className="pb-3">\n                  <CardTitle className="flex items-center gap-2 font-serif text-lg">\n                    <CalendarRange className="size-5" /> Relatório por período\n                  </CardTitle>\n                  <CardDescription>\n                    Escolha o intervalo pela data real do andamento. Os filtros de advogado e pasta continuam valendo.\n                  </CardDescription>\n                </CardHeader>\n                <CardContent className="flex flex-wrap items-end gap-4">\n                  <label className="space-y-1.5 text-sm">\n                    <span className="font-medium">De</span>\n                    <Input\n                      type="date"\n                      value={periodoDe}\n                      onChange={(e) => setPeriodoDe(e.target.value)}\n                      className="w-44"\n                    />\n                  </label>\n                  <label className="space-y-1.5 text-sm">\n                    <span className="font-medium">Até</span>\n                    <Input\n                      type="date"\n                      value={periodoAte}\n                      onChange={(e) => setPeriodoAte(e.target.value)}\n                      className="w-44"\n                    />\n                  </label>\n                  {periodoDe && periodoAte && periodoDe > periodoAte ? (\n                    <span className="pb-2 text-sm text-destructive">\n                      A data inicial deve ser anterior ou igual à final.\n                    </span>\n                  ) : periodoValido ? (\n                    <span className="pb-2 text-sm text-muted-foreground">\n                      {periodoFiltrado.length} andamento(s) encontrado(s) no período.\n                    </span>\n                  ) : null}\n                </CardContent>\n              </Card>\n              <Lista\n                itens={periodoFiltrado}\n                vazio={\n                  periodoValido\n                    ? "Nenhuma movimentação encontrada nesse período."\n                    : "Escolha as datas inicial e final para gerar o relatório."\n                }\n              />\n            </div>\n          ) : (\n            <Tabs value={aba} onValueChange={setAba}>\n              <TabsList>\n                <TabsTrigger value="novidades">Novidades ({novidadesFiltradas.length})</TabsTrigger>\n                <TabsTrigger value="semana">Semana ({semanaFiltrada.length})</TabsTrigger>\n                <TabsTrigger value="mes">Mês ({mesFiltrado.length})</TabsTrigger>\n                <TabsTrigger value="ultimos">\n                  Últimos andamentos ({ultimosFiltrados.length})\n                </TabsTrigger>\n              </TabsList>\n\n              <TabsContent value="novidades" className="mt-4">\n                <Lista itens={novidadesFiltradas} vazio="Nada novo desde a última verificação." />\n              </TabsContent>\n              <TabsContent value="semana" className="mt-4">\n                <Lista itens={semanaFiltrada} vazio="Nenhuma movimentação nos últimos 7 dias." />\n              </TabsContent>\n              <TabsContent value="mes" className="mt-4">\n                <Lista itens={mesFiltrado} vazio="Nenhuma movimentação nos últimos 30 dias." />\n              </TabsContent>\n              <TabsContent value="ultimos" className="mt-4">\n                <Lista itens={ultimosFiltrados} vazio="Nenhum andamento registrado ainda." />\n              </TabsContent>\n            </Tabs>\n          )}'''
+          text = replace_once(text, old_block, new_block, 'period panel')
+          # Visual badge on report list
+          text = replace_once(
+              text,
+              '            {m.tipo ? <Badge variant="outline">{m.tipo}</Badge> : null}\n            {!m.validado ?',
+              '            {m.tipo ? <Badge variant="outline">{m.tipo}</Badge> : null}\n            {m.destacar_email ? <Badge>Destacar no e-mail</Badge> : null}\n            {!m.validado ?',
+              'report highlight badge',
+          )
+          path.write_text(text, encoding='utf-8')
+
+      - name: Commit approved change
+        run: |
+          git config user.name "FaroLex automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/lib/processos.ts src/components/MovimentacaoDialog.tsx src/integrations/supabase/types.ts src/routes/_authenticated/relatorio.tsx
+          git diff --cached --check
+          git commit -m "Destaca andamentos no email e melhora relatorio por periodo"
+          git push
