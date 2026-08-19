@@ -529,9 +529,13 @@ export async function listarUltimasMovimentacoes(): Promise<Map<string, Moviment
         .from("movimentacoes")
         .select("*")
         .order("data_movimentacao", { ascending: false })
-      .order("created_at", { ascending: false })
-      .range(offset, offset + limite - 1),
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limite - 1) as unknown as PromiseLike<{
+        data: Movimentacao[] | null;
+        error: { message: string } | null;
+      }>,
   );
+
   const ultimas = new Map<string, Movimentacao>();
   for (const m of todas) {
     if (!ultimas.has(m.processo_id)) ultimas.set(m.processo_id, m);
