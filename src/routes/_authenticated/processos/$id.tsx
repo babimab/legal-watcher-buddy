@@ -99,6 +99,11 @@ function ProcessoDetalhe() {
     return <p className="text-muted-foreground">Processo não encontrado.</p>;
 
   const p = processo.data;
+  const nomePrincipal =
+    p.parte_contraria ||
+    (p.autor && p.autor !== p.cliente ? p.autor : null) ||
+    (p.reu && p.reu !== p.cliente ? p.reu : null) ||
+    p.cliente;
   const linkAuto = linkTribunal(p);
   const link = p.link_tribunal_manual
     ? { url: p.link_tribunal_manual, rotulo: "Abrir processo (link manual)" }
@@ -117,7 +122,7 @@ function ProcessoDetalhe() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="font-mono text-sm text-muted-foreground">{formatarCNJ(p.numero_cnj)}</p>
-          <h1 className="font-serif text-3xl font-semibold">{exibir(p.cliente)}</h1>
+          <h1 className="font-serif text-3xl font-semibold">{exibir(nomePrincipal)}</h1>
           <div className="mt-2 flex flex-wrap gap-2">
             <Badge>{p.status}</Badge>
             {p.tribunal ? <Badge variant="outline">{p.tribunal}</Badge> : null}
