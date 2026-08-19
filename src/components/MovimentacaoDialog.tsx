@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -32,24 +33,56 @@ type MovimentacaoComFase = Movimentacao & {
   fase_nova?: string | null;
 };
 
+function observacaoComMudancaDeFase(
+  observacaoAtual: string | null | undefined,
+  faseAnterior: string | null,
+  faseNova: string,
+) {
+  const semMarcadorAnterior = (observacaoAtual ?? "")
+    .replace(/(?:\n\n)?Fase processual atualizada:.*$/s, "")
+    .trim();
+  const marcador = `Fase processual atualizada: ${faseAnterior || "não informada"} → ${faseNova}`;
+  return semMarcadorAnterior ? `${semMarcadorAnterior}\n\n${marcador}` : marcador;
+}
+
 export function MovimentacaoDialog({
   processoId,
   trigger,
   movimentacao,
-  faseAtual,
 }: {
   processoId: string;
   trigger: ReactNode;
   /** Quando informada, o dialog vira edição dessa movimentação em vez de criar uma nova. */
   movimentacao?: MovimentacaoComFase;
-  /** Fase atualmente salva no processo. */
-  faseAtual?: string | null;
 }) {
   const editando = !!movimentacao;
   const [aberto, setAberto] = useState(false);
   const [exigeAcao, setExigeAcao] = useState(movimentacao?.exige_acao ?? false);
   const [salvando, setSalvando] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
+  const [faseAtual, setFaseAtual] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!aberto) return;
+    let ativo = true;
+    void supabase
+      .from("processos")
+      .select("fase")
+      .eq("id", processoId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!ativo) return;
+        if (error) {
+          toast.error(error.message);
+          return;
+        }
+        setFaseAtual(data?.fase ?? null);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [aberto, processoId]);
 
   const salvar = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -69,7 +102,15 @@ export function MovimentacaoDialog({
     const dados = {
       ...dadosBase,
       ...(atualizarFase
-        ? { fase_anterior: faseAtual ?? null, fase_nova: faseEscolhida }
+        ? {
+            fase_anterior: faseAtual ?? null,
+            fase_nova: faseEscolhida,
+            observacao: observacaoComMudancaDeFase(
+              movimentacao?.observacao,
+              faseAtual,
+              faseEscolhida,
+            ),
+          }
         : {}),
     };
 
@@ -117,6 +158,7 @@ export function MovimentacaoDialog({
               tipo: movimentacao.tipo,
               exige_acao: movimentacao.exige_acao,
               prazo: movimentacao.prazo,
+              observacao: movimentacao.observacao,
               fase_anterior: movimentacao.fase_anterior ?? null,
               fase_nova: movimentacao.fase_nova ?? null,
             })
@@ -138,6 +180,26 @@ export function MovimentacaoDialog({
     );
     await queryClient.invalidateQueries();
     if (!editando) setExigeAcao(false);
+    setAberto(false);
+  };
+
+  const excluir = async () => {
+    if (!movimentacao) return;
+    if (!window.confirm("Excluir esta movimentação? Essa ação não poderá ser desfeita.")) return;
+
+    setExcluindo(true);
+    const { error } = await supabaseSolto
+      .from("movimentacoes")
+      .delete()
+      .eq("id", movimentacao.id);
+    setExcluindo(false);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Movimentação excluída.");
+    await queryClient.invalidateQueries();
     setAberto(false);
   };
 
@@ -227,11 +289,24 @@ export function MovimentacaoDialog({
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Opcional. Se escolher uma fase, ela também será atualizada no cadastro do processo.
+              Opcional. Se escolher uma fase, ela também será atualizada no cadastro do processo e
+              a alteração ficará registrada nesta movimentação.
             </p>
           </div>
-          <DialogFooter>
-            <Button type="submit" disabled={salvando}>
+          <DialogFooter className="gap-2 sm:justify-between">
+            {editando ? (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={excluir}
+                disabled={salvando || excluindo}
+              >
+                <Trash2 className="size-4" /> {excluindo ? "Excluindo..." : "Excluir"}
+              </Button>
+            ) : (
+              <span />
+            )}
+            <Button type="submit" disabled={salvando || excluindo}>
               {salvando ? "Salvando..." : editando ? "Salvar" : "Registrar"}
             </Button>
           </DialogFooter>
