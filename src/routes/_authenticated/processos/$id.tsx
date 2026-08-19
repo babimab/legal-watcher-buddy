@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ProcessoDialog } from "@/components/ProcessoDialog";
 import { MovimentacaoDialog } from "@/components/MovimentacaoDialog";
 import { supabase } from "@/integrations/supabase/client";
+import { supabaseSolto } from "@/lib/supabase-solto";
 import {
   buscarProcesso,
   listarDesdobramentos,
@@ -82,7 +83,7 @@ function ProcessoDetalhe() {
 
   const validarMovimentacao = async (movId: string) => {
     const quem = await siglaOuEmailAtual();
-    const { error } = await supabase
+    const { error } = await supabaseSolto
       .from("movimentacoes")
       .update({ validado: true, validado_por: quem, validado_em: new Date().toISOString() })
       .eq("id", movId);
