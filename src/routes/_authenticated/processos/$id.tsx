@@ -17,6 +17,7 @@ import {
   listarMovimentacoes,
   formatarCNJ,
   exibir,
+  normalizarNome,
   variantCriticidade,
   siglaOuEmailAtual,
   usePodeExcluirProcesso,
@@ -50,6 +51,16 @@ export const Route = createFileRoute("/_authenticated/processos/$id")({
   }),
   component: ProcessoDetalhe,
 });
+
+function ehNossoCliente(nome: string | null | undefined): boolean {
+  const normalizado = normalizarNome(nome ?? "");
+  return (
+    normalizado.includes("souza cruz") ||
+    normalizado.includes("astromaritima") ||
+    normalizado.includes("astro navegacao") ||
+    normalizado.includes("merck")
+  );
+}
 
 function ProcessoDetalhe() {
   const { id } = Route.useParams();
@@ -99,10 +110,17 @@ function ProcessoDetalhe() {
     return <p className="text-muted-foreground">Processo não encontrado.</p>;
 
   const p = processo.data;
+  const autorEhCliente = ehNossoCliente(p.autor);
+  const reuEhCliente = ehNossoCliente(p.reu);
+  const clienteReconhecido = ehNossoCliente(p.cliente);
   const nomePrincipal =
+    (autorEhCliente && p.reu ? p.reu : null) ||
+    (reuEhCliente && p.autor ? p.autor : null) ||
+    (clienteReconhecido && p.autor && !ehNossoCliente(p.autor) ? p.autor : null) ||
+    (clienteReconhecido && p.reu && !ehNossoCliente(p.reu) ? p.reu : null) ||
     p.parte_contraria ||
-    (p.autor && p.autor !== p.cliente ? p.autor : null) ||
-    (p.reu && p.reu !== p.cliente ? p.reu : null) ||
+    p.autor ||
+    p.reu ||
     p.cliente;
   const linkAuto = linkTribunal(p);
   const link = p.link_tribunal_manual
