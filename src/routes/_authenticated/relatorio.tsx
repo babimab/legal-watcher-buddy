@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { supabaseSolto } from "@/lib/supabase-solto";
 import {
   formatarCNJ,
   listarMovimentacoesDesde,
@@ -838,7 +839,7 @@ function Lista({
 
   const validar = async (id: string) => {
     const quem = await siglaOuEmailAtual();
-    const { error } = await supabase
+    const { error } = await supabaseSolto
       .from("movimentacoes")
       .update({ validado: true, validado_por: quem, validado_em: new Date().toISOString() })
       .eq("id", id);

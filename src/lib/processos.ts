@@ -421,14 +421,39 @@ export async function buscarTudoPaginado<T>(
   return tudo;
 }
 
+// Ordem determinística da carteira: agrupa pelo número do caso interno
+// (mesmo "caso" sempre junto, com ordenação natural de números) e desempata
+// por numero_cnj / created_at / id. Nunca usa updated_at — senão o processo
+// pula de lugar só porque recebeu uma movimentação durante a conferência.
+export function ordenarProcessos<T extends Processo>(lista: T[]): T[] {
+  const chave = (p: Processo) => (p.numero_interno ?? "").trim();
+  return [...lista].sort((a, b) => {
+    const ca = chave(a);
+    const cb = chave(b);
+    if (ca !== cb) {
+      if (!ca) return 1;
+      if (!cb) return -1;
+      const porCaso = ca.localeCompare(cb, "pt-BR", { numeric: true, sensitivity: "base" });
+      if (porCaso !== 0) return porCaso;
+    }
+    const porCnj = (a.numero_cnj ?? "").localeCompare(b.numero_cnj ?? "");
+    if (porCnj !== 0) return porCnj;
+    const porData = (a.created_at ?? "").localeCompare(b.created_at ?? "");
+    if (porData !== 0) return porData;
+    return a.id.localeCompare(b.id);
+  });
+}
+
 export async function listarProcessos(): Promise<Processo[]> {
-  return buscarTudoPaginado<Processo>((offset, limite) =>
+  const todos = await buscarTudoPaginado<Processo>((offset, limite) =>
     supabase
       .from("processos")
       .select("*")
-      .order("updated_at", { ascending: false })
+      .order("numero_cnj", { ascending: true })
+      .order("id", { ascending: true })
       .range(offset, offset + limite - 1),
   );
+  return ordenarProcessos(todos);
 }
 
 export async function buscarProcesso(id: string): Promise<Processo> {
@@ -456,7 +481,7 @@ export async function listarMovimentacoes(processoId: string): Promise<Movimenta
     .order("data_movimentacao", { ascending: false })
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []) as Movimentacao[];
+  return (data ?? []) as unknown as Movimentacao[];
 }
 
 export type MovimentacaoComProcesso = Movimentacao & {
@@ -497,14 +522,19 @@ export async function listarMovimentacoesDesde(
 }
 
 export async function listarUltimasMovimentacoes(): Promise<Map<string, Movimentacao>> {
-  const todas = await buscarTudoPaginado<Movimentacao>((offset, limite) =>
-    supabase
-      .from("movimentacoes")
-      .select("*")
-      .order("data_movimentacao", { ascending: false })
-      .order("created_at", { ascending: false })
-      .range(offset, offset + limite - 1),
+  const todas = await buscarTudoPaginado<Movimentacao>(
+    (offset, limite) =>
+      supabase
+        .from("movimentacoes")
+        .select("*")
+        .order("data_movimentacao", { ascending: false })
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limite - 1) as unknown as PromiseLike<{
+        data: Movimentacao[] | null;
+        error: { message: string } | null;
+      }>,
   );
+
   const ultimas = new Map<string, Movimentacao>();
   for (const m of todas) {
     if (!ultimas.has(m.processo_id)) ultimas.set(m.processo_id, m);
