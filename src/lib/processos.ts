@@ -456,7 +456,6 @@ export async function listarProcessos(): Promise<Processo[]> {
   return ordenarProcessos(todos);
 }
 
-
 export async function buscarProcesso(id: string): Promise<Processo> {
   const { data, error } = await supabase.from("processos").select("*").eq("id", id).maybeSingle();
   if (error) throw error;

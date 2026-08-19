@@ -160,7 +160,6 @@ function ProcessosPage() {
   const somenteMeus = search.advogado === "eu";
   const minhaSigla = useSiglaAtual();
 
-
   const { data, isLoading } = useQuery({
     queryKey: ["processos"],
     queryFn: listarProcessos,
@@ -535,8 +534,6 @@ function ProcessosPage() {
                 replace: true,
               });
             }}
-
-
           >
             <SelectTrigger className="w-52">
               <SelectValue />
