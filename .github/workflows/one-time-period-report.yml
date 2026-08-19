@@ -128,3 +128,5 @@ jobs:
           git diff --cached --check
           git commit -m "Adiciona relatorio por periodo"
           git push
+
+# trigger
