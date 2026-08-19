@@ -16,7 +16,7 @@ const BUCKET = "documentos-processos";
 const TAMANHO_MAX = 25 * 1024 * 1024;
 
 export async function listarDocumentos(processoId: string): Promise<Documento[]> {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseSolto
     .from("documentos")
     .select("*")
     .eq("processo_id", processoId)

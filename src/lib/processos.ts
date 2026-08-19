@@ -482,7 +482,7 @@ export async function listarMovimentacoes(processoId: string): Promise<Movimenta
     .order("data_movimentacao", { ascending: false })
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []) as Movimentacao[];
+  return (data ?? []) as unknown as Movimentacao[];
 }
 
 export type MovimentacaoComProcesso = Movimentacao & {
@@ -523,11 +523,12 @@ export async function listarMovimentacoesDesde(
 }
 
 export async function listarUltimasMovimentacoes(): Promise<Map<string, Movimentacao>> {
-  const todas = await buscarTudoPaginado<Movimentacao>((offset, limite) =>
-    supabase
-      .from("movimentacoes")
-      .select("*")
-      .order("data_movimentacao", { ascending: false })
+  const todas = await buscarTudoPaginado<Movimentacao>(
+    (offset, limite) =>
+      supabase
+        .from("movimentacoes")
+        .select("*")
+        .order("data_movimentacao", { ascending: false })
       .order("created_at", { ascending: false })
       .range(offset, offset + limite - 1),
   );
