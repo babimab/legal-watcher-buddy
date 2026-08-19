@@ -1,0 +1,195 @@
+name: One-time report email patch
+
+on:
+  push:
+    paths:
+      - .github/workflows/one-time-report-email-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Install one-time report email patch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply approved email formatting changes
+        shell: python
+        run: |
+          from pathlib import Path
+
+          # 1) Relatório precisa carregar também o número interno/caso.
+          processos = Path('src/lib/processos.ts')
+          texto = processos.read_text(encoding='utf-8')
+
+          antigo_pick = '''    | "numero_cnj"\n    | "cliente"\n    | "tribunal"'''
+          novo_pick = '''    | "numero_cnj"\n    | "cliente"\n    | "numero_interno"\n    | "tribunal"'''
+          if texto.count(antigo_pick) != 1:
+              raise SystemExit('Trecho Pick de MovimentacaoComProcesso não encontrado exatamente uma vez.')
+          texto = texto.replace(antigo_pick, novo_pick, 1)
+
+          antigo_campos = '"id, numero_cnj, cliente, tribunal, autor, reu, parte_contraria, responsavel, socio, vara, comarca, uf, pasta_id";'
+          novo_campos = '"id, numero_cnj, cliente, numero_interno, tribunal, autor, reu, parte_contraria, responsavel, socio, vara, comarca, uf, pasta_id";'
+          if texto.count(antigo_campos) != 1:
+              raise SystemExit('CAMPOS_PROCESSO_RELATORIO não encontrado exatamente uma vez.')
+          texto = texto.replace(antigo_campos, novo_campos, 1)
+          processos.write_text(texto, encoding='utf-8')
+
+          # 2) Padroniza os blocos dos e-mails de andamentos e encerramento.
+          relatorio = Path('src/routes/_authenticated/relatorio.tsx')
+          texto = relatorio.read_text(encoding='utf-8')
+
+          inicio = texto.index('// Formato em blocos (não em colunas alinhadas com espaços):')
+          fim = texto.index('// Escapa vírgula, ponto e vírgula, barra invertida e quebra de linha')
+
+          novo_bloco = r'''// Formato em blocos (não em colunas alinhadas com espaços): a maioria dos
+// clientes de e-mail exibe o corpo em fonte proporcional, então cada dado
+// fica em uma linha curta e legível.
+type DadosEmailProcesso = Pick<
+  Processo,
+  | "cliente"
+  | "parte_contraria"
+  | "autor"
+  | "reu"
+  | "numero_interno"
+  | "numero_cliente"
+  | "vara"
+  | "comarca"
+  | "uf"
+>;
+
+function normalizarParte(valor: string | null | undefined) {
+  return (valor ?? "")
+    .trim()
+    .toLocaleLowerCase("pt-BR")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+}
+
+function nomeParteAdversa(processo: DadosEmailProcesso | null | undefined) {
+  if (!processo) return "";
+  if (processo.parte_contraria?.trim()) return processo.parte_contraria.trim();
+
+  const cliente = normalizarParte(processo.cliente);
+  const ehCliente = (parte: string | null | undefined) => {
+    const nome = normalizarParte(parte);
+    if (!nome) return false;
+    if (
+      nome.includes("souza cruz") ||
+      nome.includes("astromaritima") ||
+      nome.includes("astro navegacao") ||
+      nome.includes("merck")
+    ) {
+      return true;
+    }
+    return !!cliente && (nome.includes(cliente) || cliente.includes(nome));
+  };
+
+  if (processo.autor && !ehCliente(processo.autor)) return processo.autor;
+  if (processo.reu && !ehCliente(processo.reu)) return processo.reu;
+  return processo.autor ?? processo.reu ?? "";
+}
+
+function linhaClienteCaso(processo: DadosEmailProcesso | null | undefined) {
+  if (!processo) return "";
+  return [
+    processo.cliente ? `Cliente: ${exibir(processo.cliente)}` : "",
+    processo.numero_interno ? `Caso: ${processo.numero_interno}` : "",
+    processo.numero_cliente ? `Nº cliente: ${processo.numero_cliente}` : "",
+  ]
+    .filter(Boolean)
+    .join(" | ");
+}
+
+function linhaJuizoUf(processo: DadosEmailProcesso | null | undefined) {
+  if (!processo) return "";
+  const juizo =
+    processo.vara && processo.comarca
+      ? `${processo.vara} de ${processo.comarca}`
+      : processo.vara || processo.comarca || "";
+  return [juizo ? `Juízo: ${juizo}` : "", processo.uf ? `UF: ${processo.uf}` : ""]
+    .filter(Boolean)
+    .join(" | ");
+}
+
+function blocoAndamento(indice: number, m: MovimentacaoComProcesso) {
+  const processo = m.processos;
+  const numero = processo ? formatarCNJ(processo.numero_cnj) : "—";
+  const adversa = nomeParteAdversa(processo);
+  const cabecalho = [numero, adversa].filter(Boolean).join(" — ");
+  const clienteCaso = linhaClienteCaso(processo);
+  const juizoUf = linhaJuizoUf(processo);
+  const data = new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR");
+
+  return [
+    `${indice}. ${cabecalho}`,
+    clienteCaso ? `   ${clienteCaso}` : "",
+    juizoUf ? `   ${juizoUf}` : "",
+    `   Data: ${data}`,
+    `   Andamento: ${m.descricao}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function montarMailto(destinatarios: string[], itens: MovimentacaoComProcesso[], titulo: string) {
+  const assunto = `FaroLex — ${titulo}`;
+  const cortado = itens.length > MAX_ITENS_NO_EMAIL;
+  const visiveis = itens.slice(0, MAX_ITENS_NO_EMAIL);
+  const blocos = visiveis.map((m, i) => blocoAndamento(i + 1, m));
+  const linhaCortado = cortado
+    ? `\n\n... e mais ${itens.length - MAX_ITENS_NO_EMAIL} andamento(s). A lista completa está na planilha em anexo.`
+    : "";
+
+  const corpo = `Olá, ${saudacao()}.\n\nSeguem os andamentos novos — ${titulo}. A planilha completa foi baixada agora e é só arrastar pra cá antes de enviar.\n\n${blocos.join("\n\n")}${linhaCortado}\n\nAbs.,`;
+
+  return `mailto:${destinatarios.join(",")}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+}
+
+function montarMailtoEncerramento(destinatarios: string[], processos: Processo[]) {
+  const assunto = "FaroLex — Processos prontos para encerrar";
+
+  const blocos = processos.map((p, i) => {
+    const numero = formatarCNJ(p.numero_cnj);
+    const adversa = nomeParteAdversa(p);
+    const cabecalho = [numero, adversa].filter(Boolean).join(" — ");
+    const clienteCaso = linhaClienteCaso(p);
+    const juizoUf = linhaJuizoUf(p);
+    const valor =
+      p.valor_encerramento != null
+        ? p.valor_encerramento.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+        : "sem valor informado";
+
+    return [
+      `${i + 1}. ${cabecalho}`,
+      clienteCaso ? `   ${clienteCaso}` : "",
+      juizoUf ? `   ${juizoUf}` : "",
+      `   Valor: ${valor}`,
+      p.observacao_encerramento ? `   Obs.: ${p.observacao_encerramento}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  });
+
+  const corpo = `Olá, ${saudacao()}.\n\nSeguem os processos já revisados e prontos para encerramento:\n\n${blocos.join("\n\n")}\n\nAbs.,`;
+
+  return `mailto:${destinatarios.join(",")}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+}
+
+'''
+
+          texto = texto[:inicio] + novo_bloco + texto[fim:]
+          relatorio.write_text(texto, encoding='utf-8')
+
+      - name: Commit approved changes
+        run: |
+          git config user.name "FaroLex automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/lib/processos.ts src/routes/_authenticated/relatorio.tsx
+          git diff --cached --check
+          git commit -m "Padroniza dados nos e-mails de relatório e encerramento"
+          git push
