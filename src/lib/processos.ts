@@ -521,6 +521,22 @@ export async function listarMovimentacoesDesde(
   return (data ?? []) as unknown as MovimentacaoComProcesso[];
 }
 
+export async function listarMovimentacoesPorData(
+  desde: string | null,
+  limite?: number,
+): Promise<MovimentacaoComProcesso[]> {
+  let query = supabase
+    .from("movimentacoes")
+    .select(`*, processos(${CAMPOS_PROCESSO_RELATORIO})`)
+    .order("data_movimentacao", { ascending: false })
+    .order("created_at", { ascending: false });
+  if (desde) query = query.gte("data_movimentacao", desde.slice(0, 10));
+  if (limite) query = query.limit(limite);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as unknown as MovimentacaoComProcesso[];
+}
+
 export async function listarUltimasMovimentacoes(): Promise<Map<string, Movimentacao>> {
   const todas = await buscarTudoPaginado<Movimentacao>(
     (offset, limite) =>

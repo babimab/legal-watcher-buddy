@@ -25,6 +25,7 @@ import { supabaseSolto } from "@/lib/supabase-solto";
 import {
   formatarCNJ,
   listarMovimentacoesDesde,
+  listarMovimentacoesPorData,
   listarPendencias,
   listarProcessos,
   ultimaVerificacao,
@@ -366,20 +367,19 @@ function RelatorioPage() {
 
   const semana = useQuery({
     queryKey: ["semana"],
-    queryFn: () => listarMovimentacoesDesde(new Date(Date.now() - 7 * 864e5).toISOString()),
+    queryFn: () => listarMovimentacoesPorData(new Date(Date.now() - 7 * 864e5).toISOString()),
   });
 
   const mes = useQuery({
     queryKey: ["mes"],
-    queryFn: () => listarMovimentacoesDesde(new Date(Date.now() - 30 * 864e5).toISOString()),
+    queryFn: () => listarMovimentacoesPorData(new Date(Date.now() - 30 * 864e5).toISOString()),
   });
 
-  // Sempre os últimos andamentos registrados, sem depender de verificação
-  // nem de janela de dias — pra poder consultar a qualquer momento mesmo
-  // depois de zerar as novidades.
+  // Aqui a ordem é pela data real da movimentação; created_at serve só
+  // como desempate quando há mais de um andamento na mesma data.
   const ultimos = useQuery({
     queryKey: ["ultimos-andamentos"],
-    queryFn: () => listarMovimentacoesDesde(null, LIMITE_ULTIMOS_ANDAMENTOS),
+    queryFn: () => listarMovimentacoesPorData(null, LIMITE_ULTIMOS_ANDAMENTOS),
   });
 
   const pendencias = useQuery({ queryKey: ["pendencias"], queryFn: listarPendencias });
