@@ -108,12 +108,23 @@ function ProcessosPage() {
 
   // Guarda o filtro na URL (replace pra não encher o histórico a cada
   // tecla digitada na busca); o valor padrão sai da URL pra ela ficar limpa.
+  const combinar = (
+    anterior: ProcessosSearch,
+    patch: Partial<Record<keyof ProcessosSearch, string | undefined>>,
+  ): ProcessosSearch => {
+    const proximo: ProcessosSearch = { ...anterior };
+    for (const [chave, valor] of Object.entries(patch)) {
+      if (valor === undefined) delete proximo[chave as keyof ProcessosSearch];
+      else proximo[chave as keyof ProcessosSearch] = valor;
+    }
+    return proximo;
+  };
+
   const definir = (chave: keyof ProcessosSearch, valor: string, padrao: string) => {
     void navigate({
-      search: (anterior: ProcessosSearch) => ({
-        ...anterior,
-        [chave]: valor === padrao ? undefined : valor,
-      }),
+      search: (anterior: ProcessosSearch) =>
+        combinar(anterior, { [chave]: valor === padrao ? undefined : valor }),
+
       replace: true,
     });
   };
