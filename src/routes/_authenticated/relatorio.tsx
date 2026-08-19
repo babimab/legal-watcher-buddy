@@ -45,13 +45,14 @@ import {
   exportarProcessosExcel,
 } from "@/lib/excel";
 
-type RelatorioSearch = { aba?: string; advogado?: string; urgencia?: string };
+type RelatorioSearch = { aba?: string; advogado?: string; urgencia?: string; pasta?: string };
 
 export const Route = createFileRoute("/_authenticated/relatorio")({
   validateSearch: (search: Record<string, unknown>): RelatorioSearch => ({
     ...(typeof search["aba"] === "string" ? { aba: search["aba"] } : {}),
     ...(typeof search["advogado"] === "string" ? { advogado: search["advogado"] } : {}),
     ...(typeof search["urgencia"] === "string" ? { urgencia: search["urgencia"] } : {}),
+    ...(typeof search["pasta"] === "string" ? { pasta: search["pasta"] } : {}),
   }),
   head: () => ({
     meta: [
@@ -408,6 +409,7 @@ function RelatorioPage() {
 
   const [advogado, setAdvogado] = useState(search.advogado ?? "todos");
   const [urgencia, setUrgencia] = useState(search.urgencia ?? "todos");
+  const [pastaSelecionada, setPastaSelecionada] = useState(search.pasta ?? "todas");
   const [soProntos, setSoProntos] = useState(false);
   const [ufEncerramento, setUfEncerramento] = useState("todos");
   const minhaSigla = useSiglaAtual();
@@ -418,7 +420,8 @@ function RelatorioPage() {
     setAba(search.aba ?? "novidades");
     setAdvogado(search.advogado ?? "todos");
     setUrgencia(search.urgencia ?? "todos");
-  }, [search.aba, search.advogado, search.urgencia]);
+    setPastaSelecionada(search.pasta ?? "todas");
+  }, [search.aba, search.advogado, search.urgencia, search.pasta]);
 
   const advogados = useMemo(() => {
     const todosItens = [
@@ -440,6 +443,11 @@ function RelatorioPage() {
     };
   }, [novidades.data, semana.data, mes.data, ultimos.data, pendencias.data, minhaSigla]);
 
+  const pastasOrdenadas = useMemo(
+    () => [...(pastas.data ?? [])].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),
+    [pastas.data],
+  );
+
   const filtrarPorAdvogado = (itens: MovimentacaoComProcesso[]) =>
     advogado === "todos"
       ? itens
@@ -449,10 +457,18 @@ function RelatorioPage() {
             : m.processos?.responsavel === advogado,
         );
 
-  const novidadesFiltradas = filtrarPorAdvogado(novidades.data ?? []);
-  const semanaFiltrada = filtrarPorAdvogado(semana.data ?? []);
-  const mesFiltrado = filtrarPorAdvogado(mes.data ?? []);
-  const ultimosFiltrados = filtrarPorAdvogado(ultimos.data ?? []);
+  const filtrarPorPasta = (itens: MovimentacaoComProcesso[]) =>
+    pastaSelecionada === "todas"
+      ? itens
+      : itens.filter((m) => m.processos?.pasta_id === pastaSelecionada);
+
+  const aplicarFiltrosRelatorio = (itens: MovimentacaoComProcesso[]) =>
+    filtrarPorPasta(filtrarPorAdvogado(itens));
+
+  const novidadesFiltradas = aplicarFiltrosRelatorio(novidades.data ?? []);
+  const semanaFiltrada = aplicarFiltrosRelatorio(semana.data ?? []);
+  const mesFiltrado = aplicarFiltrosRelatorio(mes.data ?? []);
+  const ultimosFiltrados = aplicarFiltrosRelatorio(ultimos.data ?? []);
 
   const hojeISO = new Date().toISOString().slice(0, 10);
   const emUmDia = new Date();
@@ -462,7 +478,7 @@ function RelatorioPage() {
   emSeteDias.setDate(emSeteDias.getDate() + 7);
   const emSeteDiasISO = emSeteDias.toISOString().slice(0, 10);
 
-  const pendenciasFiltradas = filtrarPorAdvogado(pendencias.data ?? []).filter((m) => {
+  const pendenciasFiltradas = aplicarFiltrosRelatorio(pendencias.data ?? []).filter((m) => {
     if (urgencia === "todos") return true;
     if (!m.prazo) return false;
     if (urgencia === "vencidos") return m.prazo < hojeISO;
@@ -576,6 +592,8 @@ function RelatorioPage() {
     await queryClient.invalidateQueries();
   };
 
+  const ehAbaEncerramento = aba === "encerramento" || aba === "encerramento-astro";
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -607,6 +625,21 @@ function RelatorioPage() {
                 {advogados.outros.map((a) => (
                   <SelectItem key={a} value={a}>
                     {a}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
+          {!ehAbaEncerramento && pastasOrdenadas.length > 0 ? (
+            <Select value={pastaSelecionada} onValueChange={setPastaSelecionada}>
+              <SelectTrigger className="w-64">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">Todas as pastas</SelectItem>
+                {pastasOrdenadas.map((pasta) => (
+                  <SelectItem key={pasta.id} value={pasta.id}>
+                    {exibir(pasta.nome) ?? pasta.nome}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -690,7 +723,7 @@ function RelatorioPage() {
             </h2>
             <Link
               to="/relatorio"
-              search={{ aba: "novidades", advogado }}
+              search={{ aba: "novidades", advogado, pasta: pastaSelecionada }}
               className="text-sm text-primary underline-offset-4 hover:underline"
             >
               Ver relatório de andamentos
@@ -844,7 +877,7 @@ function RelatorioPage() {
               <span className="text-sm font-medium text-muted-foreground">Atalhos:</span>
               <Link
                 to="/relatorio"
-                search={{ aba: "pendencias", advogado }}
+                search={{ aba: "pendencias", advogado, pasta: pastaSelecionada }}
                 className="inline-flex items-center gap-1 text-sm text-primary underline-offset-4 hover:underline"
               >
                 Ver prazos
