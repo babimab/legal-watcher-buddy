@@ -40,6 +40,10 @@ import {
 import { listarGrupos, listarPastas, type Pasta } from "@/lib/grupos";
 import { exportarProcessosExcel } from "@/lib/excel";
 
+// Todos os filtros da listagem vivem na URL — assim, ao abrir um processo
+// e voltar pelo histórico do navegador, a lista reaparece exatamente com
+// os mesmos filtros (antes, UF/sistema/busca etc. se perdiam no estado
+// local do componente).
 type ProcessosSearch = {
   grupo?: string;
   pasta?: string;
@@ -47,17 +51,38 @@ type ProcessosSearch = {
   socio?: string;
   fase?: string;
   cliente?: string;
+  q?: string;
+  status?: string;
+  desdobramento?: string;
+  carteira?: string;
+  uf?: string;
+  sistema?: string;
 };
 
+const CHAVES_FILTRO = [
+  "grupo",
+  "pasta",
+  "advogado",
+  "socio",
+  "fase",
+  "cliente",
+  "q",
+  "status",
+  "desdobramento",
+  "carteira",
+  "uf",
+  "sistema",
+] as const;
+
 export const Route = createFileRoute("/_authenticated/processos/")({
-  validateSearch: (search: Record<string, unknown>): ProcessosSearch => ({
-    ...(typeof search["grupo"] === "string" ? { grupo: search["grupo"] } : {}),
-    ...(typeof search["pasta"] === "string" ? { pasta: search["pasta"] } : {}),
-    ...(typeof search["advogado"] === "string" ? { advogado: search["advogado"] } : {}),
-    ...(typeof search["socio"] === "string" ? { socio: search["socio"] } : {}),
-    ...(typeof search["fase"] === "string" ? { fase: search["fase"] } : {}),
-    ...(typeof search["cliente"] === "string" ? { cliente: search["cliente"] } : {}),
-  }),
+  validateSearch: (search: Record<string, unknown>): ProcessosSearch => {
+    const limpo: ProcessosSearch = {};
+    for (const chave of CHAVES_FILTRO) {
+      const valor = search[chave];
+      if (typeof valor === "string" && valor !== "") limpo[chave] = valor;
+    }
+    return limpo;
+  },
   head: () => ({
     meta: [
       { title: "Processos | FaroLex" },
@@ -79,37 +104,51 @@ export const Route = createFileRoute("/_authenticated/processos/")({
 
 function ProcessosPage() {
   const search = Route.useSearch();
-  const [busca, setBusca] = useState("");
+  const navigate = Route.useNavigate();
+
+  // Guarda o filtro na URL (replace pra não encher o histórico a cada
+  // tecla digitada na busca); o valor padrão sai da URL pra ela ficar limpa.
+  const definir = (chave: keyof ProcessosSearch, valor: string, padrao: string) => {
+    void navigate({
+      search: (anterior: ProcessosSearch) => ({
+        ...anterior,
+        [chave]: valor === padrao ? undefined : valor,
+      }),
+      replace: true,
+    });
+  };
+
+  const busca = search.q ?? "";
+  const setBusca = (v: string) => definir("q", v, "");
   // Padrão é só ativo — processo encerrado/baixado/etc. só aparece se a
   // pessoa escolher isso explicitamente no filtro de Status.
-  const [status, setStatus] = useState("ativo");
+  const status = search.status ?? "ativo";
+  const setStatus = (v: string) => definir("status", v, "ativo");
   // Padrão esconde quem já foi vinculado como desdobramento de outro
   // processo (ele já aparece dentro do processo principal) — só some da
   // lista de novo se a pessoa escolher ver todos.
-  const [desdobramento, setDesdobramento] = useState("ocultar");
-  const [fase, setFase] = useState(search.fase ?? "todas");
-  const [cliente, setCliente] = useState(search.cliente ?? "todos");
-  const [carteira, setCarteira] = useState("todas");
-  const [uf, setUf] = useState("todas");
-  const [sistema, setSistema] = useState("todos");
-  const [grupoId, setGrupoId] = useState(search.grupo ?? "todos");
-  const [pastaId, setPastaId] = useState(search.pasta ?? "todas");
-  const [advogado, setAdvogado] = useState(search.advogado ?? "todos");
-  const [socio, setSocio] = useState(search.socio ?? "todos");
+  const desdobramento = search.desdobramento ?? "ocultar";
+  const setDesdobramento = (v: string) => definir("desdobramento", v, "ocultar");
+  const fase = search.fase ?? "todas";
+  const setFase = (v: string) => definir("fase", v, "todas");
+  const cliente = search.cliente ?? "todos";
+  const setCliente = (v: string) => definir("cliente", v, "todos");
+  const carteira = search.carteira ?? "todas";
+  const setCarteira = (v: string) => definir("carteira", v, "todas");
+  const uf = search.uf ?? "todas";
+  const setUf = (v: string) => definir("uf", v, "todas");
+  const sistema = search.sistema ?? "todos";
+  const setSistema = (v: string) => definir("sistema", v, "todos");
+  const grupoId = search.grupo ?? "todos";
+  const pastaId = search.pasta ?? "todas";
+  const setPastaId = (v: string) => definir("pasta", v, "todas");
+  const advogado = search.advogado ?? "todos";
+  const setAdvogado = (v: string) => definir("advogado", v, "todos");
+  const socio = search.socio ?? "todos";
+  const setSocio = (v: string) => definir("socio", v, "todos");
   const somenteMeus = search.advogado === "eu";
   const minhaSigla = useSiglaAtual();
 
-  // O componente não remonta ao trocar de "Processos" para "Meus
-  // processos" (é a mesma rota, só muda a busca na URL) — sem isso, o
-  // filtro guardado no estado local ficava desatualizado.
-  useEffect(() => {
-    setGrupoId(search.grupo ?? "todos");
-    setPastaId(search.pasta ?? "todas");
-    setAdvogado(search.advogado ?? "todos");
-    setSocio(search.socio ?? "todos");
-    setFase(search.fase ?? "todas");
-    setCliente(search.cliente ?? "todos");
-  }, [search.grupo, search.pasta, search.advogado, search.socio, search.fase, search.cliente]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["processos"],
