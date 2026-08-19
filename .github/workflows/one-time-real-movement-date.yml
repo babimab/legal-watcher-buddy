@@ -58,3 +58,5 @@ jobs:
           git diff --cached --check
           git commit -m "Usa data real nos relatorios historicos"
           git push
+
+# trigger
