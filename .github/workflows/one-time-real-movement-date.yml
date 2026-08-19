@@ -1,0 +1,60 @@
+name: One-time real movement date patch
+
+on:
+  push:
+    paths:
+      - .github/workflows/one-time-real-movement-date.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Run real movement date patch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply report date semantics
+        shell: python
+        run: |
+          from pathlib import Path
+
+          processos = Path('src/lib/processos.ts')
+          text = processos.read_text(encoding='utf-8')
+
+          anchor = '''export async function listarUltimasMovimentacoes(): Promise<Map<string, Movimentacao>> {'''
+          if text.count(anchor) != 1:
+              raise SystemExit('Anchor listarUltimasMovimentacoes not found exactly once')
+
+          nova_funcao = '''export async function listarMovimentacoesPorData(\n  desde: string | null,\n  limite?: number,\n): Promise<MovimentacaoComProcesso[]> {\n  let query = supabase\n    .from("movimentacoes")\n    .select(`*, processos(${CAMPOS_PROCESSO_RELATORIO})`)\n    .order("data_movimentacao", { ascending: false })\n    .order("created_at", { ascending: false });\n  if (desde) query = query.gte("data_movimentacao", desde.slice(0, 10));\n  if (limite) query = query.limit(limite);\n  const { data, error } = await query;\n  if (error) throw error;\n  return (data ?? []) as unknown as MovimentacaoComProcesso[];\n}\n\n'''
+          text = text.replace(anchor, nova_funcao + anchor, 1)
+          processos.write_text(text, encoding='utf-8')
+
+          relatorio = Path('src/routes/_authenticated/relatorio.tsx')
+          text = relatorio.read_text(encoding='utf-8')
+
+          old_import = '''  listarMovimentacoesDesde,\n  listarPendencias,'''
+          new_import = '''  listarMovimentacoesDesde,\n  listarMovimentacoesPorData,\n  listarPendencias,'''
+          if text.count(old_import) != 1:
+              raise SystemExit('Import anchor not found exactly once')
+          text = text.replace(old_import, new_import, 1)
+
+          old_queries = '''  const semana = useQuery({\n    queryKey: ["semana"],\n    queryFn: () => listarMovimentacoesDesde(new Date(Date.now() - 7 * 864e5).toISOString()),\n  });\n\n  const mes = useQuery({\n    queryKey: ["mes"],\n    queryFn: () => listarMovimentacoesDesde(new Date(Date.now() - 30 * 864e5).toISOString()),\n  });\n\n  // Sempre os últimos andamentos registrados, sem depender de verificação\n  // nem de janela de dias — pra poder consultar a qualquer momento mesmo\n  // depois de zerar as novidades.\n  const ultimos = useQuery({\n    queryKey: ["ultimos-andamentos"],\n    queryFn: () => listarMovimentacoesDesde(null, LIMITE_ULTIMOS_ANDAMENTOS),\n  });'''
+
+          new_queries = '''  const semana = useQuery({\n    queryKey: ["semana"],\n    queryFn: () => listarMovimentacoesPorData(new Date(Date.now() - 7 * 864e5).toISOString()),\n  });\n\n  const mes = useQuery({\n    queryKey: ["mes"],\n    queryFn: () => listarMovimentacoesPorData(new Date(Date.now() - 30 * 864e5).toISOString()),\n  });\n\n  // Aqui a ordem é pela data real da movimentação; created_at serve só\n  // como desempate quando há mais de um andamento na mesma data.\n  const ultimos = useQuery({\n    queryKey: ["ultimos-andamentos"],\n    queryFn: () => listarMovimentacoesPorData(null, LIMITE_ULTIMOS_ANDAMENTOS),\n  });'''
+          if text.count(old_queries) != 1:
+              raise SystemExit('Week/month/latest query block not found exactly once')
+          text = text.replace(old_queries, new_queries, 1)
+          relatorio.write_text(text, encoding='utf-8')
+
+      - name: Commit approved change
+        run: |
+          git config user.name "FaroLex automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/lib/processos.ts src/routes/_authenticated/relatorio.tsx
+          git diff --cached --check
+          git commit -m "Usa data real nos relatorios historicos"
+          git push
