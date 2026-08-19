@@ -1,0 +1,20 @@
+name: One-time email highlight and period UI patch
+
+on:
+  push:
+    paths:
+      - .github/workflows/one-time-email-highlight-period-ui.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Run email highlight and period UI patch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply
