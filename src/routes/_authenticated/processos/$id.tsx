@@ -62,6 +62,19 @@ function ehNossoCliente(nome: string | null | undefined): boolean {
   );
 }
 
+function formatarNomeParte(nome: string): string {
+  const conectores = new Set(["da", "de", "do", "das", "dos", "e"]);
+  return nome
+    .trim()
+    .toLocaleLowerCase("pt-BR")
+    .split(/\s+/)
+    .map((palavra, indice) => {
+      if (indice > 0 && conectores.has(palavra)) return palavra;
+      return palavra.replace(/(^|[-'’])\p{L}/gu, (trecho) => trecho.toLocaleUpperCase("pt-BR"));
+    })
+    .join(" ");
+}
+
 function ProcessoDetalhe() {
   const { id } = Route.useParams();
   const queryClient = useQueryClient();
@@ -140,7 +153,7 @@ function ProcessoDetalhe() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="font-mono text-sm text-muted-foreground">{formatarCNJ(p.numero_cnj)}</p>
-          <h1 className="font-serif text-3xl font-semibold">{exibir(nomePrincipal)}</h1>
+          <h1 className="font-serif text-2xl font-semibold">{formatarNomeParte(exibir(nomePrincipal) ?? nomePrincipal)}</h1>
           <div className="mt-2 flex flex-wrap gap-2">
             <Badge>{p.status}</Badge>
             {p.tribunal ? <Badge variant="outline">{p.tribunal}</Badge> : null}
