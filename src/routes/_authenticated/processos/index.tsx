@@ -515,9 +515,16 @@ function ProcessosPage() {
           <Select
             value={grupoId}
             onValueChange={(v) => {
-              setGrupoId(v);
-              setPastaId("todas");
+              void navigate({
+                search: (anterior: ProcessosSearch) => ({
+                  ...anterior,
+                  grupo: v === "todos" ? undefined : v,
+                  pasta: undefined,
+                }),
+                replace: true,
+              });
             }}
+
           >
             <SelectTrigger className="w-52">
               <SelectValue />
