@@ -106,6 +106,7 @@ export type Database = {
           created_by: string | null
           data_movimentacao: string
           descricao: string
+          destacar_email: boolean
           exige_acao: boolean
           fonte: string
           id: string
@@ -123,6 +124,7 @@ export type Database = {
           created_by?: string | null
           data_movimentacao?: string
           descricao: string
+          destacar_email?: boolean
           exige_acao?: boolean
           fonte?: string
           id?: string
@@ -140,6 +142,7 @@ export type Database = {
           created_by?: string | null
           data_movimentacao?: string
           descricao?: string
+          destacar_email?: boolean
           exige_acao?: boolean
           fonte?: string
           id?: string

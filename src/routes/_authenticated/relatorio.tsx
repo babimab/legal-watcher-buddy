@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, CalendarPlus, CheckCircle2, Download, Mail, Play } from "lucide-react";
+import { AlertTriangle, CalendarPlus, CalendarRange, CheckCircle2, Download, Mail, Play } from "lucide-react";
 import ExcelJS from "exceljs";
 
 import { Button } from "@/components/ui/button";
@@ -97,6 +97,7 @@ async function exportarAndamentosExcel(itens: MovimentacaoComProcesso[], nomeArq
     { header: "Tipo", key: "tipo", width: 14 },
     { header: "Data", key: "data", width: 12 },
     { header: "Descrição", key: "descricao", width: 60 },
+    { header: "Destacar no e-mail", key: "destacar_email", width: 20 },
     { header: "Observação", key: "observacao", width: 40 },
   ];
 
@@ -115,6 +116,7 @@ async function exportarAndamentosExcel(itens: MovimentacaoComProcesso[], nomeArq
       tipo: m.tipo ?? "",
       data: new Date(`${m.data_movimentacao}T12:00:00`),
       descricao: m.descricao,
+      destacar_email: m.destacar_email ? "Sim" : "Não",
       observacao: m.observacao ?? "",
     });
   }
@@ -586,17 +588,27 @@ function RelatorioPage() {
       return;
     }
 
-    // Link mailto não consegue anexar arquivo sozinho — baixa a planilha
-    // junto e avisa pra arrastar ela pro e-mail que vai abrir.
+    const itensDestacados = itensDaAba.filter((m) => m.destacar_email);
+
+    // A planilha sempre leva todos os andamentos do relatório.
     await exportarAndamentosExcel(itensDaAba, nomeArquivoDaAba).catch(() => {
       toast.error("Não consegui gerar a planilha, mas vou abrir o e-mail mesmo assim.");
     });
-    toast.success("Planilha baixada — arraste o arquivo pro e-mail que vai abrir para anexar.", {
-      duration: 6000,
-    });
+    if (itensDestacados.length === 0) {
+      toast.warning(
+        "Nenhum andamento foi marcado como ‘Destacar no e-mail’. A planilha foi gerada com todos os andamentos, mas o e-mail não será aberto.",
+        { duration: 7000 },
+      );
+      return;
+    }
+
+    toast.success(
+      `Planilha completa baixada. O corpo do e-mail levará ${itensDestacados.length} andamento(s) destacado(s).`,
+      { duration: 6000 },
+    );
     window.location.href = montarMailto(
       destinatarios,
-      itensDaAba,
+      itensDestacados,
       tituloDaAba,
       processos.data ?? [],
     );
@@ -706,6 +718,15 @@ function RelatorioPage() {
               <Checkbox checked={soProntos} onCheckedChange={(v) => setSoProntos(v === true)} />
               Só os prontos para encerrar
             </label>
+          ) : null}
+          {!ehAbaEncerramento && aba !== "pendencias" ? (
+            <Button
+              variant={aba === "periodo" ? "default" : "outline"}
+              onClick={() => setAba(aba === "periodo" ? "novidades" : "periodo")}
+            >
+              <CalendarRange className="size-4" />
+              {aba === "periodo" ? "Fechar período" : "Relatório por período"}
+            </Button>
           ) : null}
           <Button
             variant="outline"
@@ -938,52 +959,46 @@ function RelatorioPage() {
           </div>
 
           {aba === "periodo" ? (
-            <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">
-              <label className="space-y-1 text-sm">
-                <span className="font-medium">De</span>
-                <Input
-                  type="date"
-                  value={periodoDe}
-                  onChange={(e) => setPeriodoDe(e.target.value)}
-                  className="w-44"
-                />
-              </label>
-              <label className="space-y-1 text-sm">
-                <span className="font-medium">Até</span>
-                <Input
-                  type="date"
-                  value={periodoAte}
-                  onChange={(e) => setPeriodoAte(e.target.value)}
-                  className="w-44"
-                />
-              </label>
-              {periodoDe && periodoAte && periodoDe > periodoAte ? (
-                <span className="pb-2 text-sm text-destructive">A data inicial deve ser anterior ou igual à final.</span>
-              ) : null}
-            </div>
-          ) : null}
-
-          <Tabs value={aba} onValueChange={setAba}>
-            <TabsList>
-              <TabsTrigger value="novidades">Novidades ({novidadesFiltradas.length})</TabsTrigger>
-              <TabsTrigger value="semana">Semana ({semanaFiltrada.length})</TabsTrigger>
-              <TabsTrigger value="mes">Mês ({mesFiltrado.length})</TabsTrigger>
-              <TabsTrigger value="periodo">Período ({periodoFiltrado.length})</TabsTrigger>
-              <TabsTrigger value="ultimos">
-                Últimos andamentos ({ultimosFiltrados.length})
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="novidades" className="mt-4">
-              <Lista itens={novidadesFiltradas} vazio="Nada novo desde a última verificação." />
-            </TabsContent>
-            <TabsContent value="semana" className="mt-4">
-              <Lista itens={semanaFiltrada} vazio="Nenhuma movimentação nos últimos 7 dias." />
-            </TabsContent>
-            <TabsContent value="mes" className="mt-4">
-              <Lista itens={mesFiltrado} vazio="Nenhuma movimentação nos últimos 30 dias." />
-            </TabsContent>
-            <TabsContent value="periodo" className="mt-4">
+            <div className="space-y-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 font-serif text-lg">
+                    <CalendarRange className="size-5" /> Relatório por período
+                  </CardTitle>
+                  <CardDescription>
+                    Escolha o intervalo pela data real do andamento. Os filtros de advogado e pasta continuam valendo.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-wrap items-end gap-4">
+                  <label className="space-y-1.5 text-sm">
+                    <span className="font-medium">De</span>
+                    <Input
+                      type="date"
+                      value={periodoDe}
+                      onChange={(e) => setPeriodoDe(e.target.value)}
+                      className="w-44"
+                    />
+                  </label>
+                  <label className="space-y-1.5 text-sm">
+                    <span className="font-medium">Até</span>
+                    <Input
+                      type="date"
+                      value={periodoAte}
+                      onChange={(e) => setPeriodoAte(e.target.value)}
+                      className="w-44"
+                    />
+                  </label>
+                  {periodoDe && periodoAte && periodoDe > periodoAte ? (
+                    <span className="pb-2 text-sm text-destructive">
+                      A data inicial deve ser anterior ou igual à final.
+                    </span>
+                  ) : periodoValido ? (
+                    <span className="pb-2 text-sm text-muted-foreground">
+                      {periodoFiltrado.length} andamento(s) encontrado(s) no período.
+                    </span>
+                  ) : null}
+                </CardContent>
+              </Card>
               <Lista
                 itens={periodoFiltrado}
                 vazio={
@@ -992,11 +1007,32 @@ function RelatorioPage() {
                     : "Escolha as datas inicial e final para gerar o relatório."
                 }
               />
-            </TabsContent>
-            <TabsContent value="ultimos" className="mt-4">
-              <Lista itens={ultimosFiltrados} vazio="Nenhum andamento registrado ainda." />
-            </TabsContent>
-          </Tabs>
+            </div>
+          ) : (
+            <Tabs value={aba} onValueChange={setAba}>
+              <TabsList>
+                <TabsTrigger value="novidades">Novidades ({novidadesFiltradas.length})</TabsTrigger>
+                <TabsTrigger value="semana">Semana ({semanaFiltrada.length})</TabsTrigger>
+                <TabsTrigger value="mes">Mês ({mesFiltrado.length})</TabsTrigger>
+                <TabsTrigger value="ultimos">
+                  Últimos andamentos ({ultimosFiltrados.length})
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="novidades" className="mt-4">
+                <Lista itens={novidadesFiltradas} vazio="Nada novo desde a última verificação." />
+              </TabsContent>
+              <TabsContent value="semana" className="mt-4">
+                <Lista itens={semanaFiltrada} vazio="Nenhuma movimentação nos últimos 7 dias." />
+              </TabsContent>
+              <TabsContent value="mes" className="mt-4">
+                <Lista itens={mesFiltrado} vazio="Nenhuma movimentação nos últimos 30 dias." />
+              </TabsContent>
+              <TabsContent value="ultimos" className="mt-4">
+                <Lista itens={ultimosFiltrados} vazio="Nenhum andamento registrado ainda." />
+              </TabsContent>
+            </Tabs>
+          )}
         </>
       )}
 
@@ -1071,6 +1107,7 @@ function Lista({
               <span className="text-muted-foreground">x {m.processos.parte_contraria}</span>
             ) : null}
             {m.tipo ? <Badge variant="outline">{m.tipo}</Badge> : null}
+            {m.destacar_email ? <Badge>Destacar no e-mail</Badge> : null}
             {!m.validado ? <Badge variant="secondary">Sugerido — não validado</Badge> : null}
             {destaque && m.prazo ? (
               <>

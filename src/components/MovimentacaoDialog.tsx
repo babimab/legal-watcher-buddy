@@ -58,6 +58,7 @@ export function MovimentacaoDialog({
   const editando = !!movimentacao;
   const [aberto, setAberto] = useState(false);
   const [exigeAcao, setExigeAcao] = useState(movimentacao?.exige_acao ?? false);
+  const [destacarEmail, setDestacarEmail] = useState(movimentacao?.destacar_email ?? false);
   const [salvando, setSalvando] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
   const [faseAtual, setFaseAtual] = useState<string | null>(null);
@@ -97,6 +98,7 @@ export function MovimentacaoDialog({
       descricao: String(form.get("descricao") ?? "").trim(),
       tipo: String(form.get("tipo") ?? "") || null,
       exige_acao: exigeAcao,
+      destacar_email: destacarEmail,
       prazo: prazo || null,
     };
     const dados = {
@@ -157,6 +159,7 @@ export function MovimentacaoDialog({
               descricao: movimentacao.descricao,
               tipo: movimentacao.tipo,
               exige_acao: movimentacao.exige_acao,
+              destacar_email: movimentacao.destacar_email,
               prazo: movimentacao.prazo,
               observacao: movimentacao.observacao,
               fase_anterior: movimentacao.fase_anterior ?? null,
@@ -179,7 +182,10 @@ export function MovimentacaoDialog({
           : "Movimentação registrada.",
     );
     await queryClient.invalidateQueries();
-    if (!editando) setExigeAcao(false);
+    if (!editando) {
+      setExigeAcao(false);
+      setDestacarEmail(false);
+    }
     setAberto(false);
   };
 
@@ -257,6 +263,17 @@ export function MovimentacaoDialog({
               defaultValue={movimentacao?.descricao}
             />
           </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="destacar_email"
+              checked={destacarEmail}
+              onCheckedChange={(v) => setDestacarEmail(v === true)}
+            />
+            <Label htmlFor="destacar_email">Destacar no e-mail</Label>
+          </div>
+          <p className="-mt-2 text-xs text-muted-foreground">
+            Quando marcado, este andamento aparece no corpo do e-mail ao cliente. A planilha continua trazendo todos.
+          </p>
           <div className="flex items-center gap-2">
             <Checkbox
               id="exige_acao"
