@@ -478,8 +478,11 @@ function RelatorioPage() {
       ? itens
       : itens.filter((m) => m.processos?.pasta_id === pastaSelecionada);
 
+  const filtrarPorCaso = (itens: MovimentacaoComProcesso[]) =>
+    itens.filter((m) => casaCaso(m.processos));
+
   const aplicarFiltrosRelatorio = (itens: MovimentacaoComProcesso[]) =>
-    filtrarPorPasta(filtrarPorAdvogado(itens));
+    filtrarPorCaso(filtrarPorPasta(filtrarPorAdvogado(itens)));
 
   // Importações de planilhas são histórico e não devem aparecer como novidade.
   // Movimentações manuais e de publicações continuam entrando normalmente.
