@@ -1,0 +1,41 @@
+name: One-time email resultado encerramento
+
+on:
+  push:
+    paths:
+      - .github/workflows/one-time-email-resultado-encerramento.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Run email resultado encerramento patch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply patch
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('src/routes/_authenticated/relatorio.tsx')
+          t = p.read_text(encoding='utf-8')
+          old = '''      juizoUf ? `   ${juizoUf}` : "",
+      `   Valor: ${valor}`,
+      p.observacao_encerramento ? `   Obs.: ${p.observacao_encerramento}` : "",'''
+          new = '''      juizoUf ? `   ${juizoUf}` : "",
+      p.resultado_encerramento ? `   Resultado: ${p.resultado_encerramento}` : "",
+      `   Valor: ${valor}`,
+      p.observacao_encerramento ? `   Obs.: ${p.observacao_encerramento}` : "",'''
+          if old not in t:
+              raise SystemExit('Trecho do email de encerramento nao encontrado')
+          p.write_text(t.replace(old, new, 1), encoding='utf-8')
+      - name: Commit
+        run: |
+          git config user.name "FaroLex Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/routes/_authenticated/relatorio.tsx
+          git commit -m "Inclui resultado no email de encerramento"
+          git push
