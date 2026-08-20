@@ -15,9 +15,29 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { type Processo } from "@/lib/processos";
+
+const RESULTADOS_PROCESSO = [
+  "Improcedente",
+  "Procedente",
+  "Parcialmente procedente",
+  "Extinção por prescrição/decadência",
+  "Extinção sem resolução do mérito",
+  "Extinção por desistência",
+  "Extinção por perda superveniente do objeto",
+  "Sentença homologatória de acordo",
+  "Arquivamento administrativo/processual",
+  "Outro",
+] as const;
 
 export function EncerramentoDialog({
   processo,
@@ -40,6 +60,7 @@ export function EncerramentoDialog({
     const valorRaw = String(form.get("valor_encerramento") ?? "")
       .replace(/\./g, "")
       .replace(",", ".");
+    const resultadoRaw = String(form.get("resultado_encerramento") ?? "");
     setSalvando(true);
     const { error } = await supabase
       .from("processos")
@@ -47,6 +68,7 @@ export function EncerramentoDialog({
         pronto_para_encerrar: pronto,
         decisoes_no_ld: decisoesNoLd,
         valor_encerramento: valorRaw ? Number(valorRaw) : null,
+        resultado_encerramento: resultadoRaw === "nao-informado" ? null : resultadoRaw || null,
         observacao_encerramento: String(form.get("observacao_encerramento") ?? "").trim() || null,
       })
       .eq("id", processo.id);
@@ -92,6 +114,25 @@ export function EncerramentoDialog({
               <Label htmlFor="decisoes_no_ld">Preenchida Decisões no LD</Label>
             </div>
           ) : null}
+          <div className="space-y-2">
+            <Label>Resultado do processo</Label>
+            <Select
+              name="resultado_encerramento"
+              defaultValue={processo.resultado_encerramento ?? "nao-informado"}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o resultado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nao-informado">Não informado</SelectItem>
+                {RESULTADOS_PROCESSO.map((resultado) => (
+                  <SelectItem key={resultado} value={resultado}>
+                    {resultado}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="valor_encerramento">Valor</Label>
             <Input
