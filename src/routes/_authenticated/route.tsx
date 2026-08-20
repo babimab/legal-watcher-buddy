@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   Archive,
+  Calculator,
   ClipboardCheck,
   FolderKanban,
   Gavel,
@@ -105,6 +106,12 @@ function AppLayout() {
               icon={<List className="size-4" />}
               label="Todos os processos"
               tourId="nav-todos-processos"
+            />
+            <NavItem
+              to="/calculos"
+              icon={<Calculator className="size-4" />}
+              label="Cálculos"
+              tourId="nav-calculos"
             />
             <NavItem
               to="/relatorio"
