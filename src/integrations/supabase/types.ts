@@ -108,6 +108,8 @@ export type Database = {
           descricao: string
           destacar_email: boolean
           exige_acao: boolean
+          fase_anterior: string | null
+          fase_nova: string | null
           fonte: string
           id: string
           id_externo: string | null
@@ -126,6 +128,8 @@ export type Database = {
           descricao: string
           destacar_email?: boolean
           exige_acao?: boolean
+          fase_anterior?: string | null
+          fase_nova?: string | null
           fonte?: string
           id?: string
           id_externo?: string | null
@@ -144,6 +148,8 @@ export type Database = {
           descricao?: string
           destacar_email?: boolean
           exige_acao?: boolean
+          fase_anterior?: string | null
+          fase_nova?: string | null
           fonte?: string
           id?: string
           id_externo?: string | null
@@ -376,6 +382,7 @@ export type Database = {
           pronto_para_encerrar: boolean
           provedor_externo: string | null
           responsavel: string | null
+          resultado_encerramento: string | null
           reu: string | null
           sincronizado_em: string | null
           sistema: string | null
@@ -420,6 +427,7 @@ export type Database = {
           pronto_para_encerrar?: boolean
           provedor_externo?: string | null
           responsavel?: string | null
+          resultado_encerramento?: string | null
           reu?: string | null
           sincronizado_em?: string | null
           sistema?: string | null
@@ -464,6 +472,7 @@ export type Database = {
           pronto_para_encerrar?: boolean
           provedor_externo?: string | null
           responsavel?: string | null
+          resultado_encerramento?: string | null
           reu?: string | null
           sincronizado_em?: string | null
           sistema?: string | null

@@ -32,6 +32,7 @@ export type Processo = {
   observacoes: string | null;
   pronto_para_encerrar: boolean;
   valor_encerramento: number | null;
+  resultado_encerramento: string | null;
   observacao_encerramento: string | null;
   decisoes_no_ld: boolean;
   ultima_verificacao_em: string | null;
