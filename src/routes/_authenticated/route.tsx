@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   Archive,
+  ClipboardCheck,
   FolderKanban,
   Gavel,
   LayoutDashboard,
@@ -21,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { BuscaGlobal } from "@/components/BuscaGlobal";
 import { GuiaRapido } from "@/components/GuiaRapido";
 import { supabase } from "@/integrations/supabase/client";
+import { listarBaixasCliente } from "@/lib/baixas-cliente";
 import {
   listarPendencias,
   ehResponsavelDaSigla,
@@ -42,6 +44,7 @@ function AppLayout() {
   const router = useRouter();
 
   const pendencias = useQuery({ queryKey: ["pendencias"], queryFn: listarPendencias });
+  const baixasCliente = useQuery({ queryKey: ["baixas-cliente"], queryFn: listarBaixasCliente });
   const minhaSigla = useSiglaAtual();
   const ehEstagiaria = useCargoAtual() === "Estagiário";
   const emSeteDias = new Date();
@@ -50,6 +53,7 @@ function AppLayout() {
   const prazosUrgentes = (pendencias.data ?? []).filter(
     (m) => m.prazo && m.prazo <= emSeteDiasISO,
   ).length;
+  const baixasAbertas = (baixasCliente.data ?? []).filter((b) => b.status !== "encerrado").length;
   const meusPrazosUrgentes = (pendencias.data ?? []).filter(
     (m) =>
       m.prazo &&
@@ -140,6 +144,15 @@ function AppLayout() {
                 label="Encerramento Astro"
                 search={{ aba: "encerramento-astro" }}
                 tourId="nav-encerramento-astro"
+              />
+            )}
+            {ehEstagiaria ? null : (
+              <NavItem
+                to="/baixas-cliente"
+                icon={<ClipboardCheck className="size-4" />}
+                label="Baixas no cliente"
+                contador={baixasAbertas}
+                tourId="nav-baixas-cliente"
               />
             )}
             <NavItem
