@@ -542,22 +542,24 @@ function RelatorioPage() {
     [encerramento],
   );
 
-  const encerramentoFiltrado =
+  const encerramentoFiltrado = (
     ufEncerramento === "todos"
       ? encerramentoPorAdvogado
-      : encerramentoPorAdvogado.filter((p) => p.uf === ufEncerramento);
+      : encerramentoPorAdvogado.filter((p) => p.uf === ufEncerramento)
+  ).filter((p) => casaCaso(p));
 
   const encerramentoProntos = encerramentoFiltrado.filter((p) => p.pronto_para_encerrar);
   const encerramentoExibido = soProntos ? encerramentoProntos : encerramentoFiltrado;
 
-  const encerramentoAstroPorAdvogado =
+  const encerramentoAstroPorAdvogado = (
     advogado === "todos"
       ? encerramentoAstro
       : encerramentoAstro.filter((p) =>
           advogado === "eu"
             ? ehResponsavelDaSigla(p.responsavel, minhaSigla)
             : p.responsavel === advogado,
-        );
+        )
+  ).filter((p) => casaCaso(p));
   const encerramentoAstroProntos = encerramentoAstroPorAdvogado.filter(
     (p) => p.pronto_para_encerrar,
   );
