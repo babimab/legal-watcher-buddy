@@ -66,3 +66,4 @@ jobs:
           git add src/routes/_authenticated/calculos.tsx src/routeTree.gen.ts
           git commit -m "Baixa PDF da calculadora diretamente" || exit 0
           git push
+# disparo
