@@ -40,12 +40,21 @@ export function BuscaGlobal() {
 
   const resultados = useMemo(() => {
     const termo = normalizar(busca.trim());
+    const compacto = termo.replace(/\s+/g, "");
     const digitos = busca.replace(/\D/g, "");
     const todos = processos.data ?? [];
     if (!termo) return todos.slice(0, LIMITE_RESULTADOS);
     return todos
       .filter((p) => {
         if (digitos.length >= 4 && p.numero_cnj.replace(/\D/g, "").includes(digitos)) return true;
+        const interno = (p.numero_interno ?? "").replace(/\s+/g, "").toLowerCase();
+        const numCliente = (p.numero_cliente ?? "").replace(/\s+/g, "").toLowerCase();
+        // Combinação Cliente/Caso, ex.: 4608/2482
+        if (compacto.includes("/")) {
+          const [tc, ti] = compacto.split("/");
+          if (`${numCliente}/${interno}`.includes(compacto)) return true;
+          if ((!tc || numCliente.includes(tc)) && (!ti || interno.includes(ti))) return true;
+        }
         const campos = [
           p.cliente,
           p.parte_contraria,
