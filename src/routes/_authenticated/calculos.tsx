@@ -18,7 +18,6 @@ import {
   enviarDocumentoCalculo,
   excluirCalculo,
   exportarCalculoExcel,
-  exportarCalculoPdf,
   listarCalculos,
   listarDocumentosCalculo,
   novaVerba,
@@ -29,6 +28,7 @@ import {
   type IdentificacaoCalculo,
   type ResultadoCalculo,
 } from "@/lib/calculos-judiciais";
+import { exportarCalculoPdfDireto } from "@/lib/pdf-calculo";
 import { exibir, formatarCNJ, listarProcessos, type Processo } from "@/lib/processos";
 
 export const Route = createFileRoute("/_authenticated/calculos")({
@@ -68,6 +68,7 @@ function CalculosPage() {
   const [calculando, setCalculando] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
+  const [gerandoPdf, setGerandoPdf] = useState(false);
 
   const processo = useMemo(
     () => (processos.data ?? []).find((p) => p.id === processoId) ?? null,
@@ -203,12 +204,16 @@ function CalculosPage() {
     }));
   };
 
-  const exportarPdf = () => {
+  const exportarPdf = async () => {
     if (!resultado) return;
+    setGerandoPdf(true);
     try {
-      exportarCalculoPdf(nome, dataBase, criteriosParaSalvar(), resultado, identificacaoAtual);
+      await exportarCalculoPdfDireto(nome, dataBase, criteriosParaSalvar(), resultado, identificacaoAtual);
+      toast.success("PDF baixado.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não consegui gerar o PDF.");
+    } finally {
+      setGerandoPdf(false);
     }
   };
 
@@ -348,7 +353,7 @@ function CalculosPage() {
         <Button variant="outline" onClick={() => void salvar()} disabled={salvando}><Save className="size-4" /> {salvando ? "Salvando..." : id ? "Salvar nova versão" : "Salvar cálculo"}</Button>
         <Button variant="outline" onClick={() => { setDataBase(hoje()); setResultado(null); toast.message("Data-base do cálculo atualizada. Clique em Calcular."); }}>Atualizar até hoje</Button>
         <Button variant="outline" disabled={!resultado} onClick={() => resultado && void exportarCalculoExcel(nome, dataBase, criteriosParaSalvar(), resultado, identificacaoAtual)}><Download className="size-4" /> Excel</Button>
-        <Button variant="outline" disabled={!resultado} onClick={exportarPdf}><FileText className="size-4" /> PDF</Button>
+        <Button variant="outline" disabled={!resultado || gerandoPdf} onClick={() => void exportarPdf()}><FileText className="size-4" /> {gerandoPdf ? "Gerando PDF..." : "PDF"}</Button>
       </div>
 
       {resultado ? <Resultado resultado={resultado} identificacao={identificacaoAtual} dataBase={dataBase} /> : null}
