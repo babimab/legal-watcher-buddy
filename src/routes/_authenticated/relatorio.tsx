@@ -427,7 +427,26 @@ function RelatorioPage() {
   const [pastaSelecionada, setPastaSelecionada] = useState(search.pasta ?? "todas");
   const [soProntos, setSoProntos] = useState(false);
   const [ufEncerramento, setUfEncerramento] = useState("todos");
+  const [filtroCaso, setFiltroCaso] = useState("");
   const minhaSigla = useSiglaAtual();
+
+  // Aceita "2482" (caso), "4608" (nº do cliente) ou "4608/2482" (cliente/caso).
+  const casaCaso = (
+    p: { numero_interno?: string | null; numero_cliente?: string | null } | null | undefined,
+  ) => {
+    const termo = filtroCaso.replace(/\s+/g, "").toLowerCase();
+    if (!termo) return true;
+    if (!p) return false;
+    const interno = (p.numero_interno ?? "").replace(/\s+/g, "").toLowerCase();
+    const cliente = (p.numero_cliente ?? "").replace(/\s+/g, "").toLowerCase();
+    if (termo.includes("/")) {
+      const [tc, ti] = termo.split("/");
+      const combinado = `${cliente}/${interno}`;
+      if (combinado.includes(termo)) return true;
+      return (!tc || cliente.includes(tc)) && (!ti || interno.includes(ti));
+    }
+    return interno.includes(termo) || cliente.includes(termo);
+  };
 
   // O componente não remonta ao trocar de aba/filtro via link (ex.: atalho
   // "Meus prazos" no menu) — sem isso, o estado local ficava desatualizado.
