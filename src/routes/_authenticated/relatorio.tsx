@@ -679,6 +679,12 @@ function RelatorioPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Input
+            value={filtroCaso}
+            onChange={(e) => setFiltroCaso(e.target.value)}
+            placeholder="Caso ou Cliente/Caso (ex. 4608/2482)"
+            className="w-64"
+          />
           {advogados.temMeus || advogados.outros.length > 0 ? (
             <Select value={advogado} onValueChange={setAdvogado}>
               <SelectTrigger className="w-52">
