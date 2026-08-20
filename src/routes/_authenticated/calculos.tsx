@@ -16,7 +16,9 @@ import {
   calcularJudicial,
   criteriosIniciais,
   enviarDocumentoCalculo,
+  excluirCalculo,
   exportarCalculoExcel,
+  exportarCalculoPdf,
   listarCalculos,
   listarDocumentosCalculo,
   novaVerba,
@@ -24,6 +26,7 @@ import {
   type CalculoJudicial,
   type CriteriosCalculo,
   type EncargoCalculo,
+  type IdentificacaoCalculo,
   type ResultadoCalculo,
 } from "@/lib/calculos-judiciais";
 import { exibir, formatarCNJ, listarProcessos, type Processo } from "@/lib/processos";
@@ -64,11 +67,28 @@ function CalculosPage() {
   const [resultado, setResultado] = useState<ResultadoCalculo | null>(null);
   const [calculando, setCalculando] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
 
   const processo = useMemo(
     () => (processos.data ?? []).find((p) => p.id === processoId) ?? null,
     [processos.data, processoId],
   );
+
+  const identificacaoAtual = useMemo<IdentificacaoCalculo>(() => {
+    if (!processo) return criterios.identificacao ?? {};
+    const clienteCaso =
+      processo.numero_cliente && processo.numero_interno
+        ? `${processo.numero_cliente}/${processo.numero_interno}`
+        : processo.numero_interno || processo.numero_cliente || "";
+    return {
+      processo: formatarCNJ(processo.numero_cnj),
+      clienteCaso,
+      parteAutora: processo.autor ?? "",
+      parteRe: processo.reu ?? "",
+      cliente: processo.cliente ?? "",
+      parteContraria: processo.parte_contraria ?? "",
+    };
+  }, [processo, criterios.identificacao]);
 
   const docs = useQuery({
     queryKey: ["calculo-documentos", id],
@@ -90,14 +110,19 @@ function CalculosPage() {
     setNome(c.nome);
     setProcessoId(c.processo_id ?? "avulso");
     setDataBase(c.data_base);
-    setCriterios(c.criterios);
+    setCriterios({ ...c.criterios, identificacao: c.criterios.identificacao ?? {} });
     setResultado(c.resultado);
   };
+
+  const criteriosParaSalvar = (): CriteriosCalculo => ({
+    ...criterios,
+    identificacao: identificacaoAtual,
+  });
 
   const rodar = async () => {
     setCalculando(true);
     try {
-      const r = await calcularJudicial(criterios, dataBase);
+      const r = await calcularJudicial(criteriosParaSalvar(), dataBase);
       setResultado(r);
       toast.success("Cálculo atualizado.");
     } catch (e) {
@@ -115,10 +140,11 @@ function CalculosPage() {
         processoId: processoId === "avulso" ? null : processoId,
         nome: nome.trim() || "Cálculo judicial",
         dataBase,
-        criterios,
+        criterios: criteriosParaSalvar(),
         resultado,
       });
       setId(c.id);
+      setCriterios(c.criterios);
       toast.success(id ? "Nova versão salva." : "Cálculo salvo.");
       await qc.invalidateQueries({ queryKey: ["calculos-judiciais"] });
     } catch (e) {
@@ -134,7 +160,7 @@ function CalculosPage() {
         processoId: processoId === "avulso" ? null : processoId,
         nome: `${nome} — cópia`,
         dataBase,
-        criterios: structuredClone(criterios),
+        criterios: structuredClone(criteriosParaSalvar()),
         resultado: resultado ? structuredClone(resultado) : null,
       });
       abrir(c);
@@ -145,13 +171,45 @@ function CalculosPage() {
     }
   };
 
+  const excluir = async () => {
+    if (!id) return;
+    if (!window.confirm(`Excluir o cálculo “${nome}”? Esta ação também excluirá os PDFs anexados e não poderá ser desfeita.`)) return;
+    setExcluindo(true);
+    try {
+      await excluirCalculo(id);
+      toast.success("Cálculo excluído.");
+      novo();
+      await qc.invalidateQueries({ queryKey: ["calculos-judiciais"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não consegui excluir o cálculo.");
+    } finally {
+      setExcluindo(false);
+    }
+  };
+
   const aplicarArt523 = () => {
     setCriterios((c) => ({
       ...c,
       multaExecucao: { modo: "percentual", valor: 10, base: "subtotal" },
       honorariosExecucao: { modo: "percentual", valor: 10, base: "subtotal" },
     }));
-    toast.message("Sugestão aplicada. Confira os critérios antes de calcular.");
+    toast.message("Sugestão aplicada: 10% de multa e 10% de honorários. Confira os critérios antes de calcular.");
+  };
+
+  const atualizarIdentificacao = (campo: keyof IdentificacaoCalculo, valor: string) => {
+    setCriterios((c) => ({
+      ...c,
+      identificacao: { ...(c.identificacao ?? {}), [campo]: valor },
+    }));
+  };
+
+  const exportarPdf = () => {
+    if (!resultado) return;
+    try {
+      exportarCalculoPdf(nome, dataBase, criteriosParaSalvar(), resultado, identificacaoAtual);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não consegui gerar o PDF.");
+    }
   };
 
   return (
@@ -160,12 +218,13 @@ function CalculosPage() {
         <div>
           <h1 className="font-serif text-3xl font-semibold">Cálculos</h1>
           <p className="text-muted-foreground">
-            Calculadora judicial geral com múltiplas verbas, índices oficiais e memória em Excel.
+            Calculadora judicial geral com múltiplas verbas, índices oficiais e memória em Excel/PDF.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={novo}><Plus className="size-4" /> Novo</Button>
           {id ? <Button variant="outline" onClick={() => void duplicar()}>Duplicar</Button> : null}
+          {id ? <Button variant="destructive" onClick={() => void excluir()} disabled={excluindo}><Trash2 className="size-4" /> {excluindo ? "Excluindo..." : "Excluir cálculo"}</Button> : null}
         </div>
       </div>
 
@@ -185,12 +244,12 @@ function CalculosPage() {
       <Card>
         <CardHeader>
           <CardTitle className="font-serif text-lg">Identificação</CardTitle>
-          <CardDescription>Use um processo do FaroLex ou faça um cálculo avulso.</CardDescription>
+          <CardDescription>Use um processo do FaroLex ou faça um cálculo avulso. Processo e partes também sairão no Excel e no PDF.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-3">
           <Campo label="Nome do cálculo"><Input value={nome} onChange={(e) => setNome(e.target.value)} /></Campo>
           <Campo label="Processo">
-            <Select value={processoId} onValueChange={setProcessoId}>
+            <Select value={processoId} onValueChange={(v) => { setProcessoId(v); setResultado(null); }}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="avulso">Cálculo avulso</SelectItem>
@@ -200,8 +259,18 @@ function CalculosPage() {
               </SelectContent>
             </Select>
           </Campo>
-          <Campo label="Data-base"><Input type="date" value={dataBase} onChange={(e) => setDataBase(e.target.value)} /></Campo>
-          {processo ? <ProcessoResumo processo={processo} /> : null}
+          <Campo label="Data-base do cálculo"><Input type="date" value={dataBase} onChange={(e) => setDataBase(e.target.value)} /></Campo>
+
+          {processo ? (
+            <ProcessoResumo processo={processo} />
+          ) : (
+            <div className="grid gap-3 rounded-md border p-3 md:col-span-3 md:grid-cols-2">
+              <Campo label="Número do processo"><Input value={criterios.identificacao?.processo ?? ""} onChange={(e) => atualizarIdentificacao("processo", e.target.value)} placeholder="Número CNJ ou referência" /></Campo>
+              <Campo label="Cliente/Caso"><Input value={criterios.identificacao?.clienteCaso ?? ""} onChange={(e) => atualizarIdentificacao("clienteCaso", e.target.value)} placeholder="Ex.: 4608/2482" /></Campo>
+              <Campo label="Parte autora"><Input value={criterios.identificacao?.parteAutora ?? ""} onChange={(e) => atualizarIdentificacao("parteAutora", e.target.value)} /></Campo>
+              <Campo label="Parte ré"><Input value={criterios.identificacao?.parteRe ?? ""} onChange={(e) => atualizarIdentificacao("parteRe", e.target.value)} /></Campo>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -250,7 +319,7 @@ function CalculosPage() {
       <Card>
         <CardHeader>
           <CardTitle className="font-serif text-lg">Encargos gerais e abatimentos</CardTitle>
-          <CardDescription>Multa e honorários ficam separados das verbas da condenação.</CardDescription>
+          <CardDescription>Nos campos percentuais, digite 10 para 10%. Não use 0,1.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           <Button variant="outline" size="sm" onClick={aplicarArt523}>Sugerir 10% + 10% do art. 523, §1º</Button>
@@ -277,11 +346,12 @@ function CalculosPage() {
       <div className="flex flex-wrap gap-2">
         <Button onClick={() => void rodar()} disabled={calculando}><Calculator className="size-4" /> {calculando ? "Calculando..." : "Calcular"}</Button>
         <Button variant="outline" onClick={() => void salvar()} disabled={salvando}><Save className="size-4" /> {salvando ? "Salvando..." : id ? "Salvar nova versão" : "Salvar cálculo"}</Button>
-        <Button variant="outline" onClick={() => { setDataBase(hoje()); setResultado(null); toast.message("Data-base atualizada. Clique em Calcular."); }}>Atualizar até hoje</Button>
-        <Button variant="outline" disabled={!resultado} onClick={() => resultado && void exportarCalculoExcel(nome, dataBase, criterios, resultado)}><Download className="size-4" /> Excel</Button>
+        <Button variant="outline" onClick={() => { setDataBase(hoje()); setResultado(null); toast.message("Data-base do cálculo atualizada. Clique em Calcular."); }}>Atualizar até hoje</Button>
+        <Button variant="outline" disabled={!resultado} onClick={() => resultado && void exportarCalculoExcel(nome, dataBase, criteriosParaSalvar(), resultado, identificacaoAtual)}><Download className="size-4" /> Excel</Button>
+        <Button variant="outline" disabled={!resultado} onClick={exportarPdf}><FileText className="size-4" /> PDF</Button>
       </div>
 
-      {resultado ? <Resultado resultado={resultado} /> : null}
+      {resultado ? <Resultado resultado={resultado} identificacao={identificacaoAtual} dataBase={dataBase} /> : null}
 
       <p className="text-sm text-muted-foreground">Confira os critérios jurídicos antes de utilizar a memória em juízo.</p>
     </div>
@@ -289,10 +359,16 @@ function CalculosPage() {
 }
 
 function ProcessoResumo({ processo }: { processo: Processo }) {
-  const id = processo.numero_cliente && processo.numero_interno ? `${processo.numero_cliente}/${processo.numero_interno}` : processo.numero_interno || processo.numero_cliente;
+  const clienteCaso = processo.numero_cliente && processo.numero_interno
+    ? `${processo.numero_cliente}/${processo.numero_interno}`
+    : processo.numero_interno || processo.numero_cliente;
   return (
-    <div className="rounded-md border p-3 text-sm md:col-span-3">
-      <b>{formatarCNJ(processo.numero_cnj)}</b> · {exibir(processo.cliente)}{processo.parte_contraria ? ` x ${processo.parte_contraria}` : ""}{id ? ` · Cliente/Caso: ${id}` : ""}
+    <div className="grid gap-2 rounded-md border p-3 text-sm md:col-span-3 md:grid-cols-2">
+      <div><span className="text-muted-foreground">Processo</span><p className="font-medium">{formatarCNJ(processo.numero_cnj)}</p></div>
+      <div><span className="text-muted-foreground">Cliente/Caso</span><p className="font-medium">{clienteCaso || "—"}</p></div>
+      <div><span className="text-muted-foreground">Parte autora</span><p className="font-medium">{processo.autor || "—"}</p></div>
+      <div><span className="text-muted-foreground">Parte ré</span><p className="font-medium">{processo.reu || "—"}</p></div>
+      {!processo.autor && !processo.reu ? <div className="md:col-span-2"><span className="text-muted-foreground">Partes cadastradas</span><p className="font-medium">{exibir(processo.cliente)}{processo.parte_contraria ? ` x ${processo.parte_contraria}` : ""}</p></div> : null}
     </div>
   );
 }
@@ -306,7 +382,7 @@ function VerbaCard({ verba, indice, onChange, onDelete }: { verba: CriteriosCalc
   return (
     <Card>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-2"><CardTitle className="font-serif text-lg">Verba {indice + 1}</CardTitle><Button variant="ghost" size="icon" onClick={onDelete} disabled={false}><Trash2 className="size-4" /></Button></div>
+        <div className="flex items-center justify-between gap-2"><CardTitle className="font-serif text-lg">Verba {indice + 1}</CardTitle><Button variant="ghost" size="icon" onClick={onDelete}><Trash2 className="size-4" /></Button></div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3 md:grid-cols-2">
@@ -323,7 +399,7 @@ function VerbaCard({ verba, indice, onChange, onDelete }: { verba: CriteriosCalc
           {verba.indice === "manual" ? <Campo label="Fator acumulado manual"><Input type="number" step="0.000001" value={verba.fatorManual ?? 1} onChange={(e) => onChange({ ...verba, fatorManual: Number(e.target.value) })} /></Campo> : null}
           <Campo label="Juros"><Select value={verba.juros} onValueChange={(x) => onChange({ ...verba, juros: x as typeof verba.juros })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="nenhum">Sem juros</SelectItem><SelectItem value="mensal">% ao mês</SelectItem><SelectItem value="anual">% ao ano</SelectItem><SelectItem value="selic">SELIC — Banco Central</SelectItem></SelectContent></Select></Campo>
           <Campo label="Juros desde"><Input type="date" value={verba.jurosDesde ?? ""} onChange={(e) => onChange({ ...verba, jurosDesde: e.target.value })} /></Campo>
-          {verba.juros === "mensal" || verba.juros === "anual" ? <Campo label="Taxa (%)"><Input type="number" step="0.01" value={verba.taxa ?? 0} onChange={(e) => onChange({ ...verba, taxa: Number(e.target.value) })} /></Campo> : null}
+          {verba.juros === "mensal" || verba.juros === "anual" ? <Campo label="Taxa (%) — digite 1 para 1%"><Input type="number" step="0.01" value={verba.taxa ?? 0} onChange={(e) => onChange({ ...verba, taxa: Number(e.target.value) })} /></Campo> : null}
         </div>
         {verba.indice !== "nenhum" && verba.juros === "selic" ? <p className="text-xs text-amber-700">Atenção: correção monetária + SELIC podem não ser cumuláveis conforme o título e o regime jurídico. Confira antes de utilizar.</p> : null}
       </CardContent>
@@ -332,12 +408,15 @@ function VerbaCard({ verba, indice, onChange, onDelete }: { verba: CriteriosCalc
 }
 
 function Encargo({ label, value, onChange }: { label: string; value: EncargoCalculo; onChange: (x: EncargoCalculo) => void }) {
-  return <div className="space-y-2 rounded-md border p-3"><Label>{label}</Label><div className="grid grid-cols-2 gap-2"><Select value={value.modo} onValueChange={(x) => onChange({ ...value, modo: x as EncargoCalculo["modo"] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="percentual">Percentual</SelectItem><SelectItem value="fixo">Valor fixo</SelectItem></SelectContent></Select><Input type="number" step="0.01" value={value.valor} onChange={(e) => onChange({ ...value, valor: Number(e.target.value) })} /></div>{value.modo === "percentual" ? <Select value={value.base} onValueChange={(x) => onChange({ ...value, base: x as EncargoCalculo["base"] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="subtotal">Base: principal + correção + juros</SelectItem><SelectItem value="principal">Base: principal</SelectItem></SelectContent></Select> : null}</div>;
+  return <div className="space-y-2 rounded-md border p-3"><Label>{label}</Label><div className="grid grid-cols-[1fr_1fr_auto] gap-2"><Select value={value.modo} onValueChange={(x) => onChange({ ...value, modo: x as EncargoCalculo["modo"] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="percentual">Percentual</SelectItem><SelectItem value="fixo">Valor fixo</SelectItem></SelectContent></Select><Input type="number" step="0.01" value={value.valor} onChange={(e) => onChange({ ...value, valor: Number(e.target.value) })} /><div className="flex items-center text-sm font-medium text-muted-foreground">{value.modo === "percentual" ? "%" : "R$"}</div></div>{value.modo === "percentual" ? <><p className="text-xs text-muted-foreground">Ex.: digite 10 para 10%.</p><Select value={value.base} onValueChange={(x) => onChange({ ...value, base: x as EncargoCalculo["base"] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="subtotal">Base: principal + correção + juros</SelectItem><SelectItem value="principal">Base: principal</SelectItem></SelectContent></Select></> : null}</div>;
 }
 
-function Resultado({ resultado }: { resultado: ResultadoCalculo }) {
+function Resultado({ resultado, identificacao, dataBase }: { resultado: ResultadoCalculo; identificacao: IdentificacaoCalculo; dataBase: string }) {
   const itens = [["Principal", resultado.principal], ["Correção", resultado.correcao], ["Juros", resultado.juros], ["Multa de execução", resultado.multaExecucao], ["Honorários de execução", resultado.honorariosExecucao], ["Honorários sucumbenciais", resultado.honorariosSucumbenciais], ["Abatimentos", -resultado.abatimentos]] as const;
-  return <Card><CardHeader><CardTitle className="font-serif text-xl">Resultado</CardTitle></CardHeader><CardContent className="space-y-4"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{itens.map(([l, v]) => <div key={l} className="rounded-md border p-3"><p className="text-xs text-muted-foreground">{l}</p><p className="text-lg font-semibold">{dinheiro(v)}</p></div>)}</div><div className="rounded-lg border-2 p-4"><p className="text-sm text-muted-foreground">Total atualizado</p><p className="font-serif text-3xl font-semibold">{dinheiro(resultado.total)}</p></div>{resultado.fontes.length > 0 ? <div><p className="mb-1 text-sm font-medium">Fontes e critérios</p><ul className="list-disc pl-5 text-sm text-muted-foreground">{resultado.fontes.map((f) => <li key={f}>{f}</li>)}</ul></div> : null}</CardContent></Card>;
+  const partes = identificacao.parteAutora || identificacao.parteRe
+    ? `${identificacao.parteAutora || "—"} x ${identificacao.parteRe || "—"}`
+    : [identificacao.cliente, identificacao.parteContraria].filter(Boolean).join(" x ");
+  return <Card><CardHeader><CardTitle className="font-serif text-xl">Resultado</CardTitle><CardDescription>{identificacao.processo ? `Processo ${identificacao.processo}` : "Cálculo avulso"}{partes ? ` · ${partes}` : ""} · Data-base do cálculo: {dataBase.split("-").reverse().join("/")}</CardDescription></CardHeader><CardContent className="space-y-4"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{itens.map(([l, v]) => <div key={l} className="rounded-md border p-3"><p className="text-xs text-muted-foreground">{l}</p><p className="text-lg font-semibold">{dinheiro(v)}</p></div>)}</div><div className="rounded-lg border-2 p-4"><p className="text-sm text-muted-foreground">Total atualizado</p><p className="font-serif text-3xl font-semibold">{dinheiro(resultado.total)}</p></div>{resultado.fontes.length > 0 ? <div><p className="mb-1 text-sm font-medium">Fontes e critérios</p><ul className="list-disc pl-5 text-sm text-muted-foreground">{resultado.fontes.map((f) => <li key={f}>{f}</li>)}</ul></div> : null}</CardContent></Card>;
 }
 
 function Campo({ label, children }: { label: string; children: React.ReactNode }) {
