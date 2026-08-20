@@ -291,6 +291,7 @@ function montarMailtoEncerramento(destinatarios: string[], processos: Processo[]
       `${i + 1}. ${cabecalho}`,
       clienteCaso ? `   ${clienteCaso}` : "",
       juizoUf ? `   ${juizoUf}` : "",
+      p.resultado_encerramento ? `   Resultado: ${p.resultado_encerramento}` : "",
       `   Valor: ${valor}`,
       p.observacao_encerramento ? `   Obs.: ${p.observacao_encerramento}` : "",
     ]
