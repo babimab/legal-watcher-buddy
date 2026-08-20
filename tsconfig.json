@@ -24,6 +24,7 @@
     "exactOptionalPropertyTypes": true,
     "noUncheckedSideEffectImports": true,
     "paths": {
+      "@/lib/calculos-judiciais": ["./src/lib/calculos-judiciais-wrapper.ts"],
       "@/*": ["./src/*"]
     }
   }
