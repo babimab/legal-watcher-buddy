@@ -179,7 +179,7 @@ function normalizarParte(valor: string | null | undefined) {
     .replace(/\p{Diacritic}/gu, "");
 }
 
-function nomeParteAdversa(processo: DadosEmailProcesso | null | undefined) {
+function nomeParteAdversa(processo: Partial<DadosEmailProcesso> | null | undefined) {
   if (!processo) return "";
   if (processo.parte_contraria?.trim()) return processo.parte_contraria.trim();
 
@@ -203,7 +203,7 @@ function nomeParteAdversa(processo: DadosEmailProcesso | null | undefined) {
   return processo.autor ?? processo.reu ?? "";
 }
 
-function linhaClienteCaso(processo: DadosEmailProcesso | null | undefined) {
+function linhaClienteCaso(processo: Partial<DadosEmailProcesso> | null | undefined) {
   if (!processo) return "";
   return [
     processo.cliente ? `Cliente: ${exibir(processo.cliente)}` : "",
@@ -214,7 +214,7 @@ function linhaClienteCaso(processo: DadosEmailProcesso | null | undefined) {
     .join(" | ");
 }
 
-function linhaJuizoUf(processo: DadosEmailProcesso | null | undefined) {
+function linhaJuizoUf(processo: Partial<DadosEmailProcesso> | null | undefined) {
   if (!processo) return "";
   const juizo =
     processo.vara && processo.comarca
