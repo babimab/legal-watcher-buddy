@@ -1,0 +1,74 @@
+name: One-time resultado encerramento
+
+on:
+  push:
+    paths:
+      - .github/workflows/one-time-resultado-encerramento.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Run resultado encerramento patch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply changes
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def rep(text, old, new, label):
+              if text.count(old) != 1:
+                  raise SystemExit(f'{label}: {text.count(old)} matches')
+              return text.replace(old, new, 1)
+
+          # Processo type
+          p = Path('src/lib/processos.ts')
+          t = p.read_text(encoding='utf-8')
+          t = rep(t, '  observacao_encerramento: string | null;\n', '  observacao_encerramento: string | null;\n  resultado_encerramento: string | null;\n', 'processo type')
+          p.write_text(t, encoding='utf-8')
+
+          # Generated Supabase types
+          p = Path('src/integrations/supabase/types.ts')
+          t = p.read_text(encoding='utf-8')
+          t = rep(t, '          observacao_encerramento: string | null\n', '          observacao_encerramento: string | null\n          resultado_encerramento: string | null\n', 'row type')
+          t = rep(t, '          observacao_encerramento?: string | null\n', '          observacao_encerramento?: string | null\n          resultado_encerramento?: string | null\n', 'insert type')
+          t = rep(t, '          observacao_encerramento?: string | null\n', '          observacao_encerramento?: string | null\n          resultado_encerramento?: string | null\n', 'update type')
+          p.write_text(t, encoding='utf-8')
+
+          # Dialog
+          p = Path('src/components/EncerramentoDialog.tsx')
+          t = p.read_text(encoding='utf-8')
+          t = rep(t, 'import { Textarea } from "@/components/ui/textarea";\n', 'import { Textarea } from "@/components/ui/textarea";\nimport {\n  Select,\n  SelectContent,\n  SelectItem,\n  SelectTrigger,\n  SelectValue,\n} from "@/components/ui/select";\n', 'select imports')
+          t = rep(t, 'import { type Processo } from "@/lib/processos";\n', 'import { type Processo } from "@/lib/processos";\n\nconst RESULTADOS_PROCESSO = [\n  "Improcedente",\n  "Procedente",\n  "Parcialmente procedente",\n  "Extinção por prescrição/decadência",\n  "Extinção sem resolução do mérito",\n  "Extinção por desistência",\n  "Extinção por perda superveniente do objeto",\n  "Sentença homologatória de acordo",\n  "Arquivamento administrativo/processual",\n  "Outro",\n] as const;\n', 'options')
+          t = rep(t, '        valor_encerramento: valorRaw ? Number(valorRaw) : null,\n        observacao_encerramento:', '        valor_encerramento: valorRaw ? Number(valorRaw) : null,\n        resultado_encerramento: String(form.get("resultado_encerramento") ?? "") || null,\n        observacao_encerramento:', 'save result')
+          marker = '''          <div className="space-y-2">\n            <Label htmlFor="valor_encerramento">Valor</Label>'''
+          insert = '''          <div className="space-y-2">\n            <Label>Resultado do processo</Label>\n            <Select name="resultado_encerramento" defaultValue={processo.resultado_encerramento ?? "nao-informado"}>\n              <SelectTrigger>\n                <SelectValue placeholder="Selecione o resultado" />\n              </SelectTrigger>\n              <SelectContent>\n                <SelectItem value="nao-informado">Não informado</SelectItem>\n                {RESULTADOS_PROCESSO.map((resultado) => (\n                  <SelectItem key={resultado} value={resultado}>\n                    {resultado}\n                  </SelectItem>\n                ))}\n              </SelectContent>\n            </Select>\n          </div>\n          <div className="space-y-2">\n            <Label htmlFor="valor_encerramento">Valor</Label>'''
+          t = rep(t, marker, insert, 'dialog field')
+          t = t.replace('String(form.get("resultado_encerramento") ?? "") || null', '(String(form.get("resultado_encerramento") ?? "") === "nao-informado" ? null : String(form.get("resultado_encerramento") ?? ""))')
+          p.write_text(t, encoding='utf-8')
+
+          # Excel
+          p = Path('src/lib/excel.ts')
+          t = p.read_text(encoding='utf-8')
+          t = rep(t, '    { header: "Status", key: "status", width: 14 },\n', '    { header: "Status", key: "status", width: 14 },\n    { header: "Resultado do processo", key: "resultado_encerramento", width: 34 },\n', 'excel column')
+          t = rep(t, '      status: p.status,\n', '      status: p.status,\n      resultado_encerramento: p.resultado_encerramento ?? "",\n', 'excel row')
+          p.write_text(t, encoding='utf-8')
+
+          # Encerramento email
+          p = Path('src/routes/_authenticated/relatorio.tsx')
+          t = p.read_text(encoding='utf-8')
+          t = rep(t, '      `   Valor: ${valor}`,\n      p.observacao_encerramento ?', '      p.resultado_encerramento ? `   Resultado: ${p.resultado_encerramento}` : "",\n      `   Valor: ${valor}`,\n      p.observacao_encerramento ?', 'email result')
+          p.write_text(t, encoding='utf-8')
+
+      - name: Commit
+        run: |
+          git config user.name "FaroLex Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/lib/processos.ts src/integrations/supabase/types.ts src/components/EncerramentoDialog.tsx src/lib/excel.ts src/routes/_authenticated/relatorio.tsx
+          git commit -m "Adiciona resultado do processo ao encerramento"
+          git push
