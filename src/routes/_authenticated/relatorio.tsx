@@ -427,7 +427,26 @@ function RelatorioPage() {
   const [pastaSelecionada, setPastaSelecionada] = useState(search.pasta ?? "todas");
   const [soProntos, setSoProntos] = useState(false);
   const [ufEncerramento, setUfEncerramento] = useState("todos");
+  const [filtroCaso, setFiltroCaso] = useState("");
   const minhaSigla = useSiglaAtual();
+
+  // Aceita "2482" (caso), "4608" (nº do cliente) ou "4608/2482" (cliente/caso).
+  const casaCaso = (
+    p: { numero_interno?: string | null; numero_cliente?: string | null } | null | undefined,
+  ) => {
+    const termo = filtroCaso.replace(/\s+/g, "").toLowerCase();
+    if (!termo) return true;
+    if (!p) return false;
+    const interno = (p.numero_interno ?? "").replace(/\s+/g, "").toLowerCase();
+    const cliente = (p.numero_cliente ?? "").replace(/\s+/g, "").toLowerCase();
+    if (termo.includes("/")) {
+      const [tc, ti] = termo.split("/");
+      const combinado = `${cliente}/${interno}`;
+      if (combinado.includes(termo)) return true;
+      return (!tc || cliente.includes(tc)) && (!ti || interno.includes(ti));
+    }
+    return interno.includes(termo) || cliente.includes(termo);
+  };
 
   // O componente não remonta ao trocar de aba/filtro via link (ex.: atalho
   // "Meus prazos" no menu) — sem isso, o estado local ficava desatualizado.
@@ -478,8 +497,11 @@ function RelatorioPage() {
       ? itens
       : itens.filter((m) => m.processos?.pasta_id === pastaSelecionada);
 
+  const filtrarPorCaso = (itens: MovimentacaoComProcesso[]) =>
+    itens.filter((m) => casaCaso(m.processos));
+
   const aplicarFiltrosRelatorio = (itens: MovimentacaoComProcesso[]) =>
-    filtrarPorPasta(filtrarPorAdvogado(itens));
+    filtrarPorCaso(filtrarPorPasta(filtrarPorAdvogado(itens)));
 
   // Importações de planilhas são histórico e não devem aparecer como novidade.
   // Movimentações manuais e de publicações continuam entrando normalmente.
@@ -520,22 +542,24 @@ function RelatorioPage() {
     [encerramento],
   );
 
-  const encerramentoFiltrado =
+  const encerramentoFiltrado = (
     ufEncerramento === "todos"
       ? encerramentoPorAdvogado
-      : encerramentoPorAdvogado.filter((p) => p.uf === ufEncerramento);
+      : encerramentoPorAdvogado.filter((p) => p.uf === ufEncerramento)
+  ).filter((p) => casaCaso(p));
 
   const encerramentoProntos = encerramentoFiltrado.filter((p) => p.pronto_para_encerrar);
   const encerramentoExibido = soProntos ? encerramentoProntos : encerramentoFiltrado;
 
-  const encerramentoAstroPorAdvogado =
+  const encerramentoAstroPorAdvogado = (
     advogado === "todos"
       ? encerramentoAstro
       : encerramentoAstro.filter((p) =>
           advogado === "eu"
             ? ehResponsavelDaSigla(p.responsavel, minhaSigla)
             : p.responsavel === advogado,
-        );
+        )
+  ).filter((p) => casaCaso(p));
   const encerramentoAstroProntos = encerramentoAstroPorAdvogado.filter(
     (p) => p.pronto_para_encerrar,
   );
@@ -655,6 +679,12 @@ function RelatorioPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Input
+            value={filtroCaso}
+            onChange={(e) => setFiltroCaso(e.target.value)}
+            placeholder="Caso ou Cliente/Caso (ex. 4608/2482)"
+            className="w-64"
+          />
           {advogados.temMeus || advogados.outros.length > 0 ? (
             <Select value={advogado} onValueChange={setAdvogado}>
               <SelectTrigger className="w-52">

@@ -40,12 +40,21 @@ export function BuscaGlobal() {
 
   const resultados = useMemo(() => {
     const termo = normalizar(busca.trim());
+    const compacto = termo.replace(/\s+/g, "");
     const digitos = busca.replace(/\D/g, "");
     const todos = processos.data ?? [];
     if (!termo) return todos.slice(0, LIMITE_RESULTADOS);
     return todos
       .filter((p) => {
         if (digitos.length >= 4 && p.numero_cnj.replace(/\D/g, "").includes(digitos)) return true;
+        const interno = (p.numero_interno ?? "").replace(/\s+/g, "").toLowerCase();
+        const numCliente = (p.numero_cliente ?? "").replace(/\s+/g, "").toLowerCase();
+        // Combinação Cliente/Caso, ex.: 4608/2482
+        if (compacto.includes("/")) {
+          const [tc, ti] = compacto.split("/");
+          if (`${numCliente}/${interno}`.includes(compacto)) return true;
+          if ((!tc || numCliente.includes(tc)) && (!ti || interno.includes(ti))) return true;
+        }
         const campos = [
           p.cliente,
           p.parte_contraria,
@@ -86,24 +95,39 @@ export function BuscaGlobal() {
           digitado contra o "value" do item, que aqui é só o id. */}
           <Command shouldFilter={false}>
             <CommandInput
-              placeholder="Buscar por número CNJ, cliente ou parte..."
+              placeholder="Buscar por CNJ, cliente, parte, caso ou Cliente/Caso (ex. 4608/2482)..."
               value={busca}
               onValueChange={setBusca}
             />
             <CommandList>
               <CommandEmpty>Nenhum processo encontrado.</CommandEmpty>
               <CommandGroup heading="Processos">
-                {resultados.map((p) => (
-                  <CommandItem key={p.id} value={p.id} onSelect={() => ir(p.id)}>
-                    <div className="flex flex-col">
-                      <span className="font-mono text-xs">{formatarCNJ(p.numero_cnj)}</span>
-                      <span className="text-sm">
-                        {exibir(p.cliente)}
-                        {p.parte_contraria ? ` x ${p.parte_contraria}` : ""}
-                      </span>
-                    </div>
-                  </CommandItem>
-                ))}
+                {resultados.map((p) => {
+                  const interno = p.numero_interno?.trim();
+                  const numCliente = p.numero_cliente?.trim();
+                  const identificador =
+                    numCliente && interno
+                      ? `Cliente/Caso: ${numCliente}/${interno}`
+                      : interno
+                        ? `Caso: ${interno}`
+                        : numCliente
+                          ? `Nº do cliente: ${numCliente}`
+                          : null;
+                  return (
+                    <CommandItem key={p.id} value={p.id} onSelect={() => ir(p.id)}>
+                      <div className="flex flex-col">
+                        <span className="font-mono text-xs">{formatarCNJ(p.numero_cnj)}</span>
+                        <span className="text-sm">
+                          {exibir(p.cliente)}
+                          {p.parte_contraria ? ` x ${p.parte_contraria}` : ""}
+                        </span>
+                        {identificador ? (
+                          <span className="text-xs text-muted-foreground">{identificador}</span>
+                        ) : null}
+                      </div>
+                    </CommandItem>
+                  );
+                })}
               </CommandGroup>
             </CommandList>
           </Command>

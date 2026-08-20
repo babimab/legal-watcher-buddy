@@ -492,6 +492,8 @@ export type MovimentacaoComProcesso = Movimentacao & {
     | "id"
     | "numero_cnj"
     | "cliente"
+    | "numero_interno"
+    | "numero_cliente"
     | "tribunal"
     | "autor"
     | "reu"
@@ -506,7 +508,7 @@ export type MovimentacaoComProcesso = Movimentacao & {
 };
 
 const CAMPOS_PROCESSO_RELATORIO =
-  "id, numero_cnj, cliente, tribunal, autor, reu, parte_contraria, responsavel, socio, vara, comarca, uf, pasta_id";
+  "id, numero_cnj, cliente, numero_interno, numero_cliente, tribunal, autor, reu, parte_contraria, responsavel, socio, vara, comarca, uf, pasta_id";
 
 export async function listarMovimentacoesDesde(
   desde: string | null,
