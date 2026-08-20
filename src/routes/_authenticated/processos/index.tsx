@@ -251,8 +251,23 @@ function ProcessosPage() {
             ? !p.responsavel
             : p.responsavel === advogado);
       const casaSocio = socio === "todos" || (socio === "nenhum" ? !p.socio : p.socio === socio);
+      const semEspaco = (v: string | null | undefined) =>
+        (v ?? "").replace(/\s+/g, "").toLowerCase();
+      const termoSemEspaco = termo.replace(/\s+/g, "");
+      const interno = semEspaco(p.numero_interno);
+      const numCliente = semEspaco(p.numero_cliente);
+      const casaClienteCaso = (() => {
+        if (!termoSemEspaco) return false;
+        if (termoSemEspaco.includes("/")) {
+          const [tc, ti] = termoSemEspaco.split("/");
+          if (`${numCliente}/${interno}`.includes(termoSemEspaco)) return true;
+          return (!tc || numCliente.includes(tc)) && (!ti || interno.includes(ti));
+        }
+        return interno.includes(termoSemEspaco) || numCliente.includes(termoSemEspaco);
+      })();
       const casaBusca =
         !termo ||
+        casaClienteCaso ||
         [
           p.numero_cnj,
           p.numero_interno,
@@ -389,7 +404,7 @@ function ProcessosPage() {
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="pl-9"
-            placeholder="Buscar por número, cliente, parte, tribunal..."
+            placeholder="Buscar por CNJ, cliente, parte ou Cliente/Caso (ex. 4608/2482)..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />
@@ -732,8 +747,14 @@ function ProcessoCard({
         {p.criticidade ? (
           <Badge variant={variantCriticidade(p.criticidade)}>{p.criticidade}</Badge>
         ) : null}
-        {p.numero_interno ? (
-          <span className="text-xs text-muted-foreground">caso {p.numero_interno}</span>
+        {p.numero_interno || p.numero_cliente ? (
+          <span className="text-xs text-muted-foreground">
+            {p.numero_cliente && p.numero_interno
+              ? `Cliente/Caso: ${p.numero_cliente}/${p.numero_interno}`
+              : p.numero_interno
+                ? `Caso: ${p.numero_interno}`
+                : `Nº cliente: ${p.numero_cliente}`}
+          </span>
         ) : null}
         {p.monitorar ? <Badge variant="outline">monitorado</Badge> : null}
       </div>
