@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/integrations/supabase/client";
+import { supabaseSolto } from "@/lib/supabase-solto";
 import { type Processo } from "@/lib/processos";
 
 const RESULTADOS_PROCESSO = [
@@ -39,6 +39,8 @@ const RESULTADOS_PROCESSO = [
   "Outro",
 ] as const;
 
+type ProcessoComResultado = Processo & { resultado_encerramento?: string | null };
+
 export function EncerramentoDialog({
   processo,
   descricao = "Preenche o que a Eliane precisa pra dar baixa nesse processo.",
@@ -48,6 +50,7 @@ export function EncerramentoDialog({
   descricao?: string | undefined;
   mostrarDecisoesNoLd?: boolean;
 }) {
+  const processoComResultado = processo as ProcessoComResultado;
   const [aberto, setAberto] = useState(false);
   const [pronto, setPronto] = useState(processo.pronto_para_encerrar);
   const [decisoesNoLd, setDecisoesNoLd] = useState(processo.decisoes_no_ld);
@@ -62,7 +65,7 @@ export function EncerramentoDialog({
       .replace(",", ".");
     const resultadoRaw = String(form.get("resultado_encerramento") ?? "");
     setSalvando(true);
-    const { error } = await supabase
+    const { error } = await supabaseSolto
       .from("processos")
       .update({
         pronto_para_encerrar: pronto,
@@ -118,7 +121,7 @@ export function EncerramentoDialog({
             <Label>Resultado do processo</Label>
             <Select
               name="resultado_encerramento"
-              defaultValue={processo.resultado_encerramento ?? "nao-informado"}
+              defaultValue={processoComResultado.resultado_encerramento ?? "nao-informado"}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o resultado" />
