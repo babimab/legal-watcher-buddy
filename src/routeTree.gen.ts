@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedBaixasClienteRouteImport } from './routes/_authenticated/baixas-cliente'
 import { Route as AuthenticatedCitacoesRouteImport } from './routes/_authenticated/citacoes'
 import { Route as AuthenticatedGruposRouteImport } from './routes/_authenticated/grupos'
 import { Route as AuthenticatedImportarRouteImport } from './routes/_authenticated/importar'
@@ -36,6 +37,11 @@ const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedBaixasClienteRoute = AuthenticatedBaixasClienteRouteImport.update({
+  id: '/baixas-cliente',
+  path: '/baixas-cliente',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedCitacoesRoute = AuthenticatedCitacoesRouteImport.update({
   id: '/citacoes',
@@ -95,6 +101,7 @@ const AuthenticatedProcessosIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/baixas-cliente': typeof AuthenticatedBaixasClienteRoute
   '/citacoes': typeof AuthenticatedCitacoesRoute
   '/grupos': typeof AuthenticatedGruposRoute
   '/importar': typeof AuthenticatedImportarRoute
@@ -109,6 +116,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/baixas-cliente': typeof AuthenticatedBaixasClienteRoute
   '/citacoes': typeof AuthenticatedCitacoesRoute
   '/grupos': typeof AuthenticatedGruposRoute
   '/importar': typeof AuthenticatedImportarRoute
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/baixas-cliente': typeof AuthenticatedBaixasClienteRoute
   '/_authenticated/citacoes': typeof AuthenticatedCitacoesRoute
   '/_authenticated/grupos': typeof AuthenticatedGruposRoute
   '/_authenticated/importar': typeof AuthenticatedImportarRoute
@@ -141,6 +150,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/baixas-cliente'
     | '/citacoes'
     | '/grupos'
     | '/importar'
@@ -155,6 +165,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/baixas-cliente'
     | '/citacoes'
     | '/grupos'
     | '/importar'
@@ -170,6 +181,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/baixas-cliente'
     | '/_authenticated/citacoes'
     | '/_authenticated/grupos'
     | '/_authenticated/importar'
@@ -210,6 +222,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/baixas-cliente': {
+      id: '/_authenticated/baixas-cliente'
+      path: '/baixas-cliente'
+      fullPath: '/baixas-cliente'
+      preLoaderRoute: typeof AuthenticatedBaixasClienteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/citacoes': {
       id: '/_authenticated/citacoes'
@@ -285,6 +304,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedBaixasClienteRoute: typeof AuthenticatedBaixasClienteRoute
   AuthenticatedCitacoesRoute: typeof AuthenticatedCitacoesRoute
   AuthenticatedGruposRoute: typeof AuthenticatedGruposRoute
   AuthenticatedImportarRoute: typeof AuthenticatedImportarRoute
@@ -298,6 +318,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedBaixasClienteRoute: AuthenticatedBaixasClienteRoute,
   AuthenticatedCitacoesRoute: AuthenticatedCitacoesRoute,
   AuthenticatedGruposRoute: AuthenticatedGruposRoute,
   AuthenticatedImportarRoute: AuthenticatedImportarRoute,
