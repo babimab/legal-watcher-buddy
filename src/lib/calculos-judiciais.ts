@@ -2,12 +2,26 @@ import ExcelJS from "exceljs";
 
 import { supabase } from "@/integrations/supabase/client";
 import { supabaseSolto } from "@/lib/supabase-solto";
-import { baixarPlanilha } from "@/lib/excel";
+import {
+  baixarPlanilha,
+  centralizarLinhas,
+  estilizarCabecalho,
+  finalizarPlanilha,
+} from "@/lib/excel";
 
 export type ParcelaCalculo = { id: string; valor: number; data: string };
 export type AbatimentoCalculo = { id: string; valor: number; data: string; descricao?: string };
 export type TipoIndice = "nenhum" | "ipca" | "manual";
 export type TipoJuros = "nenhum" | "mensal" | "anual" | "selic";
+
+export type IdentificacaoCalculo = {
+  processo?: string;
+  clienteCaso?: string;
+  parteAutora?: string;
+  parteRe?: string;
+  cliente?: string;
+  parteContraria?: string;
+};
 
 export type VerbaCalculo = {
   id: string;
@@ -29,6 +43,7 @@ export type EncargoCalculo = {
 };
 
 export type CriteriosCalculo = {
+  identificacao?: IdentificacaoCalculo;
   verbas: VerbaCalculo[];
   multaExecucao: EncargoCalculo;
   honorariosExecucao: EncargoCalculo;
@@ -104,6 +119,7 @@ export function novaVerba(): VerbaCalculo {
 export function criteriosIniciais(): CriteriosCalculo {
   const encargo = (): EncargoCalculo => ({ modo: "percentual", valor: 0, base: "subtotal" });
   return {
+    identificacao: {},
     verbas: [novaVerba()],
     multaExecucao: encargo(),
     honorariosExecucao: encargo(),
@@ -116,6 +132,19 @@ function isoBR(data: string) {
   if (!data) return "";
   const [a, m, d] = data.split("-");
   return `${d}/${m}/${a}`;
+}
+
+function moeda(n: number) {
+  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function escaparHtml(valor: string | undefined | null) {
+  return String(valor ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function mesesEntre(de: string, ate: string) {
@@ -183,7 +212,7 @@ export async function calcularJudicial(
       let fonteCorrecao = "Sem correção monetária";
       if (verba.indice === "ipca") {
         fatorCorrecao = await fatorIpca(inicioCorrecao, dataBase);
-        fonteCorrecao = "Fonte oficial: IBGE/SIDRA — IPCA, tabela 1737";
+        fonteCorrecao = "Fonte oficial: IBGE/SIDRA - IPCA, tabela 1737";
         fontes.add(fonteCorrecao);
       } else if (verba.indice === "manual") {
         fatorCorrecao = Math.max(0, Number(verba.fatorManual) || 1);
@@ -206,13 +235,13 @@ export async function calcularJudicial(
       } else if (verba.juros === "selic") {
         const fator = await fatorSelic(inicioJuros, dataBase);
         juros = corrigido * (fator - 1);
-        fonteJuros = "Fonte oficial: Banco Central do Brasil — SGS série 11 (SELIC diária)";
+        fonteJuros = "Fonte oficial: Banco Central do Brasil - SGS série 11 (SELIC diária)";
         fontes.add(fonteJuros);
       }
 
       memoria.push({
         verba: verba.descricao,
-        parcela: `${verba.descricao} — ${isoBR(parcela.data)}`,
+        parcela: `${verba.descricao} - ${isoBR(parcela.data)}`,
         data: parcela.data,
         principal,
         fatorCorrecao,
@@ -324,6 +353,21 @@ export async function salvarCalculo(input: {
   return data as CalculoJudicial;
 }
 
+export async function excluirCalculo(calculoId: string): Promise<void> {
+  const { data: docs, error: erroDocs } = await supabaseSolto
+    .from("calculos_documentos")
+    .select("caminho")
+    .eq("calculo_id", calculoId);
+  if (erroDocs) throw erroDocs;
+  const caminhos = (docs ?? []).map((d) => String(d.caminho ?? "")).filter(Boolean);
+  if (caminhos.length) {
+    const { error: erroStorage } = await supabase.storage.from(BUCKET).remove(caminhos);
+    if (erroStorage) throw erroStorage;
+  }
+  const { error } = await supabaseSolto.from("calculos_judiciais").delete().eq("id", calculoId);
+  if (error) throw error;
+}
+
 export async function enviarDocumentoCalculo(
   calculoId: string,
   categoria: "titulo" | "autos",
@@ -367,21 +411,39 @@ export async function abrirDocumentoCalculo(doc: DocumentoCalculo): Promise<void
   window.open(data.signedUrl, "_blank");
 }
 
+function linhasIdentificacao(identificacao?: IdentificacaoCalculo) {
+  if (!identificacao) return [] as Array<[string, string]>;
+  const linhas: Array<[string, string]> = [];
+  if (identificacao.processo) linhas.push(["Processo", identificacao.processo]);
+  if (identificacao.clienteCaso) linhas.push(["Cliente/Caso", identificacao.clienteCaso]);
+  if (identificacao.parteAutora) linhas.push(["Parte autora", identificacao.parteAutora]);
+  if (identificacao.parteRe) linhas.push(["Parte ré", identificacao.parteRe]);
+  if (!identificacao.parteAutora && identificacao.cliente) linhas.push(["Cliente", identificacao.cliente]);
+  if (!identificacao.parteRe && identificacao.parteContraria) linhas.push(["Parte contrária", identificacao.parteContraria]);
+  return linhas;
+}
+
 export async function exportarCalculoExcel(
   nome: string,
   dataBase: string,
   criterios: CriteriosCalculo,
   resultado: ResultadoCalculo,
+  identificacao?: IdentificacaoCalculo,
 ) {
   const wb = new ExcelJS.Workbook();
+  wb.creator = "FaroLex";
+  wb.created = new Date();
   const resumo = wb.addWorksheet("Resumo");
   resumo.columns = [
     { header: "Campo", key: "campo", width: 34 },
-    { header: "Valor", key: "valor", width: 22 },
+    { header: "Valor", key: "valor", width: 48 },
   ];
+  const identificacaoFinal = identificacao ?? criterios.identificacao;
+  resumo.addRow({ campo: "Cálculo", valor: nome });
+  linhasIdentificacao(identificacaoFinal).forEach(([campo, valor]) => resumo.addRow({ campo, valor }));
+  resumo.addRow({ campo: "Data-base do cálculo", valor: isoBR(dataBase) });
+  const primeiraLinhaValor = resumo.rowCount + 1;
   [
-    ["Cálculo", nome],
-    ["Data-base", isoBR(dataBase)],
     ["Principal", resultado.principal],
     ["Correção monetária", resultado.correcao],
     ["Juros", resultado.juros],
@@ -391,10 +453,16 @@ export async function exportarCalculoExcel(
     ["Abatimentos", -resultado.abatimentos],
     ["TOTAL", resultado.total],
   ].forEach(([campo, valor]) => resumo.addRow({ campo, valor }));
-  for (let i = 3; i <= resumo.rowCount; i++) resumo.getCell(i, 2).numFmt = 'R$ #,##0.00';
+  const ultimaLinhaValor = resumo.rowCount;
+  for (let i = primeiraLinhaValor; i <= ultimaLinhaValor; i++) resumo.getCell(i, 2).numFmt = 'R$ #,##0.00';
+  resumo.getRow(ultimaLinhaValor).font = { bold: true };
   resumo.addRow({ campo: "" });
   resultado.fontes.forEach((f) => resumo.addRow({ campo: "Fonte/critério", valor: f }));
+  if (criterios.observacoes) resumo.addRow({ campo: "Observações", valor: criterios.observacoes });
   resumo.addRow({ campo: "Aviso", valor: "Confira os critérios jurídicos antes de utilizar a memória em juízo." });
+  estilizarCabecalho(resumo);
+  centralizarLinhas(resumo, new Set(["valor"]));
+  finalizarPlanilha(resumo);
 
   const mem = wb.addWorksheet("Memória de cálculo");
   mem.columns = [
@@ -420,5 +488,43 @@ export async function exportarCalculoExcel(
     fonteJuros: x.fonteJuros,
   }));
   ["principal", "correcao", "juros", "atualizado"].forEach((k) => (mem.getColumn(k).numFmt = 'R$ #,##0.00'));
-  await baixarPlanilha(wb, `calculo-${nome.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "judicial"}.xlsx`);
+  mem.getColumn("fator").numFmt = "0.000000";
+  estilizarCabecalho(mem);
+  centralizarLinhas(mem, new Set(["verba", "fonteCorrecao", "fonteJuros"]));
+  finalizarPlanilha(mem);
+
+  const nomeSeguro = nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "judicial";
+  await baixarPlanilha(wb, `calculo-${nomeSeguro}`);
+}
+
+export function exportarCalculoPdf(
+  nome: string,
+  dataBase: string,
+  criterios: CriteriosCalculo,
+  resultado: ResultadoCalculo,
+  identificacao?: IdentificacaoCalculo,
+) {
+  const janela = window.open("", "_blank", "noopener,noreferrer");
+  if (!janela) throw new Error("O navegador bloqueou a abertura do PDF. Autorize pop-ups para o FaroLex.");
+  const identificacaoFinal = identificacao ?? criterios.identificacao;
+  const identificacaoHtml = linhasIdentificacao(identificacaoFinal)
+    .map(([campo, valor]) => `<div><span>${escaparHtml(campo)}</span><strong>${escaparHtml(valor)}</strong></div>`)
+    .join("");
+  const linhasResumo = [
+    ["Principal", resultado.principal],
+    ["Correção monetária", resultado.correcao],
+    ["Juros", resultado.juros],
+    ["Multa de execução", resultado.multaExecucao],
+    ["Honorários de execução", resultado.honorariosExecucao],
+    ["Honorários sucumbenciais", resultado.honorariosSucumbenciais],
+    ["Abatimentos", -resultado.abatimentos],
+    ["TOTAL ATUALIZADO", resultado.total],
+  ] as const;
+  const resumoHtml = linhasResumo.map(([campo, valor], i) => `<tr class="${i === linhasResumo.length - 1 ? "total" : ""}"><td>${escaparHtml(campo)}</td><td>${escaparHtml(moeda(valor))}</td></tr>`).join("");
+  const memoriaHtml = resultado.memoria.map((x) => `<tr><td>${escaparHtml(x.verba)}</td><td>${escaparHtml(isoBR(x.data))}</td><td>${escaparHtml(moeda(x.principal))}</td><td>${x.fatorCorrecao.toFixed(6)}</td><td>${escaparHtml(moeda(x.correcao))}</td><td>${escaparHtml(moeda(x.juros))}</td><td>${escaparHtml(moeda(x.atualizado))}</td></tr>`).join("");
+  const fontesHtml = resultado.fontes.map((f) => `<li>${escaparHtml(f)}</li>`).join("");
+  janela.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${escaparHtml(nome)} - FaroLex</title><style>
+@page{size:A4;margin:16mm 14mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#16252d;margin:0;font-size:11px}header{border-bottom:3px solid #0d3a51;padding-bottom:10px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-end}.marca{font-size:24px;font-weight:700;color:#0d3a51}.sub{font-size:11px;color:#64747c}.titulo{font-size:18px;font-weight:700;margin:0 0 4px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;background:#f4f7f8;border:1px solid #d9e1e5;border-radius:6px;padding:10px;margin:12px 0 16px}.meta div{display:flex;flex-direction:column;gap:2px}.meta span{font-size:9px;text-transform:uppercase;color:#667780}.meta strong{font-size:11px}.secao{margin-top:16px}.secao h2{font-size:13px;color:#0d3a51;border-bottom:1px solid #ccd7dc;padding-bottom:4px;margin:0 0 8px}table{width:100%;border-collapse:collapse;page-break-inside:auto}th{background:#0d3a51;color:white;font-weight:700;text-align:center;padding:6px;border:1px solid #0d3a51}td{padding:6px;border:1px solid #d9e1e5;vertical-align:top}tr{page-break-inside:avoid}.resumo td:last-child{text-align:right}.total td{font-weight:700;background:#eef3f5;border-top:2px solid #0d3a51}.memoria{font-size:9px}.memoria td:nth-child(n+3){text-align:right}.fontes{padding-left:18px;color:#4b5b63}.obs{background:#fff9e8;border:1px solid #eadca8;padding:8px;border-radius:5px}.rodape{margin-top:18px;border-top:1px solid #ccd7dc;padding-top:7px;font-size:9px;color:#6b7980}.no-print{margin:12px 0;padding:10px;background:#f0f4f6;border-radius:6px}@media print{.no-print{display:none}}
+</style></head><body><div class="no-print"><strong>Memória pronta para PDF.</strong> Na janela de impressão, escolha “Salvar como PDF”.</div><header><div><div class="marca">FaroLex</div><div class="sub">Memória de cálculo judicial</div></div><div class="sub">Data-base do cálculo: ${escaparHtml(isoBR(dataBase))}</div></header><div class="titulo">${escaparHtml(nome)}</div><div class="meta">${identificacaoHtml}<div><span>Data-base do cálculo</span><strong>${escaparHtml(isoBR(dataBase))}</strong></div></div><div class="secao"><h2>Resumo</h2><table class="resumo"><thead><tr><th>Componente</th><th>Valor</th></tr></thead><tbody>${resumoHtml}</tbody></table></div><div class="secao"><h2>Memória de cálculo</h2><table class="memoria"><thead><tr><th>Verba</th><th>Data</th><th>Principal</th><th>Fator</th><th>Correção</th><th>Juros</th><th>Atualizado</th></tr></thead><tbody>${memoriaHtml}</tbody></table></div>${fontesHtml ? `<div class="secao"><h2>Fontes e critérios</h2><ul class="fontes">${fontesHtml}</ul></div>` : ""}${criterios.observacoes ? `<div class="secao"><h2>Observações</h2><div class="obs">${escaparHtml(criterios.observacoes)}</div></div>` : ""}<div class="rodape">Confira os critérios jurídicos antes de utilizar esta memória em juízo. Documento gerado pelo FaroLex.</div><script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));</script></body></html>`);
+  janela.document.close();
 }
