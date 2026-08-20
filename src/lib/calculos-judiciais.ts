@@ -506,11 +506,15 @@ export function exportarCalculoPdf(
 ) {
   const janela = window.open("", "_blank", "noopener,noreferrer");
   if (!janela) throw new Error("O navegador bloqueou a abertura do PDF. Autorize pop-ups para o FaroLex.");
+
+  const logoBranca = `${window.location.origin}/faro-logo-white.png`;
+  const logoNavy = `${window.location.origin}/faro-logo-navy.png`;
   const identificacaoFinal = identificacao ?? criterios.identificacao;
   const identificacaoHtml = linhasIdentificacao(identificacaoFinal)
-    .map(([campo, valor]) => `<div><span>${escaparHtml(campo)}</span><strong>${escaparHtml(valor)}</strong></div>`)
+    .map(([campo, valor]) => `<div class="meta-item"><span>${escaparHtml(campo)}</span><strong>${escaparHtml(valor)}</strong></div>`)
     .join("");
-  const linhasResumo = [
+
+  const componentes = [
     ["Principal", resultado.principal],
     ["Correção monetária", resultado.correcao],
     ["Juros", resultado.juros],
@@ -518,13 +522,66 @@ export function exportarCalculoPdf(
     ["Honorários de execução", resultado.honorariosExecucao],
     ["Honorários sucumbenciais", resultado.honorariosSucumbenciais],
     ["Abatimentos", -resultado.abatimentos],
-    ["TOTAL ATUALIZADO", resultado.total],
   ] as const;
-  const resumoHtml = linhasResumo.map(([campo, valor], i) => `<tr class="${i === linhasResumo.length - 1 ? "total" : ""}"><td>${escaparHtml(campo)}</td><td>${escaparHtml(moeda(valor))}</td></tr>`).join("");
-  const memoriaHtml = resultado.memoria.map((x) => `<tr><td>${escaparHtml(x.verba)}</td><td>${escaparHtml(isoBR(x.data))}</td><td>${escaparHtml(moeda(x.principal))}</td><td>${x.fatorCorrecao.toFixed(6)}</td><td>${escaparHtml(moeda(x.correcao))}</td><td>${escaparHtml(moeda(x.juros))}</td><td>${escaparHtml(moeda(x.atualizado))}</td></tr>`).join("");
+  const cardsHtml = componentes
+    .map(([campo, valor]) => `<div class="valor-card"><span>${escaparHtml(campo)}</span><strong>${escaparHtml(moeda(valor))}</strong></div>`)
+    .join("");
+
+  const memoriaHtml = resultado.memoria
+    .map((x, indice) => `<tr class="${indice % 2 ? "alternada" : ""}"><td>${escaparHtml(x.verba)}</td><td>${escaparHtml(isoBR(x.data))}</td><td>${escaparHtml(moeda(x.principal))}</td><td>${x.fatorCorrecao.toFixed(6)}</td><td>${escaparHtml(moeda(x.correcao))}</td><td>${escaparHtml(moeda(x.juros))}</td><td class="atualizado">${escaparHtml(moeda(x.atualizado))}</td></tr>`)
+    .join("");
   const fontesHtml = resultado.fontes.map((f) => `<li>${escaparHtml(f)}</li>`).join("");
-  janela.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${escaparHtml(nome)} - FaroLex</title><style>
-@page{size:A4;margin:16mm 14mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#16252d;margin:0;font-size:11px}header{border-bottom:3px solid #0d3a51;padding-bottom:10px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-end}.marca{font-size:24px;font-weight:700;color:#0d3a51}.sub{font-size:11px;color:#64747c}.titulo{font-size:18px;font-weight:700;margin:0 0 4px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;background:#f4f7f8;border:1px solid #d9e1e5;border-radius:6px;padding:10px;margin:12px 0 16px}.meta div{display:flex;flex-direction:column;gap:2px}.meta span{font-size:9px;text-transform:uppercase;color:#667780}.meta strong{font-size:11px}.secao{margin-top:16px}.secao h2{font-size:13px;color:#0d3a51;border-bottom:1px solid #ccd7dc;padding-bottom:4px;margin:0 0 8px}table{width:100%;border-collapse:collapse;page-break-inside:auto}th{background:#0d3a51;color:white;font-weight:700;text-align:center;padding:6px;border:1px solid #0d3a51}td{padding:6px;border:1px solid #d9e1e5;vertical-align:top}tr{page-break-inside:avoid}.resumo td:last-child{text-align:right}.total td{font-weight:700;background:#eef3f5;border-top:2px solid #0d3a51}.memoria{font-size:9px}.memoria td:nth-child(n+3){text-align:right}.fontes{padding-left:18px;color:#4b5b63}.obs{background:#fff9e8;border:1px solid #eadca8;padding:8px;border-radius:5px}.rodape{margin-top:18px;border-top:1px solid #ccd7dc;padding-top:7px;font-size:9px;color:#6b7980}.no-print{margin:12px 0;padding:10px;background:#f0f4f6;border-radius:6px}@media print{.no-print{display:none}}
-</style></head><body><div class="no-print"><strong>Memória pronta para PDF.</strong> Na janela de impressão, escolha “Salvar como PDF”.</div><header><div><div class="marca">FaroLex</div><div class="sub">Memória de cálculo judicial</div></div><div class="sub">Data-base do cálculo: ${escaparHtml(isoBR(dataBase))}</div></header><div class="titulo">${escaparHtml(nome)}</div><div class="meta">${identificacaoHtml}<div><span>Data-base do cálculo</span><strong>${escaparHtml(isoBR(dataBase))}</strong></div></div><div class="secao"><h2>Resumo</h2><table class="resumo"><thead><tr><th>Componente</th><th>Valor</th></tr></thead><tbody>${resumoHtml}</tbody></table></div><div class="secao"><h2>Memória de cálculo</h2><table class="memoria"><thead><tr><th>Verba</th><th>Data</th><th>Principal</th><th>Fator</th><th>Correção</th><th>Juros</th><th>Atualizado</th></tr></thead><tbody>${memoriaHtml}</tbody></table></div>${fontesHtml ? `<div class="secao"><h2>Fontes e critérios</h2><ul class="fontes">${fontesHtml}</ul></div>` : ""}${criterios.observacoes ? `<div class="secao"><h2>Observações</h2><div class="obs">${escaparHtml(criterios.observacoes)}</div></div>` : ""}<div class="rodape">Confira os critérios jurídicos antes de utilizar esta memória em juízo. Documento gerado pelo FaroLex.</div><script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));</script></body></html>`);
+  const geradoEm = new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+
+  janela.document.write(`<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>${escaparHtml(nome)} - FaroLex</title>
+<style>
+@page{size:A4;margin:13mm 12mm 14mm}
+*{box-sizing:border-box}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:Arial,Helvetica,sans-serif;color:#173447;margin:0;font-size:10.5px;background:#fff;position:relative}
+.page-content{position:relative;z-index:2}
+.watermark{position:absolute;z-index:0;top:84mm;left:50%;transform:translateX(-50%);width:128mm;opacity:.035;pointer-events:none;filter:grayscale(.08)}
+.topo{background:linear-gradient(135deg,#082e45 0%,#0d4968 100%);border-radius:10px;padding:14px 16px;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:78px;box-shadow:0 2px 8px rgba(8,46,69,.14)}
+.brand{display:flex;align-items:center;gap:13px;min-width:0}.brand img{width:150px;max-height:48px;object-fit:contain;object-position:left center}.brand-copy{border-left:1px solid rgba(255,255,255,.32);padding-left:13px}.brand-copy strong{display:block;font-size:14px;letter-spacing:.15px}.brand-copy span{display:block;font-size:9px;color:#d8ebf4;margin-top:3px;text-transform:uppercase;letter-spacing:.7px}
+.data-topo{text-align:right;white-space:nowrap}.data-topo span{display:block;font-size:8px;text-transform:uppercase;letter-spacing:.7px;color:#bcd9e7}.data-topo strong{display:block;font-size:12px;margin-top:3px}
+.titulo-wrap{padding:16px 2px 6px}.titulo{font-family:Georgia,'Times New Roman',serif;font-size:20px;line-height:1.15;font-weight:700;color:#0b3c58;margin:0}.linha-azul{width:54px;height:3px;background:#2b78a0;border-radius:99px;margin-top:7px}
+.meta{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid #c9dce7;border-radius:8px;overflow:hidden;margin:10px 0 16px;background:rgba(247,251,253,.94)}.meta-item{padding:8px 10px;border-bottom:1px solid #dce9ef}.meta-item:nth-child(odd){border-right:1px solid #dce9ef}.meta-item span{display:block;font-size:7.5px;text-transform:uppercase;letter-spacing:.55px;color:#618094;margin-bottom:2px}.meta-item strong{display:block;font-size:10.5px;color:#143c53}.meta-data{padding:8px 10px;background:#edf6fa}.meta-data span{display:block;font-size:7.5px;text-transform:uppercase;letter-spacing:.55px;color:#51788e}.meta-data strong{display:block;color:#0d4968;font-size:11px;margin-top:2px}
+.secao{margin-top:16px;position:relative}.secao h2{font-family:Georgia,'Times New Roman',serif;font-size:13.5px;color:#0b3c58;margin:0 0 8px;padding-bottom:5px;border-bottom:1px solid #bdd5e1}.secao h2:after{content:'';display:block;width:34px;border-bottom:2px solid #2d7ea5;position:relative;top:7px}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0}.valor-card{border:1px solid #c6dce7;border-radius:7px;padding:8px;background:#f3f9fc;min-height:53px}.valor-card span{display:block;color:#58788b;font-size:7.8px;text-transform:uppercase;letter-spacing:.35px;line-height:1.2}.valor-card strong{display:block;color:#0b4666;font-size:12px;margin-top:5px;white-space:nowrap}
+.total-box{margin-top:8px;border-radius:9px;background:linear-gradient(135deg,#0a3a55,#126387);padding:12px 14px;color:#fff;display:flex;align-items:center;justify-content:space-between}.total-box span{font-size:9px;text-transform:uppercase;letter-spacing:.8px;color:#d4eaf3}.total-box strong{font-family:Georgia,'Times New Roman',serif;font-size:22px;letter-spacing:.2px}
+table{width:100%;border-collapse:separate;border-spacing:0;page-break-inside:auto;border:1px solid #bfd5e1;border-radius:7px;overflow:hidden}.memoria{font-size:8.5px}.memoria th{background:#0d4968;color:#fff;font-weight:700;text-align:center;padding:6px 4px;border-right:1px solid #367590}.memoria th:last-child{border-right:0}.memoria td{padding:5px 4px;border-top:1px solid #dce8ee;border-right:1px solid #e4edf1;vertical-align:top}.memoria td:last-child{border-right:0}.memoria td:nth-child(n+3){text-align:right;white-space:nowrap}.memoria .alternada td{background:#f5f9fb}.memoria .atualizado{font-weight:700;color:#0b4e70}tr{page-break-inside:avoid}
+.fontes{margin:0;padding:9px 12px 9px 26px;border-left:3px solid #4f98b8;background:#f4f9fb;border-radius:0 7px 7px 0;color:#405f70}.fontes li{margin:3px 0}.obs{background:#edf6fa;border:1px solid #c5dce8;color:#315668;padding:9px 11px;border-radius:7px;white-space:pre-wrap}
+.rodape{margin-top:19px;border-top:1px solid #cbdde6;padding-top:7px;display:flex;justify-content:space-between;gap:15px;color:#708b9a;font-size:7.7px}.rodape strong{color:#37677e}
+.no-print{margin:0 0 10px;padding:9px 11px;background:#eaf5fa;border:1px solid #bad9e7;border-radius:7px;color:#285d76;font-size:10px}
+@media print{.no-print{display:none}.topo{box-shadow:none}}
+</style>
+</head>
+<body>
+<img class="watermark" src="${escaparHtml(logoNavy)}" alt="" />
+<div class="page-content">
+<div class="no-print"><strong>PDF FaroLex pronto.</strong> Na janela de impressão, escolha “Salvar como PDF”.</div>
+<header class="topo">
+  <div class="brand"><img src="${escaparHtml(logoBranca)}" alt="FaroLex" /><div class="brand-copy"><strong>Memória de cálculo judicial</strong><span>Atualização e demonstrativo</span></div></div>
+  <div class="data-topo"><span>Data-base do cálculo</span><strong>${escaparHtml(isoBR(dataBase))}</strong></div>
+</header>
+<div class="titulo-wrap"><h1 class="titulo">${escaparHtml(nome)}</h1><div class="linha-azul"></div></div>
+<div class="meta">${identificacaoHtml}<div class="meta-data"><span>Data-base do cálculo</span><strong>${escaparHtml(isoBR(dataBase))}</strong></div></div>
+<section class="secao"><h2>Resumo do cálculo</h2><div class="cards">${cardsHtml}</div><div class="total-box"><span>Total atualizado</span><strong>${escaparHtml(moeda(resultado.total))}</strong></div></section>
+<section class="secao"><h2>Memória de cálculo</h2><table class="memoria"><thead><tr><th>Verba</th><th>Data</th><th>Principal</th><th>Fator</th><th>Correção</th><th>Juros</th><th>Atualizado</th></tr></thead><tbody>${memoriaHtml}</tbody></table></section>
+${fontesHtml ? `<section class="secao"><h2>Fontes e critérios</h2><ul class="fontes">${fontesHtml}</ul></section>` : ""}
+${criterios.observacoes ? `<section class="secao"><h2>Observações</h2><div class="obs">${escaparHtml(criterios.observacoes)}</div></section>` : ""}
+<footer class="rodape"><span><strong>FaroLex</strong> · Memória de cálculo judicial</span><span>Gerado em ${escaparHtml(geradoEm)} · Confira os critérios jurídicos antes da utilização em juízo.</span></footer>
+</div>
+<script>
+window.addEventListener('load',()=>{
+  const imagens=Array.from(document.images);
+  Promise.all(imagens.map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=resolve;img.onerror=resolve;}))).then(()=>setTimeout(()=>window.print(),300));
+});
+</script>
+</body></html>`);
   janela.document.close();
 }
