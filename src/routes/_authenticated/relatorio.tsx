@@ -636,6 +636,13 @@ function RelatorioPage() {
   };
 
   const ehAbaEncerramento = aba === "encerramento" || aba === "encerramento-astro";
+  const ehModoEncerramentos = ehAbaEncerramento || aba === "baixas";
+
+  const abasEncerramento: Array<{ chave: string; rotulo: string }> = [
+    { chave: "encerramento", rotulo: "Souza Cruz" },
+    { chave: "encerramento-astro", rotulo: "Astro" },
+    { chave: "baixas", rotulo: "Baixas no cliente" },
+  ];
 
   return (
     <div className="space-y-6">
@@ -644,11 +651,9 @@ function RelatorioPage() {
           <h1 className="font-serif text-3xl font-semibold">
             {aba === "pendencias"
               ? "Prazos"
-              : aba === "encerramento"
-                ? "Encerramento Souza Cruz"
-                : aba === "encerramento-astro"
-                  ? "Encerramento Astro"
-                  : "Relatórios"}
+              : ehModoEncerramentos
+                ? "Encerramentos"
+                : "Relatórios"}
           </h1>
           <p className="text-muted-foreground">
             {desde
@@ -656,7 +661,7 @@ function RelatorioPage() {
               : "Nenhuma verificação registrada ainda."}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className={`flex flex-wrap gap-2 ${aba === "baixas" ? "hidden" : ""}`}>
           {advogados.temMeus || advogados.outros.length > 0 ? (
             <Select value={advogado} onValueChange={setAdvogado}>
               <SelectTrigger className="w-52">
