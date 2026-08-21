@@ -20,7 +20,12 @@ function normalizar(texto: string) {
   return texto.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 }
 
-export function BuscaGlobal() {
+type BuscaGlobalProps = {
+  compacta?: boolean;
+  atalhoTeclado?: boolean;
+};
+
+export function BuscaGlobal({ compacta = false, atalhoTeclado = true }: BuscaGlobalProps) {
   const [aberto, setAberto] = useState(false);
   const [busca, setBusca] = useState("");
   const navigate = useNavigate();
@@ -28,6 +33,7 @@ export function BuscaGlobal() {
   const processos = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
 
   useEffect(() => {
+    if (!atalhoTeclado) return;
     const ouvinte = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
@@ -36,7 +42,7 @@ export function BuscaGlobal() {
     };
     document.addEventListener("keydown", ouvinte);
     return () => document.removeEventListener("keydown", ouvinte);
-  }, []);
+  }, [atalhoTeclado]);
 
   const resultados = useMemo(() => {
     const termo = normalizar(busca.trim());
@@ -49,7 +55,6 @@ export function BuscaGlobal() {
         if (digitos.length >= 4 && p.numero_cnj.replace(/\D/g, "").includes(digitos)) return true;
         const interno = (p.numero_interno ?? "").replace(/\s+/g, "").toLowerCase();
         const numCliente = (p.numero_cliente ?? "").replace(/\s+/g, "").toLowerCase();
-        // Combinação Cliente/Caso, ex.: 4608/2482
         if (compacto.includes("/")) {
           const [tc, ti] = compacto.split("/");
           if (`${numCliente}/${interno}`.includes(compacto)) return true;
@@ -80,19 +85,31 @@ export function BuscaGlobal() {
         type="button"
         onClick={() => setAberto(true)}
         data-tour="nav-busca"
-        className="flex items-center gap-2 rounded-md border border-sidebar-border px-3 py-1.5 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent"
+        className={
+          compacta
+            ? "flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent/30 px-2.5 py-2 text-left transition-colors hover:bg-sidebar-accent"
+            : "flex items-center gap-2 rounded-md border border-sidebar-border px-3 py-1.5 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent"
+        }
       >
-        <Search className="size-4" />
-        Buscar
-        <kbd className="ml-2 rounded border border-current/30 px-1.5 py-0.5 text-xs opacity-70">
-          Ctrl K
-        </kbd>
+        <Search className="size-4 shrink-0" />
+        {compacta ? (
+          <span className="min-w-0">
+            <span className="block text-sm font-medium leading-tight">Buscar processo</span>
+            <span className="mt-0.5 block truncate text-[11px] leading-tight text-sidebar-foreground/60">
+              Número, parte ou Cliente/Caso
+            </span>
+          </span>
+        ) : (
+          <>
+            Buscar
+            <kbd className="ml-2 rounded border border-current/30 px-1.5 py-0.5 text-xs opacity-70">
+              Ctrl K
+            </kbd>
+          </>
+        )}
       </button>
       <Dialog open={aberto} onOpenChange={setAberto}>
         <DialogContent className="overflow-hidden p-0">
-          {/* A gente já filtra os processos na mão (CNJ/cliente/parte), então
-          desliga o filtro fuzzy embutido do cmdk — ele compararia o texto
-          digitado contra o "value" do item, que aqui é só o id. */}
           <Command shouldFilter={false}>
             <CommandInput
               placeholder="Buscar por CNJ, cliente, parte, caso ou Cliente/Caso (ex. 4608/2482)..."
