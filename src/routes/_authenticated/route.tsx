@@ -78,9 +78,7 @@ function AppLayout() {
       <NavItem to="/relatorio" icon={<LineChart className="size-4" />} label="Relatórios" contador={prazosUrgentes} tourId="nav-relatorios" />
       <NavItem to="/relatorio" icon={<AlertTriangle className="size-4" />} label="Meus prazos" search={{ aba: "pendencias", advogado: "eu" }} contador={meusPrazosUrgentes} />
       {ehEstagiaria ? null : <NavItem to="/grupos" icon={<Users className="size-4" />} label="Grupos" tourId="nav-grupos" />}
-      {ehEstagiaria ? null : <NavItem to="/relatorio" icon={<Archive className="size-4" />} label="Encerramento Souza Cruz" search={{ aba: "encerramento" }} tourId="nav-encerramento" />}
-      {ehEstagiaria ? null : <NavItem to="/relatorio" icon={<Archive className="size-4" />} label="Encerramento Astro" search={{ aba: "encerramento-astro" }} tourId="nav-encerramento-astro" />}
-      {ehEstagiaria ? null : <NavItem to="/baixas-cliente" icon={<ClipboardCheck className="size-4" />} label="Baixas no cliente" contador={baixasAbertas} tourId="nav-baixas-cliente" />}
+      {ehEstagiaria ? null : <NavItem to="/relatorio" icon={<Archive className="size-4" />} label="Encerramentos" search={{ aba: "encerramento" }} contador={baixasAbertas} tourId="nav-encerramento" />}
       <NavItem to="/publicacoes" icon={<Newspaper className="size-4" />} label="Publicações" tourId="nav-publicacoes" />
       <NavItem to="/citacoes" icon={<Gavel className="size-4" />} label="Citações" tourId="nav-citacoes" />
       {ehEstagiaria ? null : <NavItem to="/importar" icon={<Upload className="size-4" />} label="Importar" tourId="nav-importar" />}
