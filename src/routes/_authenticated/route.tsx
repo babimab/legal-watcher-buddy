@@ -111,9 +111,8 @@ function AppLayout() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 border-b border-slate-300/70 bg-slate-300/85 shadow-sm backdrop-blur">
         <div className="hidden h-36 items-center gap-3 px-5 md:flex lg:px-6">
-          <Link to="/painel" className="flex shrink-0 items-center gap-2 rounded-lg px-1 py-2">
+          <Link to="/painel" className="flex shrink-0 items-center rounded-lg px-1 py-2">
             <img src="/faro-logo-navy.png" alt="FaroLex" className="h-10 w-auto" />
-            <span className="font-serif text-xl font-semibold tracking-tight text-slate-800">FaroLex</span>
           </Link>
 
           <img
@@ -133,9 +132,8 @@ function AppLayout() {
         </div>
 
         <div className="flex min-h-24 flex-wrap items-center gap-2 px-4 py-3 md:hidden">
-          <Link to="/painel" className="flex shrink-0 items-center gap-2">
+          <Link to="/painel" className="flex shrink-0 items-center">
             <img src="/faro-logo-navy.png" alt="FaroLex" className="h-8 w-auto" />
-            <span className="font-serif text-lg font-semibold text-slate-800">FaroLex</span>
           </Link>
           <img
             src="/faro-advogada.jpg"
