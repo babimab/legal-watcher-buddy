@@ -8,6 +8,7 @@ import ExcelJS from "exceljs";
 import { Button } from "@/components/ui/button";
 import { NovoPrazoDialog } from "@/components/NovoPrazoDialog";
 import { EncerramentoDialog } from "@/components/EncerramentoDialog";
+import { BaixasCliente } from "@/components/BaixasCliente";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
