@@ -335,6 +335,8 @@ function PainelPage() {
         </Card>
       ) : null}
 
+      {!titulo ? <AtalhosPastasPainel /> : null}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Link to="/relatorio" search={{ aba: "pendencias", urgencia: "vencidos" }} className="block">
           <Card className="transition-colors hover:border-destructive/50">
