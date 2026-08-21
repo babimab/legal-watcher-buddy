@@ -52,10 +52,10 @@ function wrap(s: string, max: number, size: number) {
   const words = String(s ?? "").split(/\s+/).filter(Boolean);
   if (!words.length) return [""];
   const rows: string[] = [];
-  let row = words[0];
+  let row = words[0] ?? "";
   for (let i = 1; i < words.length; i++) {
-    const t = `${row} ${words[i]}`;
-    if (width(t, size) <= max) row = t; else { rows.push(row); row = words[i]; }
+    const t = `${row} ${words[i]!}`;
+    if (width(t, size) <= max) row = t; else { rows.push(row); row = words[i]!; }
   }
   rows.push(row); return rows;
 }
@@ -113,7 +113,7 @@ function build(pages:Page[],logo:Img,water:Img){
   const pids:number[]=[];
   for(const p of pages){ const c=add(stream(E.encode(p.cmd.join("\n")))); pids.push(add(E.encode(`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 ${f1} 0 R /F2 ${f2} 0 R >> /XObject << /Logo ${li} 0 R /Water ${wi} 0 R >> >> /Contents ${c} 0 R >>`))); }
   objs[cat-1]=E.encode(`<< /Type /Catalog /Pages ${pagesId} 0 R >>`); objs[pagesId-1]=E.encode(`<< /Type /Pages /Kids [${pids.map(x=>`${x} 0 R`).join(" ")}] /Count ${pids.length} >>`);
-  const out:Uint8Array[]=[E.encode("%PDF-1.4\n")], off=[0]; let pos=out[0].length;
+  const out:Uint8Array[]=[E.encode("%PDF-1.4\n")], off=[0]; let pos=out[0]!.length;
   objs.forEach((o,i)=>{off[i+1]=pos; const a=E.encode(`${i+1} 0 obj\n`),b=E.encode("\nendobj\n"); out.push(a,o,b); pos+=a.length+o.length+b.length;});
   const x=pos; let xr=`xref\n0 ${objs.length+1}\n0000000000 65535 f \n`; for(let i=1;i<=objs.length;i++)xr+=`${String(off[i]).padStart(10,"0")} 00000 n \n`; xr+=`trailer\n<< /Size ${objs.length+1} /Root ${cat} 0 R >>\nstartxref\n${x}\n%%EOF`; out.push(E.encode(xr)); return new Blob([join(out)],{type:"application/pdf"});
 }
@@ -131,8 +131,8 @@ export async function exportarCalculoPdfFinal(nome:string,dataBase:string,criter
 
   title(p,"Memória de cálculo",y); y+=16;
   const widths=[88,48,74,56,72,72,85], xs:number[]=[]; let xx=M; widths.forEach(w=>{xs.push(xx);xx+=w});
-  const tableHeader=()=>{p.fill(C.blue);p.rect(M,y,widths.reduce((a,b)=>a+b,0),22);["Verba","Data","Principal","Fator","Correção","Juros","Atualizado"].forEach((h,i)=>p.text(h,xs[i]+widths[i]/2,y+14,6.8,{bold:true,color:C.white,align:"center"}));y+=22;}; tableHeader();
-  resultado.memoria.forEach((r,idx)=>{const lines=wrap(r.verba,widths[0]-8,6.4),rh=Math.max(24,12+lines.length*7);if(y+rh>H-58){p=new Page();pages.push(p);header(p,logo,water,dataBase,false);y=76;title(p,"Memória de cálculo · continuação",y);y+=16;tableHeader();}if(idx%2){p.fill(C.lighter);p.rect(M,y,widths.reduce((a,b)=>a+b,0),rh);}p.stroke([220,232,238]);p.line(M,y+rh,M+widths.reduce((a,b)=>a+b,0),y+rh);lines.forEach((s,i)=>p.text(s,xs[0]+4,y+15+i*7,6.4));const vals=[br(r.data),money(r.principal),r.fatorCorrecao.toFixed(6),money(r.correcao),money(r.juros),money(r.atualizado)];vals.forEach((s,i)=>p.text(s,xs[i+1]+widths[i+1]-4,y+15,6.3,{bold:i===5,color:i===5?C.blue:C.text,align:"right"}));y+=rh;}); y+=18;
+  const tableHeader=()=>{p.fill(C.blue);p.rect(M,y,widths.reduce((a,b)=>a+b,0),22);["Verba","Data","Principal","Fator","Correção","Juros","Atualizado"].forEach((h,i)=>p.text(h,xs[i]!+widths[i]!/2,y+14,6.8,{bold:true,color:C.white,align:"center"}));y+=22;}; tableHeader();
+  resultado.memoria.forEach((r,idx)=>{const lines=wrap(r.verba,widths[0]!-8,6.4),rh=Math.max(24,12+lines.length*7);if(y+rh>H-58){p=new Page();pages.push(p);header(p,logo,water,dataBase,false);y=76;title(p,"Memória de cálculo · continuação",y);y+=16;tableHeader();}if(idx%2){p.fill(C.lighter);p.rect(M,y,widths.reduce((a,b)=>a+b,0),rh);}p.stroke([220,232,238]);p.line(M,y+rh,M+widths.reduce((a,b)=>a+b,0),y+rh);lines.forEach((s,i)=>p.text(s,xs[0]!+4,y+15+i*7,6.4));const vals=[br(r.data),money(r.principal),r.fatorCorrecao.toFixed(6),money(r.correcao),money(r.juros),money(r.atualizado)];vals.forEach((s,i)=>p.text(s,xs[i+1]!+widths[i+1]!-4,y+15,6.3,{bold:i===5,color:i===5?C.blue:C.text,align:"right"}));y+=rh;}); y+=18;
 
   const newPage=()=>{p=new Page();pages.push(p);header(p,logo,water,dataBase,false);y=78;};
   const ensure=(need:number)=>{if(y+need>H-58)newPage();};

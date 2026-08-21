@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { AtalhosPastasPainel } from "@/components/AtalhosPastasPainel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -129,7 +130,7 @@ function PainelPage() {
       tipo: "vencido" | "prazo" | "validar";
       titulo: string;
       detalhe: string;
-      processoId?: string;
+      processoId?: string | undefined;
     }> = [];
 
     for (const m of meusPrazosVencidos.slice(0, 3)) {
@@ -334,6 +335,8 @@ function PainelPage() {
           </CardContent>
         </Card>
       ) : null}
+
+      {!titulo ? <AtalhosPastasPainel /> : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Link to="/relatorio" search={{ aba: "pendencias", urgencia: "vencidos" }} className="block">

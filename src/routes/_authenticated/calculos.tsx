@@ -372,7 +372,7 @@ function ProcessoResumo({ processo }: { processo: Processo }) {
   </div>;
 }
 
-function UploadCalculo({ calculoId, categoria, label, onDone }: { calculoId?: string; categoria: "titulo" | "autos"; label: string; onDone: () => void }) {
+function UploadCalculo({ calculoId, categoria, label, onDone }: { calculoId?: string | undefined; categoria: "titulo" | "autos"; label: string; onDone: () => void }) {
   const [enviando, setEnviando] = useState(false);
   return <Campo label={label}><Input type="file" accept="application/pdf" disabled={!calculoId || enviando} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (!f || !calculoId) return; setEnviando(true); void enviarDocumentoCalculo(calculoId, categoria, f).then(() => { toast.success("PDF anexado."); onDone(); }).catch((x) => toast.error(x instanceof Error ? x.message : "Falha no upload.")).finally(() => setEnviando(false)); }} /></Campo>;
 }

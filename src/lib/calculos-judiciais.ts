@@ -71,7 +71,7 @@ export type LinhaMemoria = {
   atualizado: number;
   fonteCorrecao: string;
   fonteJuros: string;
-  periodosJuros?: PeriodoJurosCalculo[];
+  periodosJuros?: PeriodoJurosCalculo[] | undefined;
 };
 
 export type ResultadoCalculo = {
@@ -174,7 +174,7 @@ async function obterIpcaMensal(de: string, ate: string): Promise<number[]> {
   const json = (await r.json()) as Array<Record<string, string>>;
   return json
     .slice(1)
-    .map((x) => Number(String(x.V ?? "").replace(",", ".")))
+    .map((x) => Number(String((x as Record<string, unknown>)["V"] ?? "").replace(",", ".")))
     .filter((x) => Number.isFinite(x));
 }
 
@@ -356,8 +356,8 @@ export async function listarCalculos(): Promise<CalculoJudicial[]> {
 }
 
 export async function salvarCalculo(input: {
-  id?: string;
-  processoId?: string | null;
+  id?: string | undefined;
+  processoId?: string | null | undefined;
   nome: string;
   dataBase: string;
   criterios: CriteriosCalculo;

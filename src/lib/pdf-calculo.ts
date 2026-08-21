@@ -128,13 +128,13 @@ function quebrarTexto(texto: string, largura: number, tamanho: number) {
   const palavras = String(texto ?? "").split(/\s+/).filter(Boolean);
   if (!palavras.length) return [""];
   const linhas: string[] = [];
-  let atual = palavras[0];
+  let atual = palavras[0] ?? "";
   for (let i = 1; i < palavras.length; i++) {
     const tentativa = `${atual} ${palavras[i]}`;
     if (estimarLargura(tentativa, tamanho) <= largura) atual = tentativa;
     else {
       linhas.push(atual);
-      atual = palavras[i];
+      atual = palavras[i]!;
     }
   }
   linhas.push(atual);
@@ -216,7 +216,7 @@ function tituloSecao(p: Pagina, titulo: string, y: number) {
 function tabelaCabecalho(p: Pagina, y: number, xs: number[], larguras: number[], cabecalhos: string[]) {
   p.fill(COLORS.blue);
   p.rect(MARGIN, y, larguras.reduce((a, b) => a + b, 0), 22);
-  cabecalhos.forEach((h, i) => p.text(h, xs[i] + larguras[i] / 2, y + 14, 7, { bold: true, color: COLORS.white, align: "center" }));
+  cabecalhos.forEach((h, i) => p.text(h, xs[i]! + larguras[i]! / 2, y + 14, 7, { bold: true, color: COLORS.white, align: "center" }));
   return y + 22;
 }
 
@@ -251,7 +251,7 @@ function montarPdf(paginas: Pagina[], logo: JpegAsset, watermark: JpegAsset) {
 
   const partes: Uint8Array[] = [encoder.encode("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n")];
   const offsets = [0];
-  let pos = partes[0].length;
+  let pos = partes[0]!.length;
   objetos.forEach((obj, idx) => {
     offsets[idx + 1] = pos;
     const inicio = encoder.encode(`${idx + 1} 0 obj\n`);
@@ -363,7 +363,7 @@ export async function exportarCalculoPdfDireto(
 
   resultado.memoria.forEach((linha, idx) => {
     const valores = [linha.verba, isoBR(linha.data), moeda(linha.principal), linha.fatorCorrecao.toFixed(6), moeda(linha.correcao), moeda(linha.juros), moeda(linha.atualizado)];
-    const linhasVerba = quebrarTexto(linha.verba, larguras[0] - 8, 6.5);
+    const linhasVerba = quebrarTexto(linha.verba, larguras[0]! - 8, 6.5);
     const rowH = Math.max(24, 12 + linhasVerba.length * 7);
     if (y + rowH > A4_H - 55) {
       p = new Pagina();
@@ -380,10 +380,10 @@ export async function exportarCalculoPdfDireto(
     }
     p.stroke([220, 232, 238]);
     p.line(MARGIN, y + rowH, MARGIN + larguras.reduce((a, b) => a + b, 0), y + rowH);
-    linhasVerba.forEach((txt, li) => p.text(txt, xs[0] + 4, y + 15 + li * 7, 6.5, { color: COLORS.text }));
+    linhasVerba.forEach((txt, li) => p.text(txt, xs[0]! + 4, y + 15 + li * 7, 6.5, { color: COLORS.text }));
     for (let i = 1; i < valores.length; i++) {
       const isNum = i >= 2;
-      p.text(valores[i], isNum ? xs[i] + larguras[i] - 4 : xs[i] + 4, y + 15, 6.5, { bold: i === 6, color: i === 6 ? COLORS.blue : COLORS.text, align: isNum ? "right" : "left" });
+      p.text(valores[i]!, isNum ? xs[i]! + larguras[i]! - 4 : xs[i]! + 4, y + 15, 6.5, { bold: i === 6, color: i === 6 ? COLORS.blue : COLORS.text, align: isNum ? "right" : "left" });
     }
     y += rowH;
   });
