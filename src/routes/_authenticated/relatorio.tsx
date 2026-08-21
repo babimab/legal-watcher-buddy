@@ -556,7 +556,7 @@ function RelatorioPage() {
           ? ultimosFiltrados
           : aba === "pendencias"
             ? pendenciasFiltradas
-            : aba === "encerramento" || aba === "encerramento-astro"
+            : aba === "encerramento" || aba === "encerramento-astro" || aba === "baixas"
               ? []
               : novidadesFiltradas;
 
