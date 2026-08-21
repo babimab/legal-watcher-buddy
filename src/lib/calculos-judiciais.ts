@@ -356,8 +356,8 @@ export async function listarCalculos(): Promise<CalculoJudicial[]> {
 }
 
 export async function salvarCalculo(input: {
-  id?: string;
-  processoId?: string | null;
+  id?: string | undefined;
+  processoId?: string | null | undefined;
   nome: string;
   dataBase: string;
   criterios: CriteriosCalculo;

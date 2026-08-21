@@ -383,7 +383,7 @@ export async function exportarCalculoPdfDireto(
     linhasVerba.forEach((txt, li) => p.text(txt, xs[0] + 4, y + 15 + li * 7, 6.5, { color: COLORS.text }));
     for (let i = 1; i < valores.length; i++) {
       const isNum = i >= 2;
-      p.text(valores[i], isNum ? xs[i] + larguras[i] - 4 : xs[i] + 4, y + 15, 6.5, { bold: i === 6, color: i === 6 ? COLORS.blue : COLORS.text, align: isNum ? "right" : "left" });
+      p.text(valores[i]!, isNum ? xs[i]! + larguras[i]! - 4 : xs[i]! + 4, y + 15, 6.5, { bold: i === 6, color: i === 6 ? COLORS.blue : COLORS.text, align: isNum ? "right" : "left" });
     }
     y += rowH;
   });

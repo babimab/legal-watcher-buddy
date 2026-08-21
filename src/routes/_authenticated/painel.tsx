@@ -130,7 +130,7 @@ function PainelPage() {
       tipo: "vencido" | "prazo" | "validar";
       titulo: string;
       detalhe: string;
-      processoId?: string;
+      processoId?: string | undefined;
     }> = [];
 
     for (const m of meusPrazosVencidos.slice(0, 3)) {

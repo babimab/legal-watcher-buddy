@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   Archive,
   Calculator,
-  ClipboardCheck,
   FolderKanban,
   Gavel,
   LayoutDashboard,
