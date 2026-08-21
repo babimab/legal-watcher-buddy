@@ -22,10 +22,11 @@ function normalizar(texto: string) {
 
 type BuscaGlobalProps = {
   compacta?: boolean;
+  barraSuperior?: boolean;
   atalhoTeclado?: boolean;
 };
 
-export function BuscaGlobal({ compacta = false, atalhoTeclado = true }: BuscaGlobalProps) {
+export function BuscaGlobal({ compacta = false, barraSuperior = false, atalhoTeclado = true }: BuscaGlobalProps) {
   const [aberto, setAberto] = useState(false);
   const [busca, setBusca] = useState("");
   const navigate = useNavigate();
@@ -79,20 +80,31 @@ export function BuscaGlobal({ compacta = false, atalhoTeclado = true }: BuscaGlo
     navigate({ to: "/processos/$id", params: { id } });
   };
 
+  const classeBotao = barraSuperior
+    ? "flex h-10 w-full max-w-2xl items-center gap-3 rounded-lg border border-slate-400/60 bg-white/80 px-3.5 text-left text-slate-700 shadow-sm transition-colors hover:bg-white"
+    : compacta
+      ? "flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent/30 px-2.5 py-2 text-left transition-colors hover:bg-sidebar-accent"
+      : "flex items-center gap-2 rounded-md border border-sidebar-border px-3 py-1.5 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent";
+
   return (
     <>
       <button
         type="button"
         onClick={() => setAberto(true)}
         data-tour="nav-busca"
-        className={
-          compacta
-            ? "flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent/30 px-2.5 py-2 text-left transition-colors hover:bg-sidebar-accent"
-            : "flex items-center gap-2 rounded-md border border-sidebar-border px-3 py-1.5 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent"
-        }
+        className={classeBotao}
       >
         <Search className="size-4 shrink-0" />
-        {compacta ? (
+        {barraSuperior ? (
+          <>
+            <span className="min-w-0 flex-1 truncate text-sm text-slate-600">
+              Buscar processo por número, parte ou Cliente/Caso
+            </span>
+            <kbd className="hidden shrink-0 rounded border border-slate-400/50 bg-white/60 px-1.5 py-0.5 text-[11px] text-slate-500 sm:inline">
+              Ctrl K
+            </kbd>
+          </>
+        ) : compacta ? (
           <span className="min-w-0">
             <span className="block text-sm font-medium leading-tight">Buscar processo</span>
             <span className="mt-0.5 block truncate text-[11px] leading-tight text-sidebar-foreground/60">
