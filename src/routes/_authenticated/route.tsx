@@ -116,8 +116,6 @@ function AppLayout() {
             <span className="font-serif text-xl font-semibold tracking-tight text-slate-800">FaroLex</span>
           </Link>
 
-          {perfilESair}
-
           <img
             src="/faro-advogada.jpg"
             alt="FaroLex"
@@ -128,8 +126,9 @@ function AppLayout() {
             <BuscaGlobal barraSuperior />
           </div>
 
-          <div className="ml-auto shrink-0 text-slate-700">
+          <div className="ml-auto flex shrink-0 items-center gap-1 text-slate-700">
             <GuiaRapido />
+            {perfilESair}
           </div>
         </div>
 
@@ -138,14 +137,6 @@ function AppLayout() {
             <img src="/faro-logo-navy.png" alt="FaroLex" className="h-8 w-auto" />
             <span className="font-serif text-lg font-semibold text-slate-800">FaroLex</span>
           </Link>
-          <div className="flex items-center">
-            <Link to="/perfil" aria-label="Meu perfil" className="rounded-md p-2 text-slate-700 hover:bg-white/60">
-              <User className="size-4" />
-            </Link>
-            <Button variant="ghost" size="icon" onClick={sair} className="text-slate-700 hover:bg-white/60 hover:text-slate-900">
-              <LogOut className="size-4" />
-            </Button>
-          </div>
           <img
             src="/faro-advogada.jpg"
             alt="FaroLex"
@@ -154,8 +145,14 @@ function AppLayout() {
           <div className="min-w-52 flex-1">
             <BuscaGlobal barraSuperior />
           </div>
-          <div className="ml-auto text-slate-700">
+          <div className="ml-auto flex items-center gap-1 text-slate-700">
             <GuiaRapido />
+            <Link to="/perfil" aria-label="Meu perfil" className="rounded-md p-2 hover:bg-white/60">
+              <User className="size-4" />
+            </Link>
+            <Button variant="ghost" size="icon" onClick={sair} className="text-slate-700 hover:bg-white/60 hover:text-slate-900">
+              <LogOut className="size-4" />
+            </Button>
           </div>
         </div>
       </header>
