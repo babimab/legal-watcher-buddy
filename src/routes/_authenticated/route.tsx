@@ -106,11 +106,11 @@ function AppLayout() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 border-b border-slate-300/70 bg-slate-300/85 shadow-sm backdrop-blur">
-        <div className="flex h-24 items-center gap-4 px-4 sm:h-32 sm:px-5 lg:px-6">
+        <div className="flex h-24 items-center gap-4 px-4 sm:h-36 sm:px-5 lg:px-6">
           <img
             src="/faro-advogada.jpg"
             alt="FaroLex"
-            className="size-14 shrink-0 rounded-xl border border-slate-400/60 object-cover shadow-sm sm:size-20"
+            className="size-14 shrink-0 rounded-xl border border-slate-400/60 object-cover shadow-sm sm:size-28"
           />
           <div className="min-w-0 w-full max-w-sm">
             <BuscaGlobal barraSuperior />
