@@ -190,8 +190,8 @@ function cabecalhoPrincipal(p: Pagina, logoRatio: number, dataBase: string, wate
   p.line(MARGIN + 151, 46, MARGIN + 151, 86);
   p.text("Memória de cálculo judicial", MARGIN + 166, 61, 12.5, { bold: true, color: COLORS.white });
   p.text("ATUALIZAÇÃO E DEMONSTRATIVO", MARGIN + 166, 77, 7.5, { color: [216, 235, 244] });
-  p.text("DATA-BASE DO CÁLCULO", A4_W - MARGIN - 14, 59, 7, { color: [188, 217, 231], align: "right" });
-  p.text(isoBR(dataBase), A4_W - MARGIN - 14, 76, 11, { bold: true, color: COLORS.white, align: "right" });
+  p.text("DATA-BASE DO CÁLCULO", A4_W - MARGIN - 18, 59, 6.5, { color: [188, 217, 231], align: "right" });
+  p.text(isoBR(dataBase), A4_W - MARGIN - 18, 76, 11, { bold: true, color: COLORS.white, align: "right" });
 
   const waterW = 330;
   const waterH = waterW / watermarkRatio;
@@ -364,7 +364,7 @@ export async function exportarCalculoPdfDireto(
   resultado.memoria.forEach((linha, idx) => {
     const valores = [linha.verba, isoBR(linha.data), moeda(linha.principal), linha.fatorCorrecao.toFixed(6), moeda(linha.correcao), moeda(linha.juros), moeda(linha.atualizado)];
     const linhasVerba = quebrarTexto(linha.verba, larguras[0] - 8, 6.5);
-    const rowH = Math.max(20, 9 + linhasVerba.length * 7);
+    const rowH = Math.max(24, 12 + linhasVerba.length * 7);
     if (y + rowH > A4_H - 55) {
       p = new Pagina();
       paginas.push(p);
@@ -380,44 +380,52 @@ export async function exportarCalculoPdfDireto(
     }
     p.stroke([220, 232, 238]);
     p.line(MARGIN, y + rowH, MARGIN + larguras.reduce((a, b) => a + b, 0), y + rowH);
-    linhasVerba.forEach((txt, li) => p.text(txt, xs[0] + 4, y + 13 + li * 7, 6.5, { color: COLORS.text }));
+    linhasVerba.forEach((txt, li) => p.text(txt, xs[0] + 4, y + 15 + li * 7, 6.5, { color: COLORS.text }));
     for (let i = 1; i < valores.length; i++) {
       const isNum = i >= 2;
-      p.text(valores[i], isNum ? xs[i] + larguras[i] - 4 : xs[i] + 4, y + 13, 6.5, { bold: i === 6, color: i === 6 ? COLORS.blue : COLORS.text, align: isNum ? "right" : "left" });
+      p.text(valores[i], isNum ? xs[i] + larguras[i] - 4 : xs[i] + 4, y + 15, 6.5, { bold: i === 6, color: i === 6 ? COLORS.blue : COLORS.text, align: isNum ? "right" : "left" });
     }
     y += rowH;
   });
 
-  const garantirEspaco = (necessario: number, titulo?: string) => {
-    if (y + necessario <= A4_H - 55) return;
+  // Seções finais nunca começam coladas à última linha da memória.
+  y += 18;
+
+  const garantirEspaco = (necessario: number) => {
+    if (y + necessario <= A4_H - 55) return false;
     p = new Pagina();
     paginas.push(p);
     cabecalhoContinuacao(p);
     y = 78;
-    if (titulo) { tituloSecao(p, titulo, y); y += 20; }
+    return true;
   };
 
   if (resultado.fontes.length) {
-    garantirEspaco(55, "Fontes e critérios");
+    garantirEspaco(55);
     tituloSecao(p, "Fontes e critérios", y);
-    y += 19;
+    y += 22;
     for (const fonte of resultado.fontes) {
       const linhas = quebrarTexto(`• ${fonte}`, A4_W - MARGIN * 2 - 22, 8);
-      const h = linhas.length * 11 + 4;
-      garantirEspaco(h);
+      const h = linhas.length * 11 + 8;
+      const mudouPagina = garantirEspaco(h + 26);
+      if (mudouPagina) {
+        tituloSecao(p, "Fontes e critérios · continuação", y);
+        y += 22;
+      }
       p.fill(COLORS.light);
       p.rect(MARGIN, y, A4_W - MARGIN * 2, h);
-      linhas.forEach((txt, i) => p.text(txt, MARGIN + 10, y + 12 + i * 11, 8, { color: [64, 95, 112] }));
-      y += h + 4;
+      linhas.forEach((txt, i) => p.text(txt, MARGIN + 10, y + 14 + i * 11, 8, { color: [64, 95, 112] }));
+      y += h + 6;
     }
+    y += 10;
   }
 
   if (criterios.observacoes) {
     const linhas = quebrarTexto(criterios.observacoes, A4_W - MARGIN * 2 - 20, 8);
     const h = linhas.length * 11 + 18;
-    garantirEspaco(h + 28, "Observações");
+    garantirEspaco(h + 42);
     tituloSecao(p, "Observações", y);
-    y += 19;
+    y += 22;
     p.fill([237, 246, 250]);
     p.stroke(COLORS.border);
     p.rect(MARGIN, y, A4_W - MARGIN * 2, h, true, true);
