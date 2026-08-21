@@ -78,15 +78,63 @@ export const Route = createFileRoute("/_authenticated/relatorio")({
   component: RelatorioPage,
 });
 
-const COLUNAS_TEXTO_LIVRE = new Set(["descricao", "observacao"]);
+const COLUNAS_TEXTO_LIVRE = new Set(["andamentos", "observacoes"]);
+
+type GrupoAndamentos = {
+  chave: string;
+  processo: MovimentacaoComProcesso["processos"] | null | undefined;
+  itens: MovimentacaoComProcesso[];
+};
+
+function agruparAndamentosPorProcesso(itens: MovimentacaoComProcesso[]): GrupoAndamentos[] {
+  const mapa = new Map<string, GrupoAndamentos>();
+
+  for (const m of itens) {
+    const chave = m.processos?.id ?? `sem-processo-${m.id}`;
+    const grupo = mapa.get(chave);
+    if (grupo) grupo.itens.push(m);
+    else mapa.set(chave, { chave, processo: m.processos, itens: [m] });
+  }
+
+  return [...mapa.values()]
+    .map((grupo) => ({
+      ...grupo,
+      itens: [...grupo.itens].sort((a, b) => {
+        const porData = a.data_movimentacao.localeCompare(b.data_movimentacao);
+        if (porData !== 0) return porData;
+        return (a.created_at ?? "").localeCompare(b.created_at ?? "");
+      }),
+    }))
+    .sort((a, b) => {
+      const dataA = a.itens[0]?.data_movimentacao ?? "";
+      const dataB = b.itens[0]?.data_movimentacao ?? "";
+      return dataB.localeCompare(dataA);
+    });
+}
+
+function formatarDataCurta(data: string) {
+  return new Date(`${data}T12:00:00`).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+  });
+}
+
+function clienteCasoDoProcesso(processo: MovimentacaoComProcesso["processos"] | null | undefined) {
+  if (!processo) return "";
+  if (processo.numero_cliente && processo.numero_interno)
+    return `${processo.numero_cliente}/${processo.numero_interno}`;
+  return processo.numero_interno ?? processo.numero_cliente ?? "";
+}
 
 async function exportarAndamentosExcel(itens: MovimentacaoComProcesso[], nomeArquivo: string) {
   const workbook = new ExcelJS.Workbook();
   const planilha = workbook.addWorksheet("Andamentos");
+  const grupos = agruparAndamentosPorProcesso(itens);
 
   planilha.columns = [
     { header: "Número CNJ", key: "numero_cnj", width: 22 },
     { header: "Cliente", key: "cliente", width: 26 },
+    { header: "Cliente/Caso", key: "cliente_caso", width: 18 },
     { header: "Autor", key: "autor", width: 26 },
     { header: "Réu", key: "reu", width: 26 },
     { header: "Parte contrária", key: "parte_contraria", width: 26 },
@@ -95,36 +143,46 @@ async function exportarAndamentosExcel(itens: MovimentacaoComProcesso[], nomeArq
     { header: "UF", key: "uf", width: 10 },
     { header: "Responsável", key: "responsavel", width: 14 },
     { header: "Sócio", key: "socio", width: 10 },
-    { header: "Tipo", key: "tipo", width: 14 },
-    { header: "Data", key: "data", width: 12 },
-    { header: "Descrição", key: "descricao", width: 60 },
+    { header: "Qtd. andamentos", key: "quantidade", width: 16 },
+    { header: "Andamentos do período", key: "andamentos", width: 80 },
     { header: "Destacar no e-mail", key: "destacar_email", width: 20 },
-    { header: "Observação", key: "observacao", width: 40 },
+    { header: "Observações", key: "observacoes", width: 50 },
   ];
 
-  for (const m of itens) {
+  for (const grupo of grupos) {
+    const p = grupo.processo;
+    const destacados = grupo.itens.filter((m) => m.destacar_email).length;
+    const andamentos = grupo.itens
+      .map((m) => `${formatarDataCurta(m.data_movimentacao)} — ${m.descricao}`)
+      .join("\n");
+    const observacoes = grupo.itens
+      .filter((m) => m.observacao?.trim())
+      .map((m) => `${formatarDataCurta(m.data_movimentacao)} — ${m.observacao!.trim()}`)
+      .join("\n");
+
     planilha.addRow({
-      numero_cnj: m.processos ? formatarCNJ(m.processos.numero_cnj) : "",
-      cliente: exibir(m.processos?.cliente) ?? "",
-      autor: m.processos?.autor ?? "",
-      reu: m.processos?.reu ?? "",
-      parte_contraria: m.processos?.parte_contraria ?? "",
-      comarca: m.processos?.comarca ?? "",
-      vara: m.processos?.vara ?? "",
-      uf: m.processos?.uf ?? "",
-      responsavel: m.processos?.responsavel ?? "",
-      socio: m.processos?.socio ?? "",
-      tipo: m.tipo ?? "",
-      data: new Date(`${m.data_movimentacao}T12:00:00`),
-      descricao: m.descricao,
-      destacar_email: m.destacar_email ? "Sim" : "Não",
-      observacao: m.observacao ?? "",
+      numero_cnj: p ? formatarCNJ(p.numero_cnj) : "",
+      cliente: exibir(p?.cliente) ?? "",
+      cliente_caso: clienteCasoDoProcesso(p),
+      autor: p?.autor ?? "",
+      reu: p?.reu ?? "",
+      parte_contraria: p?.parte_contraria ?? "",
+      comarca: p?.comarca ?? "",
+      vara: p?.vara ?? "",
+      uf: p?.uf ?? "",
+      responsavel: p?.responsavel ?? "",
+      socio: p?.socio ?? "",
+      quantidade: grupo.itens.length,
+      andamentos,
+      destacar_email: destacados > 0 ? `Sim (${destacados})` : "Não",
+      observacoes,
     });
   }
 
   estilizarCabecalho(planilha);
   centralizarLinhas(planilha, COLUNAS_TEXTO_LIVRE);
-  planilha.getColumn("data").numFmt = "dd/mm/yyyy";
+  planilha.getColumn("andamentos").alignment = { vertical: "top", horizontal: "left", wrapText: true };
+  planilha.getColumn("observacoes").alignment = { vertical: "top", horizontal: "left", wrapText: true };
   finalizarPlanilha(planilha);
 
   await baixarPlanilha(workbook, nomeArquivo);
@@ -150,7 +208,7 @@ const TITULO_POR_ABA: Record<string, string> = {
   pendencias: "Prazos pendentes",
 };
 
-const MAX_ITENS_NO_EMAIL = 30;
+const MAX_PROCESSOS_NO_EMAIL = 30;
 
 function saudacao() {
   const hora = new Date().getHours();
@@ -226,21 +284,26 @@ function linhaJuizoUf(processo: Partial<DadosEmailProcesso> | null | undefined) 
     .join(" | ");
 }
 
-function blocoAndamento(indice: number, m: MovimentacaoComProcesso, processoCompleto?: Processo) {
-  const processo = processoCompleto ?? m.processos;
-  const numero = m.processos ? formatarCNJ(m.processos.numero_cnj) : "—";
+function blocoAndamentosProcesso(
+  indice: number,
+  grupo: GrupoAndamentos,
+  processoCompleto?: Processo,
+) {
+  const processo = processoCompleto ?? grupo.processo;
+  const numero = grupo.processo ? formatarCNJ(grupo.processo.numero_cnj) : "—";
   const adversa = nomeParteAdversa(processo);
   const cabecalho = [numero, adversa].filter(Boolean).join(" — ");
   const clienteCaso = linhaClienteCaso(processo);
   const juizoUf = linhaJuizoUf(processo);
-  const data = new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR");
+  const andamentos = grupo.itens
+    .map((m) => `${formatarDataCurta(m.data_movimentacao)} — ${m.descricao}`)
+    .join(" // ");
 
   return [
     `${indice}. ${cabecalho}`,
     clienteCaso ? `   ${clienteCaso}` : "",
     juizoUf ? `   ${juizoUf}` : "",
-    `   Data: ${data}`,
-    `   Andamento: ${m.descricao}`,
+    `   ${andamentos}`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -253,14 +316,19 @@ function montarMailto(
   processosCompletos: Processo[],
 ) {
   const assunto = `FaroLex — ${titulo}`;
-  const cortado = itens.length > MAX_ITENS_NO_EMAIL;
-  const visiveis = itens.slice(0, MAX_ITENS_NO_EMAIL);
+  const grupos = agruparAndamentosPorProcesso(itens);
+  const cortado = grupos.length > MAX_PROCESSOS_NO_EMAIL;
+  const visiveis = grupos.slice(0, MAX_PROCESSOS_NO_EMAIL);
   const porId = new Map(processosCompletos.map((p) => [p.id, p]));
-  const blocos = visiveis.map((m, i) =>
-    blocoAndamento(i + 1, m, m.processos ? porId.get(m.processos.id) : undefined),
+  const blocos = visiveis.map((grupo, i) =>
+    blocoAndamentosProcesso(
+      i + 1,
+      grupo,
+      grupo.processo ? porId.get(grupo.processo.id) : undefined,
+    ),
   );
   const linhaCortado = cortado
-    ? `\n\n... e mais ${itens.length - MAX_ITENS_NO_EMAIL} andamento(s). A lista completa está na planilha em anexo.`
+    ? `\n\n... e mais ${grupos.length - MAX_PROCESSOS_NO_EMAIL} processo(s). A lista completa está na planilha em anexo.`
     : "";
 
   const corpo = `Olá, ${saudacao()}.
@@ -430,8 +498,6 @@ function RelatorioPage() {
   const [ufEncerramento, setUfEncerramento] = useState("todos");
   const minhaSigla = useSiglaAtual();
 
-  // O componente não remonta ao trocar de aba/filtro via link (ex.: atalho
-  // "Meus prazos" no menu) — sem isso, o estado local ficava desatualizado.
   useEffect(() => {
     setAba(search.aba ?? "novidades");
     setAdvogado(search.advogado ?? "todos");
@@ -482,8 +548,6 @@ function RelatorioPage() {
   const aplicarFiltrosRelatorio = (itens: MovimentacaoComProcesso[]) =>
     filtrarPorPasta(filtrarPorAdvogado(itens));
 
-  // Importações de planilhas são histórico e não devem aparecer como novidade.
-  // Movimentações manuais e de publicações continuam entrando normalmente.
   const novidadesSemImportacao = (novidades.data ?? []).filter((m) => m.fonte !== "planilha");
   const novidadesFiltradas = aplicarFiltrosRelatorio(novidadesSemImportacao);
   const semanaFiltrada = aplicarFiltrosRelatorio(semana.data ?? []);
@@ -594,7 +658,6 @@ function RelatorioPage() {
 
     const itensDestacados = itensDaAba.filter((m) => m.destacar_email);
 
-    // A planilha sempre leva todos os andamentos do relatório.
     await exportarAndamentosExcel(itensDaAba, nomeArquivoDaAba).catch(() => {
       toast.error("Não consegui gerar a planilha, mas vou abrir o e-mail mesmo assim.");
     });
@@ -606,8 +669,9 @@ function RelatorioPage() {
       return;
     }
 
+    const processosDestacados = agruparAndamentosPorProcesso(itensDestacados).length;
     toast.success(
-      `Planilha completa baixada. O corpo do e-mail levará ${itensDestacados.length} andamento(s) destacado(s).`,
+      `Planilha completa baixada. O corpo do e-mail levará ${processosDestacados} processo(s), com ${itensDestacados.length} andamento(s) destacado(s).`,
       { duration: 6000 },
     );
     window.location.href = montarMailto(
@@ -1020,12 +1084,12 @@ function RelatorioPage() {
                     </span>
                   ) : periodoValido ? (
                     <span className="pb-2 text-sm text-muted-foreground">
-                      {periodoFiltrado.length} andamento(s) encontrado(s) no período.
+                      {periodoFiltrado.length} andamento(s) em {agruparAndamentosPorProcesso(periodoFiltrado).length} processo(s) no período.
                     </span>
                   ) : null}
                 </CardContent>
               </Card>
-              <Lista
+              <ListaAndamentosConsolidada
                 itens={periodoFiltrado}
                 vazio={
                   periodoValido
@@ -1046,16 +1110,16 @@ function RelatorioPage() {
               </TabsList>
 
               <TabsContent value="novidades" className="mt-4">
-                <Lista itens={novidadesFiltradas} vazio="Nada novo desde a última verificação." />
+                <ListaAndamentosConsolidada itens={novidadesFiltradas} vazio="Nada novo desde a última verificação." />
               </TabsContent>
               <TabsContent value="semana" className="mt-4">
-                <Lista itens={semanaFiltrada} vazio="Nenhuma movimentação nos últimos 7 dias." />
+                <ListaAndamentosConsolidada itens={semanaFiltrada} vazio="Nenhuma movimentação nos últimos 7 dias." />
               </TabsContent>
               <TabsContent value="mes" className="mt-4">
-                <Lista itens={mesFiltrado} vazio="Nenhuma movimentação nos últimos 30 dias." />
+                <ListaAndamentosConsolidada itens={mesFiltrado} vazio="Nenhuma movimentação nos últimos 30 dias." />
               </TabsContent>
               <TabsContent value="ultimos" className="mt-4">
-                <Lista itens={ultimosFiltrados} vazio="Nenhum andamento registrado ainda." />
+                <ListaAndamentosConsolidada itens={ultimosFiltrados} vazio="Nenhum andamento registrado ainda." />
               </TabsContent>
             </Tabs>
           )}
@@ -1075,18 +1139,8 @@ function RelatorioPage() {
   );
 }
 
-function Lista({
-  itens,
-  vazio,
-  destaque,
-}: {
-  itens: MovimentacaoComProcesso[];
-  vazio: string;
-  destaque?: boolean;
-}) {
-  const queryClient = useQueryClient();
-
-  const validar = async (id: string) => {
+function validarMovimentacao(id: string, queryClient: ReturnType<typeof useQueryClient>) {
+  return (async () => {
     const quem = await siglaOuEmailAtual();
     const { error } = await supabaseSolto
       .from("movimentacoes")
@@ -1097,7 +1151,112 @@ function Lista({
       return;
     }
     await queryClient.invalidateQueries();
-  };
+  })();
+}
+
+function ListaAndamentosConsolidada({
+  itens,
+  vazio,
+}: {
+  itens: MovimentacaoComProcesso[];
+  vazio: string;
+}) {
+  const queryClient = useQueryClient();
+  const grupos = agruparAndamentosPorProcesso(itens);
+
+  if (itens.length === 0)
+    return (
+      <Card>
+        <CardContent className="py-10 text-center text-muted-foreground">{vazio}</CardContent>
+      </Card>
+    );
+
+  return (
+    <ol className="space-y-3">
+      {grupos.map((grupo) => {
+        const p = grupo.processo;
+        const temNaoValidado = grupo.itens.some((m) => !m.validado);
+        return (
+          <li
+            key={grupo.chave}
+            className={`overflow-hidden rounded-lg border ${temNaoValidado ? "border-amber-500/50 bg-amber-50/30" : "border-border bg-card"}`}
+          >
+            <div className="flex flex-wrap items-center gap-2 border-b bg-muted/20 px-4 py-3 text-sm">
+              {p ? (
+                <Link
+                  to="/processos/$id"
+                  params={{ id: p.id }}
+                  className="font-mono text-xs underline-offset-4 hover:underline"
+                >
+                  {formatarCNJ(p.numero_cnj)}
+                </Link>
+              ) : null}
+              <span className="font-medium">{exibir(p?.cliente)}</span>
+              {p?.parte_contraria ? (
+                <span className="text-muted-foreground">— {p.parte_contraria}</span>
+              ) : p?.autor || p?.reu ? (
+                <span className="text-muted-foreground">
+                  {p.autor ?? "—"}{p.reu ? ` x ${p.reu}` : ""}
+                </span>
+              ) : null}
+              {clienteCasoDoProcesso(p) ? (
+                <Badge variant="outline">Cliente/Caso {clienteCasoDoProcesso(p)}</Badge>
+              ) : null}
+              <Badge variant="secondary">{grupo.itens.length} andamento(s)</Badge>
+            </div>
+
+            <div className="divide-y">
+              {grupo.itens.map((m) => (
+                <div key={m.id} className="px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-semibold text-foreground">
+                      {formatarDataCurta(m.data_movimentacao)}
+                    </span>
+                    {m.tipo ? <Badge variant="outline">{m.tipo}</Badge> : null}
+                    {m.destacar_email ? <Badge>Destacar no e-mail</Badge> : null}
+                    {!m.validado ? <Badge variant="secondary">Sugerido — não validado</Badge> : null}
+                  </div>
+                  <p className="mt-1 whitespace-pre-wrap text-sm">{m.descricao}</p>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    {m.observacao ? (
+                      <p className="text-xs text-muted-foreground">Obs.: {m.observacao}</p>
+                    ) : <span />}
+                    {!m.validado ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void validarMovimentacao(m.id, queryClient)}
+                      >
+                        <CheckCircle2 className="size-3.5" /> Marcar como validado
+                      </Button>
+                    ) : m.validado_por ? (
+                      <p className="text-xs text-muted-foreground">
+                        Validado por {m.validado_por}
+                        {m.validado_em ? ` em ${new Date(m.validado_em).toLocaleDateString("pt-BR")}` : ""}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function Lista({
+  itens,
+  vazio,
+  destaque,
+}: {
+  itens: MovimentacaoComProcesso[];
+  vazio: string;
+  destaque?: boolean;
+}) {
+  const queryClient = useQueryClient();
 
   if (itens.length === 0)
     return (
@@ -1158,7 +1317,7 @@ function Lista({
               {new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR")}
             </p>
             {!m.validado ? (
-              <Button type="button" size="sm" variant="outline" onClick={() => validar(m.id)}>
+              <Button type="button" size="sm" variant="outline" onClick={() => void validarMovimentacao(m.id, queryClient)}>
                 <CheckCircle2 className="size-3.5" /> Marcar como validado
               </Button>
             ) : m.validado_por ? (
