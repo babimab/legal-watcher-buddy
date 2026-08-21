@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Download,
   FileWarning,
+  Inbox,
   Plus,
   ShieldCheck,
   Users,
@@ -19,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { listarCaixaEntrada } from "@/lib/caixa-entrada";
 import {
   listarNaoValidados,
   listarPendencias,
@@ -63,6 +65,7 @@ function PainelPage() {
   const processosQuery = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
   const pendenciasQuery = useQuery({ queryKey: ["pendencias"], queryFn: listarPendencias });
   const naoValidadosQuery = useQuery({ queryKey: ["nao-validados"], queryFn: listarNaoValidados });
+  const caixaEntradaQuery = useQuery({ queryKey: ["caixa-entrada"], queryFn: listarCaixaEntrada });
   const pastasQuery = useQuery({ queryKey: ["pastas"], queryFn: listarPastas });
   const gruposQuery = useQuery({ queryKey: ["grupos"], queryFn: listarGrupos });
 
@@ -120,8 +123,17 @@ function PainelPage() {
     [prazosProximos, minhaSigla],
   );
   const meusNaoValidados = useMemo(
-    () => (naoValidados.data ?? []).filter((m) => ehResponsavelDaSigla(m.processos?.responsavel, minhaSigla)),
+    () => (naoValidados.data ?? []).filter(
+      (m) =>
+        m.fonte !== "publicacoes" &&
+        m.fonte !== "citacoes" &&
+        ehResponsavelDaSigla(m.processos?.responsavel, minhaSigla),
+    ),
     [naoValidados.data, minhaSigla],
+  );
+  const meusItensCaixa = useMemo(
+    () => (caixaEntradaQuery.data ?? []).filter((m) => ehResponsavelDaSigla(m.processos?.responsavel, minhaSigla)),
+    [caixaEntradaQuery.data, minhaSigla],
   );
 
   const itensMesa = useMemo(() => {
@@ -294,11 +306,24 @@ function PainelPage() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            {itensMesa.length === 0 ? (
+            {meusItensCaixa.length > 0 ? (
+              <Link to="/caixa-entrada" className="block border-b">
+                <div className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-muted/40">
+                  <Inbox className="size-4 shrink-0 text-primary" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">{meusItensCaixa.length} item(ns) na Caixa de entrada</p>
+                    <p className="text-sm text-muted-foreground">Publicações e citações aguardando sua triagem.</p>
+                  </div>
+                  <Badge>{meusItensCaixa.length}</Badge>
+                </div>
+              </Link>
+            ) : null}
+
+            {itensMesa.length === 0 && meusItensCaixa.length === 0 ? (
               <div className="flex items-center gap-2 px-5 py-6 text-sm text-muted-foreground">
                 <CheckCircle2 className="size-4 text-primary" /> Nada urgente na sua mesa agora.
               </div>
-            ) : (
+            ) : itensMesa.length > 0 ? (
               <div className="divide-y">
                 {itensMesa.map((item) => {
                   const conteudo = (
@@ -331,7 +356,7 @@ function PainelPage() {
                   );
                 })}
               </div>
-            )}
+            ) : null}
           </CardContent>
         </Card>
       ) : null}
