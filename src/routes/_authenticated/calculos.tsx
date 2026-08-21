@@ -54,6 +54,24 @@ function dinheiro(n: number) {
   return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+function resumoEncargo(label: string, encargo: EncargoCalculo) {
+  const valor = Number(encargo.valor) || 0;
+  if (!valor) return null;
+  if (encargo.modo === "percentual") return `${label} ${valor}%`;
+  return `${label} ${dinheiro(valor)}`;
+}
+
+function resumoAcrescimos(criterios: CriteriosCalculo) {
+  const itens = [
+    resumoEncargo("Multa", criterios.multaExecucao),
+    resumoEncargo("Hon. execução", criterios.honorariosExecucao),
+    resumoEncargo("Hon. sucumbenciais", criterios.honorariosSucumbenciais),
+  ].filter(Boolean) as string[];
+  if (criterios.abatimentos.length) itens.push(`${criterios.abatimentos.length} ${criterios.abatimentos.length === 1 ? "abatimento" : "abatimentos"}`);
+  if (criterios.observacoes?.trim()) itens.push("Observações preenchidas");
+  return itens.length ? itens.join(" · ") : "Sem acréscimos";
+}
+
 function CalculosPage() {
   const qc = useQueryClient();
   const processos = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
@@ -279,13 +297,20 @@ function CalculosPage() {
         <Button variant="outline" onClick={() => setCriterios((c) => ({ ...c, verbas: [...c.verbas, novaVerba()] }))}><Plus className="size-4" /> Adicionar verba</Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-serif text-lg">Fechamento do cálculo</CardTitle>
-          <CardDescription>Multa, honorários e abatimentos integram o mesmo cálculo. Nos percentuais, digite 10 para 10%.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <Button variant="outline" size="sm" onClick={aplicarArt523}>Sugerir 10% + 10% do art. 523, §1º</Button>
+      <details className="group overflow-hidden rounded-lg border bg-card shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 [&::-webkit-details-marker]:hidden">
+          <div className="min-w-0">
+            <p className="font-serif text-lg font-semibold">Acréscimos finais <span className="font-sans text-xs font-normal text-muted-foreground">(opcional)</span></p>
+            <p className="mt-1 truncate text-sm text-muted-foreground">{resumoAcrescimos(criterios)}</p>
+          </div>
+          <span className="shrink-0 text-sm font-medium text-primary group-open:hidden">Adicionar/editar</span>
+          <span className="hidden shrink-0 text-sm font-medium text-primary group-open:inline">Fechar</span>
+        </summary>
+        <div className="space-y-5 border-t px-5 py-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">Multa, honorários e abatimentos entram no fechamento do mesmo cálculo.</p>
+            <Button variant="outline" size="sm" onClick={aplicarArt523}>Sugerir 10% + 10% do art. 523, §1º</Button>
+          </div>
           <div className="grid gap-4 md:grid-cols-3">
             <Encargo label="Multa de execução" value={criterios.multaExecucao} onChange={(x) => setCriterios((c) => ({ ...c, multaExecucao: x }))} />
             <Encargo label="Honorários de execução" value={criterios.honorariosExecucao} onChange={(x) => setCriterios((c) => ({ ...c, honorariosExecucao: x }))} />
@@ -303,8 +328,8 @@ function CalculosPage() {
             ))}
           </div>
           <Campo label="Observações gerais"><Textarea value={criterios.observacoes ?? ""} onChange={(e) => setCriterios((c) => ({ ...c, observacoes: e.target.value }))} /></Campo>
-        </CardContent>
-      </Card>
+        </div>
+      </details>
 
       <div className="flex flex-wrap gap-2">
         <Button onClick={() => void rodar()} disabled={calculando}><Calculator className="size-4" /> {calculando ? "Calculando..." : "Calcular"}</Button>
@@ -314,7 +339,7 @@ function CalculosPage() {
         <Button variant="outline" disabled={!resultado || gerandoPdf} onClick={() => void exportarPdf()}><FileText className="size-4" /> {gerandoPdf ? "Gerando PDF..." : "PDF"}</Button>
       </div>
 
-      {resultado ? <Resultado resultado={resultado} identificacao={identificacaoAtual} dataBase={dataBase} criterios={criterios} /> : null}
+      {resultado ? <Resultado resultado={resultado} identificacao={identificacaoAtual} dataBase={dataBase} /> : null}
 
       <Card>
         <CardHeader>
@@ -382,7 +407,7 @@ function Encargo({ label, value, onChange }: { label: string; value: EncargoCalc
   return <div className="space-y-2 rounded-md border p-3"><Label>{label}</Label><div className="grid grid-cols-[1fr_1fr_auto] gap-2"><Select value={value.modo} onValueChange={(x) => onChange({ ...value, modo: x as EncargoCalculo["modo"] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="percentual">Percentual</SelectItem><SelectItem value="fixo">Valor fixo</SelectItem></SelectContent></Select><Input type="number" step="0.01" value={value.valor} onChange={(e) => onChange({ ...value, valor: Number(e.target.value) })} /><div className="flex items-center text-sm font-medium text-muted-foreground">{value.modo === "percentual" ? "%" : "R$"}</div></div>{value.modo === "percentual" ? <><p className="text-xs text-muted-foreground">Ex.: digite 10 para 10%.</p><Select value={value.base} onValueChange={(x) => onChange({ ...value, base: x as EncargoCalculo["base"] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="subtotal">Base: principal + correção + juros</SelectItem><SelectItem value="principal">Base: principal</SelectItem></SelectContent></Select></> : null}</div>;
 }
 
-function Resultado({ resultado, identificacao, dataBase, criterios }: { resultado: ResultadoCalculo; identificacao: IdentificacaoCalculo; dataBase: string; criterios: CriteriosCalculo }) {
+function Resultado({ resultado, identificacao, dataBase }: { resultado: ResultadoCalculo; identificacao: IdentificacaoCalculo; dataBase: string }) {
   const partes = identificacao.parteAutora || identificacao.parteRe ? `${identificacao.parteAutora || "—"} x ${identificacao.parteRe || "—"}` : [identificacao.cliente, identificacao.parteContraria].filter(Boolean).join(" x ");
   const fechamento = [
     ["Principal", resultado.principal],
