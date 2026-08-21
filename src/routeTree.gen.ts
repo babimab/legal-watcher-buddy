@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedBaixasClienteRouteImport } from './routes/_authenticated/baixas-cliente'
+import { Route as AuthenticatedCaixaEntradaRouteImport } from './routes/_authenticated/caixa-entrada'
 import { Route as AuthenticatedCalculosRouteImport } from './routes/_authenticated/calculos'
 import { Route as AuthenticatedCitacoesRouteImport } from './routes/_authenticated/citacoes'
 import { Route as AuthenticatedGruposRouteImport } from './routes/_authenticated/grupos'
@@ -45,6 +46,11 @@ const AuthenticatedBaixasClienteRoute =
     path: '/baixas-cliente',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedCaixaEntradaRoute = AuthenticatedCaixaEntradaRouteImport.update({
+  id: '/caixa-entrada',
+  path: '/caixa-entrada',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedCalculosRoute = AuthenticatedCalculosRouteImport.update({
   id: '/calculos',
   path: '/calculos',
@@ -109,6 +115,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/baixas-cliente': typeof AuthenticatedBaixasClienteRoute
+  '/caixa-entrada': typeof AuthenticatedCaixaEntradaRoute
   '/calculos': typeof AuthenticatedCalculosRoute
   '/citacoes': typeof AuthenticatedCitacoesRoute
   '/grupos': typeof AuthenticatedGruposRoute
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/baixas-cliente': typeof AuthenticatedBaixasClienteRoute
+  '/caixa-entrada': typeof AuthenticatedCaixaEntradaRoute
   '/calculos': typeof AuthenticatedCalculosRoute
   '/citacoes': typeof AuthenticatedCitacoesRoute
   '/grupos': typeof AuthenticatedGruposRoute
@@ -143,6 +151,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/baixas-cliente': typeof AuthenticatedBaixasClienteRoute
+  '/_authenticated/caixa-entrada': typeof AuthenticatedCaixaEntradaRoute
   '/_authenticated/calculos': typeof AuthenticatedCalculosRoute
   '/_authenticated/citacoes': typeof AuthenticatedCitacoesRoute
   '/_authenticated/grupos': typeof AuthenticatedGruposRoute
@@ -161,6 +170,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/baixas-cliente'
+    | '/caixa-entrada'
     | '/calculos'
     | '/citacoes'
     | '/grupos'
@@ -177,6 +187,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/baixas-cliente'
+    | '/caixa-entrada'
     | '/calculos'
     | '/citacoes'
     | '/grupos'
@@ -194,6 +205,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/baixas-cliente'
+    | '/_authenticated/caixa-entrada'
     | '/_authenticated/calculos'
     | '/_authenticated/citacoes'
     | '/_authenticated/grupos'
@@ -241,6 +253,13 @@ declare module '@tanstack/react-router' {
       path: '/baixas-cliente'
       fullPath: '/baixas-cliente'
       preLoaderRoute: typeof AuthenticatedBaixasClienteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/caixa-entrada': {
+      id: '/_authenticated/caixa-entrada'
+      path: '/caixa-entrada'
+      fullPath: '/caixa-entrada'
+      preLoaderRoute: typeof AuthenticatedCaixaEntradaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/calculos': {
@@ -325,6 +344,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedBaixasClienteRoute: typeof AuthenticatedBaixasClienteRoute
+  AuthenticatedCaixaEntradaRoute: typeof AuthenticatedCaixaEntradaRoute
   AuthenticatedCalculosRoute: typeof AuthenticatedCalculosRoute
   AuthenticatedCitacoesRoute: typeof AuthenticatedCitacoesRoute
   AuthenticatedGruposRoute: typeof AuthenticatedGruposRoute
@@ -340,6 +360,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBaixasClienteRoute: AuthenticatedBaixasClienteRoute,
+  AuthenticatedCaixaEntradaRoute: AuthenticatedCaixaEntradaRoute,
   AuthenticatedCalculosRoute: AuthenticatedCalculosRoute,
   AuthenticatedCitacoesRoute: AuthenticatedCitacoesRoute,
   AuthenticatedGruposRoute: AuthenticatedGruposRoute,
