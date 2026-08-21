@@ -67,168 +67,210 @@ function AppLayout() {
     router.navigate({ to: "/auth" });
   };
 
+  const navegacao = (
+    <>
+      <NavItem
+        to="/painel"
+        icon={<LayoutDashboard className="size-4" />}
+        label="Painel"
+        tourId="nav-painel"
+      />
+      <NavItem
+        to="/painel"
+        icon={<LayoutDashboard className="size-4" />}
+        label="Equipe Souza Cruz"
+        search={{ grupo: "Equipe Souza Cruz" }}
+        tourId="nav-clientes"
+      />
+      <NavItem
+        to="/painel"
+        icon={<LayoutDashboard className="size-4" />}
+        label="Equipe Astro"
+        search={{ grupo: "Equipe Astro" }}
+      />
+      <NavItem
+        to="/processos"
+        icon={<FolderKanban className="size-4" />}
+        label="Meus processos"
+        search={{ advogado: "eu" }}
+        tourId="nav-meus-processos"
+      />
+      <NavItem
+        to="/processos"
+        icon={<List className="size-4" />}
+        label="Todos os processos"
+        tourId="nav-todos-processos"
+      />
+      <NavItem
+        to="/calculos"
+        icon={<Calculator className="size-4" />}
+        label="Cálculos"
+        tourId="nav-calculos"
+      />
+      <NavItem
+        to="/relatorio"
+        icon={<LineChart className="size-4" />}
+        label="Relatórios"
+        contador={prazosUrgentes}
+        tourId="nav-relatorios"
+      />
+      <NavItem
+        to="/relatorio"
+        icon={<AlertTriangle className="size-4" />}
+        label="Meus prazos"
+        search={{ aba: "pendencias", advogado: "eu" }}
+        contador={meusPrazosUrgentes}
+      />
+      {ehEstagiaria ? null : (
+        <NavItem
+          to="/grupos"
+          icon={<Users className="size-4" />}
+          label="Grupos"
+          tourId="nav-grupos"
+        />
+      )}
+      {ehEstagiaria ? null : (
+        <NavItem
+          to="/relatorio"
+          icon={<Archive className="size-4" />}
+          label="Encerramento Souza Cruz"
+          search={{ aba: "encerramento" }}
+          tourId="nav-encerramento"
+        />
+      )}
+      {ehEstagiaria ? null : (
+        <NavItem
+          to="/relatorio"
+          icon={<Archive className="size-4" />}
+          label="Encerramento Astro"
+          search={{ aba: "encerramento-astro" }}
+          tourId="nav-encerramento-astro"
+        />
+      )}
+      {ehEstagiaria ? null : (
+        <NavItem
+          to="/baixas-cliente"
+          icon={<ClipboardCheck className="size-4" />}
+          label="Baixas no cliente"
+          contador={baixasAbertas}
+          tourId="nav-baixas-cliente"
+        />
+      )}
+      <NavItem
+        to="/publicacoes"
+        icon={<Newspaper className="size-4" />}
+        label="Publicações"
+        tourId="nav-publicacoes"
+      />
+      <NavItem
+        to="/citacoes"
+        icon={<Gavel className="size-4" />}
+        label="Citações"
+        tourId="nav-citacoes"
+      />
+      {ehEstagiaria ? null : (
+        <NavItem
+          to="/importar"
+          icon={<Upload className="size-4" />}
+          label="Importar"
+          tourId="nav-importar"
+        />
+      )}
+      {ehEstagiaria ? null : (
+        <NavItem
+          to="/qualidade-dados"
+          icon={<ShieldCheck className="size-4" />}
+          label="Qualidade dos dados"
+          tourId="nav-qualidade"
+        />
+      )}
+    </>
+  );
+
+  const utilidades = (
+    <div className="flex items-center gap-1">
+      <GuiaRapido />
+      <BuscaGlobal />
+      <Link
+        to="/perfil"
+        aria-label="Meu perfil"
+        data-tour="nav-perfil"
+        className="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors hover:bg-muted"
+        activeProps={{ className: "bg-muted font-semibold" }}
+      >
+        <User className="size-4" /> Perfil
+      </Link>
+      <Button variant="ghost" size="sm" onClick={sair}>
+        <LogOut className="size-4" /> Sair
+      </Button>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-sidebar text-sidebar-foreground">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3">
+    <div className="min-h-screen bg-background lg:grid lg:grid-cols-[232px_minmax(0,1fr)]">
+      <aside className="hidden h-screen flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:sticky lg:top-0 lg:flex">
+        <div className="px-5 pb-4 pt-5">
           <Link to="/painel" className="flex items-center">
-            <img src="/faro-logo-white.png" alt="FaroLex" className="h-7 w-auto" />
+            <img src="/faro-logo-white.png" alt="FaroLex" className="h-8 w-auto" />
           </Link>
-          <nav className="flex items-center gap-1 text-sm">
-            <NavItem
-              to="/painel"
-              icon={<LayoutDashboard className="size-4" />}
-              label="Painel"
-              tourId="nav-painel"
-            />
-            <NavItem
-              to="/painel"
-              icon={<LayoutDashboard className="size-4" />}
-              label="Equipe Souza Cruz"
-              search={{ grupo: "Equipe Souza Cruz" }}
-              tourId="nav-clientes"
-            />
-            <NavItem
-              to="/painel"
-              icon={<LayoutDashboard className="size-4" />}
-              label="Equipe Astro"
-              search={{ grupo: "Equipe Astro" }}
-            />
-            <NavItem
-              to="/processos"
-              icon={<FolderKanban className="size-4" />}
-              label="Meus processos"
-              search={{ advogado: "eu" }}
-              tourId="nav-meus-processos"
-            />
-            <NavItem
-              to="/processos"
-              icon={<List className="size-4" />}
-              label="Todos os processos"
-              tourId="nav-todos-processos"
-            />
-            <NavItem
-              to="/calculos"
-              icon={<Calculator className="size-4" />}
-              label="Cálculos"
-              tourId="nav-calculos"
-            />
-            <NavItem
-              to="/relatorio"
-              icon={<LineChart className="size-4" />}
-              label="Relatórios"
-              contador={prazosUrgentes}
-              tourId="nav-relatorios"
-            />
-            <NavItem
-              to="/relatorio"
-              icon={<AlertTriangle className="size-4" />}
-              label="Meus prazos"
-              search={{ aba: "pendencias", advogado: "eu" }}
-              contador={meusPrazosUrgentes}
-            />
-            {ehEstagiaria ? null : (
-              <NavItem
-                to="/grupos"
-                icon={<Users className="size-4" />}
-                label="Grupos"
-                tourId="nav-grupos"
-              />
-            )}
-            {ehEstagiaria ? null : (
-              <NavItem
-                to="/relatorio"
-                icon={<Archive className="size-4" />}
-                label="Encerramento Souza Cruz"
-                search={{ aba: "encerramento" }}
-                tourId="nav-encerramento"
-              />
-            )}
-            {ehEstagiaria ? null : (
-              <NavItem
-                to="/relatorio"
-                icon={<Archive className="size-4" />}
-                label="Encerramento Astro"
-                search={{ aba: "encerramento-astro" }}
-                tourId="nav-encerramento-astro"
-              />
-            )}
-            {ehEstagiaria ? null : (
-              <NavItem
-                to="/baixas-cliente"
-                icon={<ClipboardCheck className="size-4" />}
-                label="Baixas no cliente"
-                contador={baixasAbertas}
-                tourId="nav-baixas-cliente"
-              />
-            )}
-            <NavItem
-              to="/publicacoes"
-              icon={<Newspaper className="size-4" />}
-              label="Publicações"
-              tourId="nav-publicacoes"
-            />
-            <NavItem
-              to="/citacoes"
-              icon={<Gavel className="size-4" />}
-              label="Citações"
-              tourId="nav-citacoes"
-            />
-            {ehEstagiaria ? null : (
-              <NavItem
-                to="/importar"
-                icon={<Upload className="size-4" />}
-                label="Importar"
-                tourId="nav-importar"
-              />
-            )}
-            {ehEstagiaria ? null : (
-              <NavItem
-                to="/qualidade-dados"
-                icon={<ShieldCheck className="size-4" />}
-                label="Qualidade dos dados"
-                tourId="nav-qualidade"
-              />
-            )}
-          </nav>
-          <div className="ml-auto flex items-center gap-1">
-            <GuiaRapido />
-            <BuscaGlobal />
-            <Link
-              to="/perfil"
-              aria-label="Meu perfil"
-              data-tour="nav-perfil"
-              className="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
-              activeProps={{ className: "bg-sidebar-accent font-semibold" }}
-            >
-              <User className="size-4" /> Perfil
-            </Link>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={sair}
-              className="text-sidebar-foreground hover:bg-sidebar-accent"
-            >
-              <LogOut className="size-4" /> Sair
-            </Button>
-          </div>
         </div>
-      </header>
-      <div className="mx-auto flex max-w-7xl gap-6 px-4 py-8">
-        <aside className="hidden w-36 shrink-0 lg:block">
+
+        <nav className="flex flex-col gap-1 px-3 pb-4 text-sm">
+          {navegacao}
+        </nav>
+
+        <div className="mt-auto px-4 pb-5 pt-2">
           <img
             src="/faro-advogada.jpg"
             alt="FaroLex"
-            className="sticky top-8 rounded-xl border border-border shadow-sm"
+            className="w-full rounded-xl border border-sidebar-border object-cover shadow-sm"
           />
-        </aside>
-        <main className="min-w-0 flex-1">
+        </div>
+      </aside>
+
+      <div className="min-w-0">
+        <header className="border-b border-border bg-sidebar text-sidebar-foreground lg:hidden">
+          <div className="flex items-center gap-3 px-4 py-3">
+            <Link to="/painel" className="flex items-center">
+              <img src="/faro-logo-white.png" alt="FaroLex" className="h-7 w-auto" />
+            </Link>
+            <div className="ml-auto flex items-center gap-1">
+              <GuiaRapido />
+              <BuscaGlobal />
+              <Link
+                to="/perfil"
+                aria-label="Meu perfil"
+                className="rounded-md p-2 text-sidebar-foreground hover:bg-sidebar-accent"
+              >
+                <User className="size-4" />
+              </Link>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={sair}
+                className="text-sidebar-foreground hover:bg-sidebar-accent"
+              >
+                <LogOut className="size-4" />
+              </Button>
+            </div>
+          </div>
+          <nav className="flex gap-1 overflow-x-auto px-3 pb-3 text-sm">
+            {navegacao}
+          </nav>
+        </header>
+
+        <div className="hidden items-center justify-end border-b border-border bg-background px-6 py-2 lg:flex">
+          {utilidades}
+        </div>
+
+        <main className="mx-auto min-w-0 max-w-7xl px-4 py-8 sm:px-6">
           <Outlet />
         </main>
+
+        <footer className="border-t border-border py-4 text-center text-xs text-muted-foreground">
+          Essa aplicação foi criada por Bárbara Brandão.
+        </footer>
       </div>
-      <footer className="border-t border-border py-4 text-center text-xs text-muted-foreground">
-        Essa aplicação foi criada por Bárbara Brandão.
-      </footer>
     </div>
   );
 }
@@ -254,13 +296,13 @@ function NavItem({
       search={search ?? {}}
       activeOptions={{ exact: true, includeSearch: true }}
       data-tour={tourId}
-      className="flex items-center gap-2 rounded-md px-3 py-1.5 transition-colors hover:bg-sidebar-accent"
+      className="flex shrink-0 items-center gap-2 rounded-md px-3 py-2 transition-colors hover:bg-sidebar-accent"
       activeProps={{ className: "bg-sidebar-accent font-semibold" }}
     >
-      {icon}
-      {label}
+      <span className="shrink-0">{icon}</span>
+      <span className="whitespace-nowrap">{label}</span>
       {contador ? (
-        <Badge variant="destructive" className="px-1.5 py-0 text-xs">
+        <Badge variant="destructive" className="ml-auto px-1.5 py-0 text-xs">
           {contador}
         </Badge>
       ) : null}
