@@ -90,9 +90,8 @@ function AppLayout() {
     </>
   );
 
-  const utilidades = (
-    <div className="ml-2 flex shrink-0 items-center gap-1 text-slate-700">
-      <GuiaRapido />
+  const perfilESair = (
+    <div className="flex shrink-0 items-center gap-1 text-slate-700">
       <Link
         to="/perfil"
         aria-label="Meu perfil"
@@ -111,18 +110,35 @@ function AppLayout() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 border-b border-slate-300/70 bg-slate-300/85 shadow-sm backdrop-blur">
-        <div className="flex h-24 items-center gap-4 px-4 sm:h-36 sm:px-5 lg:px-6">
+        <div className="hidden h-36 items-center gap-3 px-5 md:flex lg:px-6">
+          <Link to="/painel" className="flex shrink-0 items-center gap-2 rounded-lg px-1 py-2">
+            <img src="/faro-logo-navy.png" alt="FaroLex" className="h-10 w-auto" />
+            <span className="font-serif text-xl font-semibold tracking-tight text-slate-800">FaroLex</span>
+          </Link>
+
+          {perfilESair}
+
           <img
             src="/faro-advogada.jpg"
             alt="FaroLex"
-            className="size-14 shrink-0 rounded-xl border border-slate-400/60 object-cover shadow-sm sm:size-28"
+            className="ml-1 size-28 shrink-0 rounded-xl border border-slate-400/60 object-cover object-center shadow-sm"
           />
+
           <div className="min-w-0 w-full max-w-sm">
             <BuscaGlobal barraSuperior />
           </div>
-          <div className="hidden md:flex">{utilidades}</div>
-          <div className="ml-auto flex items-center gap-1 md:hidden">
+
+          <div className="ml-auto shrink-0 text-slate-700">
             <GuiaRapido />
+          </div>
+        </div>
+
+        <div className="flex min-h-24 flex-wrap items-center gap-2 px-4 py-3 md:hidden">
+          <Link to="/painel" className="flex shrink-0 items-center gap-2">
+            <img src="/faro-logo-navy.png" alt="FaroLex" className="h-8 w-auto" />
+            <span className="font-serif text-lg font-semibold text-slate-800">FaroLex</span>
+          </Link>
+          <div className="flex items-center">
             <Link to="/perfil" aria-label="Meu perfil" className="rounded-md p-2 text-slate-700 hover:bg-white/60">
               <User className="size-4" />
             </Link>
@@ -130,16 +146,22 @@ function AppLayout() {
               <LogOut className="size-4" />
             </Button>
           </div>
+          <img
+            src="/faro-advogada.jpg"
+            alt="FaroLex"
+            className="size-14 shrink-0 rounded-xl border border-slate-400/60 object-cover object-center shadow-sm"
+          />
+          <div className="min-w-52 flex-1">
+            <BuscaGlobal barraSuperior />
+          </div>
+          <div className="ml-auto text-slate-700">
+            <GuiaRapido />
+          </div>
         </div>
       </header>
 
       <div className="lg:grid lg:grid-cols-[232px_minmax(0,1fr)]">
-        <aside className="hidden h-[calc(100vh-8rem)] flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:sticky lg:top-32 lg:flex">
-          <div className="px-4 pb-4 pt-5">
-            <Link to="/painel" className="flex items-center px-1">
-              <img src="/faro-logo-white.png" alt="FaroLex" className="h-8 w-auto" />
-            </Link>
-          </div>
+        <aside className="hidden h-[calc(100vh-9rem)] flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar pt-3 text-sidebar-foreground lg:sticky lg:top-36 lg:flex">
           <nav className="flex flex-col gap-1 px-3 pb-5 text-sm">{navegacao}</nav>
         </aside>
 
