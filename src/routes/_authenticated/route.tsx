@@ -6,6 +6,7 @@ import {
   Calculator,
   FolderKanban,
   Gavel,
+  Inbox,
   LayoutDashboard,
   List,
   LineChart,
@@ -23,6 +24,7 @@ import { BuscaGlobal } from "@/components/BuscaGlobal";
 import { GuiaRapido } from "@/components/GuiaRapido";
 import { supabase } from "@/integrations/supabase/client";
 import { listarBaixasCliente } from "@/lib/baixas-cliente";
+import { listarCaixaEntrada } from "@/lib/caixa-entrada";
 import {
   listarPendencias,
   ehResponsavelDaSigla,
@@ -45,6 +47,7 @@ function AppLayout() {
 
   const pendencias = useQuery({ queryKey: ["pendencias"], queryFn: listarPendencias });
   const baixasCliente = useQuery({ queryKey: ["baixas-cliente"], queryFn: listarBaixasCliente });
+  const caixaEntrada = useQuery({ queryKey: ["caixa-entrada"], queryFn: listarCaixaEntrada });
   const minhaSigla = useSiglaAtual();
   const ehEstagiaria = useCargoAtual() === "Estagiário";
   const emSeteDias = new Date();
@@ -54,6 +57,7 @@ function AppLayout() {
     (m) => m.prazo && m.prazo <= emSeteDiasISO,
   ).length;
   const baixasAbertas = (baixasCliente.data ?? []).filter((b) => b.status !== "encerrado").length;
+  const itensCaixaEntrada = caixaEntrada.data?.length ?? 0;
   const meusPrazosUrgentes = (pendencias.data ?? []).filter(
     (m) =>
       m.prazo &&
@@ -73,9 +77,10 @@ function AppLayout() {
       <NavItem to="/painel" icon={<LayoutDashboard className="size-4" />} label="Equipe Astro" search={{ grupo: "Equipe Astro" }} />
       <NavItem to="/processos" icon={<FolderKanban className="size-4" />} label="Meus processos" search={{ advogado: "eu" }} tourId="nav-meus-processos" />
       <NavItem to="/processos" icon={<List className="size-4" />} label="Todos os processos" tourId="nav-todos-processos" />
+      <NavItem to="/caixa-entrada" icon={<Inbox className="size-4" />} label="Caixa de entrada" contador={itensCaixaEntrada} tourId="nav-caixa-entrada" />
+      <NavItem to="/relatorio" icon={<AlertTriangle className="size-4" />} label="Meus prazos" search={{ aba: "pendencias", advogado: "eu" }} contador={meusPrazosUrgentes} />
       <NavItem to="/calculos" icon={<Calculator className="size-4" />} label="Cálculos" tourId="nav-calculos" />
       <NavItem to="/relatorio" icon={<LineChart className="size-4" />} label="Relatórios" contador={prazosUrgentes} tourId="nav-relatorios" />
-      <NavItem to="/relatorio" icon={<AlertTriangle className="size-4" />} label="Meus prazos" search={{ aba: "pendencias", advogado: "eu" }} contador={meusPrazosUrgentes} />
       {ehEstagiaria ? null : <NavItem to="/grupos" icon={<Users className="size-4" />} label="Grupos" tourId="nav-grupos" />}
       {ehEstagiaria ? null : <NavItem to="/relatorio" icon={<Archive className="size-4" />} label="Encerramentos" search={{ aba: "encerramento" }} contador={baixasAbertas} tourId="nav-encerramento" />}
       <NavItem to="/publicacoes" icon={<Newspaper className="size-4" />} label="Publicações" tourId="nav-publicacoes" />
