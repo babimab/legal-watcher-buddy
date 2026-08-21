@@ -772,7 +772,24 @@ function RelatorioPage() {
         </div>
       </div>
 
-      {aba === "pendencias" ? (
+      {ehModoEncerramentos ? (
+        <div className="flex flex-wrap gap-2 border-b pb-2">
+          {abasEncerramento.map((item) => (
+            <Button
+              key={item.chave}
+              variant={aba === item.chave ? "default" : "outline"}
+              size="sm"
+              onClick={() => setAba(item.chave)}
+            >
+              {item.rotulo}
+            </Button>
+          ))}
+        </div>
+      ) : null}
+
+      {aba === "baixas" ? (
+        <BaixasCliente />
+      ) : aba === "pendencias" ? (
         <>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-serif text-xl font-semibold">
