@@ -12,7 +12,7 @@ import {
 export type ParcelaCalculo = { id: string; valor: number; data: string };
 export type AbatimentoCalculo = { id: string; valor: number; data: string; descricao?: string };
 export type TipoIndice = "nenhum" | "ipca" | "manual";
-export type TipoJuros = "nenhum" | "mensal" | "anual" | "selic";
+export type TipoJuros = "nenhum" | "mensal" | "anual" | "selic" | "taxa_legal";
 
 export type IdentificacaoCalculo = {
   processo?: string;
@@ -52,6 +52,14 @@ export type CriteriosCalculo = {
   observacoes?: string;
 };
 
+export type PeriodoJurosCalculo = {
+  descricao: string;
+  de: string;
+  ate: string;
+  juros: number;
+  fonte: string;
+};
+
 export type LinhaMemoria = {
   verba: string;
   parcela: string;
@@ -63,6 +71,7 @@ export type LinhaMemoria = {
   atualizado: number;
   fonteCorrecao: string;
   fonteJuros: string;
+  periodosJuros?: PeriodoJurosCalculo[];
 };
 
 export type ResultadoCalculo = {
@@ -105,6 +114,10 @@ export type DocumentoCalculo = {
 };
 
 const BUCKET = "calculos-judiciais";
+const INICIO_SELIC_TAXA_LEGAL = "2024-08-30";
+const FIM_UM_PORCENTO_TAXA_LEGAL = "2024-08-29";
+const FONTE_SELIC = "Fonte oficial: Banco Central do Brasil - SGS série 11 (SELIC diária)";
+const CRITERIO_TAXA_LEGAL = "Taxa Legal — 1% a.m. até 29/08/2024 + SELIC a partir de 30/08/2024";
 
 export function novaVerba(): VerbaCalculo {
   return {
@@ -134,29 +147,22 @@ function isoBR(data: string) {
   return `${d}/${m}/${a}`;
 }
 
-function moeda(n: number) {
-  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+function diasEntre(de: string, ate: string) {
+  const a = new Date(`${de}T12:00:00`).getTime();
+  const b = new Date(`${ate}T12:00:00`).getTime();
+  return Math.max(0, Math.round((b - a) / 864e5));
 }
 
-function escaparHtml(valor: string | undefined | null) {
-  return String(valor ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+function adicionarDias(data: string, quantidade: number) {
+  const d = new Date(`${data}T12:00:00`);
+  d.setDate(d.getDate() + quantidade);
+  return d.toISOString().slice(0, 10);
 }
 
 function mesesEntre(de: string, ate: string) {
   const a = new Date(`${de}T12:00:00`);
   const b = new Date(`${ate}T12:00:00`);
   return Math.max(0, (b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth());
-}
-
-function diasEntre(de: string, ate: string) {
-  const a = new Date(`${de}T12:00:00`).getTime();
-  const b = new Date(`${ate}T12:00:00`).getTime();
-  return Math.max(0, Math.round((b - a) / 864e5));
 }
 
 async function obterIpcaMensal(de: string, ate: string): Promise<number[]> {
@@ -194,6 +200,51 @@ async function fatorSelic(de: string, ate: string): Promise<number> {
   }, 1);
 }
 
+async function calcularTaxaLegalTransicao(
+  base: number,
+  inicio: string,
+  dataBase: string,
+): Promise<{ juros: number; periodos: PeriodoJurosCalculo[] }> {
+  const periodos: PeriodoJurosCalculo[] = [];
+  let juros = 0;
+  if (!inicio || !dataBase || inicio > dataBase) return { juros, periodos };
+
+  if (inicio < INICIO_SELIC_TAXA_LEGAL) {
+    const fimPrimeiro = dataBase < INICIO_SELIC_TAXA_LEGAL ? dataBase : FIM_UM_PORCENTO_TAXA_LEGAL;
+    if (inicio <= fimPrimeiro) {
+      // 1% a.m. proporcional por dias, considerando mês de 30 dias.
+      const dias = diasEntre(inicio, adicionarDias(fimPrimeiro, 1));
+      const valor = base * 0.01 * (dias / 30);
+      juros += valor;
+      periodos.push({
+        descricao: "Juros de 1% a.m.",
+        de: inicio,
+        ate: fimPrimeiro,
+        juros: valor,
+        fonte: "1% a.m. proporcional por dias (mês de 30 dias)",
+      });
+    }
+  }
+
+  if (dataBase >= INICIO_SELIC_TAXA_LEGAL) {
+    const inicioSelic = inicio > INICIO_SELIC_TAXA_LEGAL ? inicio : INICIO_SELIC_TAXA_LEGAL;
+    if (inicioSelic < dataBase) {
+      const fator = await fatorSelic(inicioSelic, dataBase);
+      const valor = base * (fator - 1);
+      juros += valor;
+      periodos.push({
+        descricao: "SELIC",
+        de: inicioSelic,
+        ate: dataBase,
+        juros: valor,
+        fonte: FONTE_SELIC,
+      });
+    }
+  }
+
+  return { juros, periodos };
+}
+
 export async function calcularJudicial(
   criterios: CriteriosCalculo,
   dataBase: string,
@@ -224,6 +275,8 @@ export async function calcularJudicial(
       const correcao = corrigido - principal;
       let juros = 0;
       let fonteJuros = "Sem juros";
+      let periodosJuros: PeriodoJurosCalculo[] | undefined;
+
       if (verba.juros === "mensal") {
         juros = corrigido * ((Number(verba.taxa) || 0) / 100) * mesesEntre(inicioJuros, dataBase);
         fonteJuros = `Juros simples manuais de ${Number(verba.taxa) || 0}% ao mês`;
@@ -235,8 +288,15 @@ export async function calcularJudicial(
       } else if (verba.juros === "selic") {
         const fator = await fatorSelic(inicioJuros, dataBase);
         juros = corrigido * (fator - 1);
-        fonteJuros = "Fonte oficial: Banco Central do Brasil - SGS série 11 (SELIC diária)";
+        fonteJuros = FONTE_SELIC;
         fontes.add(fonteJuros);
+      } else if (verba.juros === "taxa_legal") {
+        const calculo = await calcularTaxaLegalTransicao(corrigido, inicioJuros, dataBase);
+        juros = calculo.juros;
+        periodosJuros = calculo.periodos;
+        fonteJuros = CRITERIO_TAXA_LEGAL;
+        fontes.add(CRITERIO_TAXA_LEGAL);
+        if (calculo.periodos.some((p) => p.descricao === "SELIC")) fontes.add(FONTE_SELIC);
       }
 
       memoria.push({
@@ -250,6 +310,7 @@ export async function calcularJudicial(
         atualizado: corrigido + juros,
         fonteCorrecao,
         fonteJuros,
+        periodosJuros,
       });
     }
   }
@@ -423,6 +484,12 @@ function linhasIdentificacao(identificacao?: IdentificacaoCalculo) {
   return linhas;
 }
 
+function descricaoEncargo(label: string, encargo: EncargoCalculo) {
+  if (encargo.modo === "fixo") return `${label} — valor fixo`;
+  const base = encargo.base === "principal" ? "principal" : "principal + correção + juros";
+  return `${label} — ${Number(encargo.valor) || 0}% sobre ${base}`;
+}
+
 export async function exportarCalculoExcel(
   nome: string,
   dataBase: string,
@@ -433,29 +500,35 @@ export async function exportarCalculoExcel(
   const wb = new ExcelJS.Workbook();
   wb.creator = "FaroLex";
   wb.created = new Date();
+
   const resumo = wb.addWorksheet("Resumo");
   resumo.columns = [
-    { header: "Campo", key: "campo", width: 34 },
-    { header: "Valor", key: "valor", width: 48 },
+    { header: "Campo", key: "campo", width: 50 },
+    { header: "Valor", key: "valor", width: 28 },
   ];
   const identificacaoFinal = identificacao ?? criterios.identificacao;
   resumo.addRow({ campo: "Cálculo", valor: nome });
   linhasIdentificacao(identificacaoFinal).forEach(([campo, valor]) => resumo.addRow({ campo, valor }));
   resumo.addRow({ campo: "Data-base do cálculo", valor: isoBR(dataBase) });
+  resumo.addRow({ campo: "" });
+
   const primeiraLinhaValor = resumo.rowCount + 1;
   [
     ["Principal", resultado.principal],
     ["Correção monetária", resultado.correcao],
     ["Juros", resultado.juros],
-    ["Multa de execução", resultado.multaExecucao],
-    ["Honorários de execução", resultado.honorariosExecucao],
-    ["Honorários sucumbenciais", resultado.honorariosSucumbenciais],
-    ["Abatimentos", -resultado.abatimentos],
-    ["TOTAL", resultado.total],
+    ["SUBTOTAL DAS VERBAS", resultado.subtotal],
+    [descricaoEncargo("Multa de execução", criterios.multaExecucao), resultado.multaExecucao],
+    [descricaoEncargo("Honorários de execução", criterios.honorariosExecucao), resultado.honorariosExecucao],
+    [descricaoEncargo("Honorários sucumbenciais", criterios.honorariosSucumbenciais), resultado.honorariosSucumbenciais],
+    ["Pagamentos / abatimentos", -resultado.abatimentos],
+    ["TOTAL ATUALIZADO", resultado.total],
   ].forEach(([campo, valor]) => resumo.addRow({ campo, valor }));
   const ultimaLinhaValor = resumo.rowCount;
   for (let i = primeiraLinhaValor; i <= ultimaLinhaValor; i++) resumo.getCell(i, 2).numFmt = 'R$ #,##0.00';
+  resumo.getRow(primeiraLinhaValor + 3).font = { bold: true };
   resumo.getRow(ultimaLinhaValor).font = { bold: true };
+
   resumo.addRow({ campo: "" });
   resultado.fontes.forEach((f) => resumo.addRow({ campo: "Fonte/critério", valor: f }));
   if (criterios.observacoes) resumo.addRow({ campo: "Observações", valor: criterios.observacoes });
@@ -474,7 +547,7 @@ export async function exportarCalculoExcel(
     { header: "Juros", key: "juros", width: 16 },
     { header: "Atualizado", key: "atualizado", width: 18 },
     { header: "Fonte correção", key: "fonteCorrecao", width: 42 },
-    { header: "Fonte juros", key: "fonteJuros", width: 42 },
+    { header: "Fonte juros", key: "fonteJuros", width: 58 },
   ];
   resultado.memoria.forEach((x) => mem.addRow({
     verba: x.verba,
@@ -493,95 +566,35 @@ export async function exportarCalculoExcel(
   centralizarLinhas(mem, new Set(["verba", "fonteCorrecao", "fonteJuros"]));
   finalizarPlanilha(mem);
 
+  const periodos = resultado.memoria.flatMap((linha) =>
+    (linha.periodosJuros ?? []).map((periodo) => ({ linha, periodo })),
+  );
+  if (periodos.length) {
+    const jurosPeriodo = wb.addWorksheet("Juros por período");
+    jurosPeriodo.columns = [
+      { header: "Verba", key: "verba", width: 24 },
+      { header: "Parcela", key: "parcela", width: 32 },
+      { header: "De", key: "de", width: 14 },
+      { header: "Até", key: "ate", width: 14 },
+      { header: "Critério", key: "criterio", width: 38 },
+      { header: "Juros", key: "juros", width: 18 },
+      { header: "Fonte / metodologia", key: "fonte", width: 56 },
+    ];
+    periodos.forEach(({ linha, periodo }) => jurosPeriodo.addRow({
+      verba: linha.verba,
+      parcela: linha.parcela,
+      de: isoBR(periodo.de),
+      ate: isoBR(periodo.ate),
+      criterio: periodo.descricao,
+      juros: periodo.juros,
+      fonte: periodo.fonte,
+    }));
+    jurosPeriodo.getColumn("juros").numFmt = 'R$ #,##0.00';
+    estilizarCabecalho(jurosPeriodo);
+    centralizarLinhas(jurosPeriodo, new Set(["verba", "parcela", "criterio", "fonte"]));
+    finalizarPlanilha(jurosPeriodo);
+  }
+
   const nomeSeguro = nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "judicial";
   await baixarPlanilha(wb, `calculo-${nomeSeguro}`);
-}
-
-export function exportarCalculoPdf(
-  nome: string,
-  dataBase: string,
-  criterios: CriteriosCalculo,
-  resultado: ResultadoCalculo,
-  identificacao?: IdentificacaoCalculo,
-) {
-  const janela = window.open("", "_blank", "noopener,noreferrer");
-  if (!janela) throw new Error("O navegador bloqueou a abertura do PDF. Autorize pop-ups para o FaroLex.");
-
-  const logoBranca = `${window.location.origin}/faro-logo-white.png`;
-  const logoNavy = `${window.location.origin}/faro-logo-navy.png`;
-  const identificacaoFinal = identificacao ?? criterios.identificacao;
-  const identificacaoHtml = linhasIdentificacao(identificacaoFinal)
-    .map(([campo, valor]) => `<div class="meta-item"><span>${escaparHtml(campo)}</span><strong>${escaparHtml(valor)}</strong></div>`)
-    .join("");
-
-  const componentes = [
-    ["Principal", resultado.principal],
-    ["Correção monetária", resultado.correcao],
-    ["Juros", resultado.juros],
-    ["Multa de execução", resultado.multaExecucao],
-    ["Honorários de execução", resultado.honorariosExecucao],
-    ["Honorários sucumbenciais", resultado.honorariosSucumbenciais],
-    ["Abatimentos", -resultado.abatimentos],
-  ] as const;
-  const cardsHtml = componentes
-    .map(([campo, valor]) => `<div class="valor-card"><span>${escaparHtml(campo)}</span><strong>${escaparHtml(moeda(valor))}</strong></div>`)
-    .join("");
-
-  const memoriaHtml = resultado.memoria
-    .map((x, indice) => `<tr class="${indice % 2 ? "alternada" : ""}"><td>${escaparHtml(x.verba)}</td><td>${escaparHtml(isoBR(x.data))}</td><td>${escaparHtml(moeda(x.principal))}</td><td>${x.fatorCorrecao.toFixed(6)}</td><td>${escaparHtml(moeda(x.correcao))}</td><td>${escaparHtml(moeda(x.juros))}</td><td class="atualizado">${escaparHtml(moeda(x.atualizado))}</td></tr>`)
-    .join("");
-  const fontesHtml = resultado.fontes.map((f) => `<li>${escaparHtml(f)}</li>`).join("");
-  const geradoEm = new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
-
-  janela.document.write(`<!doctype html>
-<html lang="pt-BR">
-<head>
-<meta charset="utf-8">
-<title>${escaparHtml(nome)} - FaroLex</title>
-<style>
-@page{size:A4;margin:13mm 12mm 14mm}
-*{box-sizing:border-box}
-html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-body{font-family:Arial,Helvetica,sans-serif;color:#173447;margin:0;font-size:10.5px;background:#fff;position:relative}
-.page-content{position:relative;z-index:2}
-.watermark{position:absolute;z-index:0;top:84mm;left:50%;transform:translateX(-50%);width:128mm;opacity:.035;pointer-events:none;filter:grayscale(.08)}
-.topo{background:linear-gradient(135deg,#082e45 0%,#0d4968 100%);border-radius:10px;padding:14px 16px;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:78px;box-shadow:0 2px 8px rgba(8,46,69,.14)}
-.brand{display:flex;align-items:center;gap:13px;min-width:0}.brand img{width:150px;max-height:48px;object-fit:contain;object-position:left center}.brand-copy{border-left:1px solid rgba(255,255,255,.32);padding-left:13px}.brand-copy strong{display:block;font-size:14px;letter-spacing:.15px}.brand-copy span{display:block;font-size:9px;color:#d8ebf4;margin-top:3px;text-transform:uppercase;letter-spacing:.7px}
-.data-topo{text-align:right;white-space:nowrap}.data-topo span{display:block;font-size:8px;text-transform:uppercase;letter-spacing:.7px;color:#bcd9e7}.data-topo strong{display:block;font-size:12px;margin-top:3px}
-.titulo-wrap{padding:16px 2px 6px}.titulo{font-family:Georgia,'Times New Roman',serif;font-size:20px;line-height:1.15;font-weight:700;color:#0b3c58;margin:0}.linha-azul{width:54px;height:3px;background:#2b78a0;border-radius:99px;margin-top:7px}
-.meta{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid #c9dce7;border-radius:8px;overflow:hidden;margin:10px 0 16px;background:rgba(247,251,253,.94)}.meta-item{padding:8px 10px;border-bottom:1px solid #dce9ef}.meta-item:nth-child(odd){border-right:1px solid #dce9ef}.meta-item span{display:block;font-size:7.5px;text-transform:uppercase;letter-spacing:.55px;color:#618094;margin-bottom:2px}.meta-item strong{display:block;font-size:10.5px;color:#143c53}.meta-data{padding:8px 10px;background:#edf6fa}.meta-data span{display:block;font-size:7.5px;text-transform:uppercase;letter-spacing:.55px;color:#51788e}.meta-data strong{display:block;color:#0d4968;font-size:11px;margin-top:2px}
-.secao{margin-top:16px;position:relative}.secao h2{font-family:Georgia,'Times New Roman',serif;font-size:13.5px;color:#0b3c58;margin:0 0 8px;padding-bottom:5px;border-bottom:1px solid #bdd5e1}.secao h2:after{content:'';display:block;width:34px;border-bottom:2px solid #2d7ea5;position:relative;top:7px}
-.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0}.valor-card{border:1px solid #c6dce7;border-radius:7px;padding:8px;background:#f3f9fc;min-height:53px}.valor-card span{display:block;color:#58788b;font-size:7.8px;text-transform:uppercase;letter-spacing:.35px;line-height:1.2}.valor-card strong{display:block;color:#0b4666;font-size:12px;margin-top:5px;white-space:nowrap}
-.total-box{margin-top:8px;border-radius:9px;background:linear-gradient(135deg,#0a3a55,#126387);padding:12px 14px;color:#fff;display:flex;align-items:center;justify-content:space-between}.total-box span{font-size:9px;text-transform:uppercase;letter-spacing:.8px;color:#d4eaf3}.total-box strong{font-family:Georgia,'Times New Roman',serif;font-size:22px;letter-spacing:.2px}
-table{width:100%;border-collapse:separate;border-spacing:0;page-break-inside:auto;border:1px solid #bfd5e1;border-radius:7px;overflow:hidden}.memoria{font-size:8.5px}.memoria th{background:#0d4968;color:#fff;font-weight:700;text-align:center;padding:6px 4px;border-right:1px solid #367590}.memoria th:last-child{border-right:0}.memoria td{padding:5px 4px;border-top:1px solid #dce8ee;border-right:1px solid #e4edf1;vertical-align:top}.memoria td:last-child{border-right:0}.memoria td:nth-child(n+3){text-align:right;white-space:nowrap}.memoria .alternada td{background:#f5f9fb}.memoria .atualizado{font-weight:700;color:#0b4e70}tr{page-break-inside:avoid}
-.fontes{margin:0;padding:9px 12px 9px 26px;border-left:3px solid #4f98b8;background:#f4f9fb;border-radius:0 7px 7px 0;color:#405f70}.fontes li{margin:3px 0}.obs{background:#edf6fa;border:1px solid #c5dce8;color:#315668;padding:9px 11px;border-radius:7px;white-space:pre-wrap}
-.rodape{margin-top:19px;border-top:1px solid #cbdde6;padding-top:7px;display:flex;justify-content:space-between;gap:15px;color:#708b9a;font-size:7.7px}.rodape strong{color:#37677e}
-.no-print{margin:0 0 10px;padding:9px 11px;background:#eaf5fa;border:1px solid #bad9e7;border-radius:7px;color:#285d76;font-size:10px}
-@media print{.no-print{display:none}.topo{box-shadow:none}}
-</style>
-</head>
-<body>
-<img class="watermark" src="${escaparHtml(logoNavy)}" alt="" />
-<div class="page-content">
-<div class="no-print"><strong>PDF FaroLex pronto.</strong> Na janela de impressão, escolha “Salvar como PDF”.</div>
-<header class="topo">
-  <div class="brand"><img src="${escaparHtml(logoBranca)}" alt="FaroLex" /><div class="brand-copy"><strong>Memória de cálculo judicial</strong><span>Atualização e demonstrativo</span></div></div>
-  <div class="data-topo"><span>Data-base do cálculo</span><strong>${escaparHtml(isoBR(dataBase))}</strong></div>
-</header>
-<div class="titulo-wrap"><h1 class="titulo">${escaparHtml(nome)}</h1><div class="linha-azul"></div></div>
-<div class="meta">${identificacaoHtml}<div class="meta-data"><span>Data-base do cálculo</span><strong>${escaparHtml(isoBR(dataBase))}</strong></div></div>
-<section class="secao"><h2>Resumo do cálculo</h2><div class="cards">${cardsHtml}</div><div class="total-box"><span>Total atualizado</span><strong>${escaparHtml(moeda(resultado.total))}</strong></div></section>
-<section class="secao"><h2>Memória de cálculo</h2><table class="memoria"><thead><tr><th>Verba</th><th>Data</th><th>Principal</th><th>Fator</th><th>Correção</th><th>Juros</th><th>Atualizado</th></tr></thead><tbody>${memoriaHtml}</tbody></table></section>
-${fontesHtml ? `<section class="secao"><h2>Fontes e critérios</h2><ul class="fontes">${fontesHtml}</ul></section>` : ""}
-${criterios.observacoes ? `<section class="secao"><h2>Observações</h2><div class="obs">${escaparHtml(criterios.observacoes)}</div></section>` : ""}
-<footer class="rodape"><span><strong>FaroLex</strong> · Memória de cálculo judicial</span><span>Gerado em ${escaparHtml(geradoEm)} · Confira os critérios jurídicos antes da utilização em juízo.</span></footer>
-</div>
-<script>
-window.addEventListener('load',()=>{
-  const imagens=Array.from(document.images);
-  Promise.all(imagens.map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=resolve;img.onerror=resolve;}))).then(()=>setTimeout(()=>window.print(),300));
-});
-</script>
-</body></html>`);
-  janela.document.close();
 }
