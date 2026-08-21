@@ -86,79 +86,71 @@ function AppLayout() {
   );
 
   const utilidades = (
-    <div className="flex items-center gap-1">
+    <div className="ml-auto flex shrink-0 items-center gap-1 text-slate-700">
       <GuiaRapido />
       <Link
         to="/perfil"
         aria-label="Meu perfil"
         data-tour="nav-perfil"
-        className="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors hover:bg-muted"
-        activeProps={{ className: "bg-muted font-semibold" }}
+        className="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors hover:bg-white/60"
+        activeProps={{ className: "bg-white/60 font-semibold" }}
       >
         <User className="size-4" /> Perfil
       </Link>
-      <Button variant="ghost" size="sm" onClick={sair}>
+      <Button variant="ghost" size="sm" onClick={sair} className="text-slate-700 hover:bg-white/60 hover:text-slate-900">
         <LogOut className="size-4" /> Sair
       </Button>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-background lg:grid lg:grid-cols-[232px_minmax(0,1fr)]">
-      <aside className="hidden h-screen flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:sticky lg:top-0 lg:flex">
-        <div className="px-4 pb-3 pt-5">
-          <Link to="/painel" className="flex items-center px-1">
-            <img src="/faro-logo-white.png" alt="FaroLex" className="h-8 w-auto" />
-          </Link>
-        </div>
-
-        <div className="px-3 pb-4">
-          <div className="flex items-center gap-2.5 rounded-xl border border-sidebar-border bg-sidebar-accent/20 p-2.5">
-            <img
-              src="/faro-advogada.jpg"
-              alt="FaroLex"
-              className="size-12 shrink-0 rounded-lg border border-sidebar-border object-cover shadow-sm"
-            />
-            <BuscaGlobal compacta />
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-30 border-b border-slate-300/70 bg-slate-300/85 shadow-sm backdrop-blur">
+        <div className="flex h-16 items-center gap-3 px-4 sm:px-5 lg:px-6">
+          <img
+            src="/faro-advogada.jpg"
+            alt="FaroLex"
+            className="size-10 shrink-0 rounded-lg border border-slate-400/60 object-cover shadow-sm"
+          />
+          <div className="min-w-0 flex-1">
+            <BuscaGlobal barraSuperior />
           </div>
-        </div>
-
-        <nav className="flex flex-col gap-1 px-3 pb-5 text-sm">
-          {navegacao}
-        </nav>
-      </aside>
-
-      <div className="min-w-0">
-        <header className="border-b border-border bg-sidebar text-sidebar-foreground lg:hidden">
-          <div className="flex items-center gap-3 px-4 py-3">
-            <Link to="/painel" className="flex items-center">
-              <img src="/faro-logo-white.png" alt="FaroLex" className="h-7 w-auto" />
+          <div className="hidden md:flex">{utilidades}</div>
+          <div className="ml-auto flex items-center gap-1 md:hidden">
+            <GuiaRapido />
+            <Link to="/perfil" aria-label="Meu perfil" className="rounded-md p-2 text-slate-700 hover:bg-white/60">
+              <User className="size-4" />
             </Link>
-            <div className="ml-auto flex items-center gap-1">
-              <GuiaRapido />
-              <BuscaGlobal atalhoTeclado={false} />
-              <Link to="/perfil" aria-label="Meu perfil" className="rounded-md p-2 text-sidebar-foreground hover:bg-sidebar-accent">
-                <User className="size-4" />
-              </Link>
-              <Button variant="ghost" size="icon" onClick={sair} className="text-sidebar-foreground hover:bg-sidebar-accent">
-                <LogOut className="size-4" />
-              </Button>
-            </div>
+            <Button variant="ghost" size="icon" onClick={sair} className="text-slate-700 hover:bg-white/60 hover:text-slate-900">
+              <LogOut className="size-4" />
+            </Button>
           </div>
-          <nav className="flex gap-1 overflow-x-auto px-3 pb-3 text-sm">{navegacao}</nav>
-        </header>
-
-        <div className="hidden items-center justify-end border-b border-border bg-background px-6 py-2 lg:flex">
-          {utilidades}
         </div>
+      </header>
 
-        <main className="mx-auto min-w-0 max-w-7xl px-4 py-8 sm:px-6">
-          <Outlet />
-        </main>
+      <div className="lg:grid lg:grid-cols-[232px_minmax(0,1fr)]">
+        <aside className="hidden h-[calc(100vh-4rem)] flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:sticky lg:top-16 lg:flex">
+          <div className="px-4 pb-4 pt-5">
+            <Link to="/painel" className="flex items-center px-1">
+              <img src="/faro-logo-white.png" alt="FaroLex" className="h-8 w-auto" />
+            </Link>
+          </div>
+          <nav className="flex flex-col gap-1 px-3 pb-5 text-sm">{navegacao}</nav>
+        </aside>
 
-        <footer className="border-t border-border py-4 text-center text-xs text-muted-foreground">
-          Essa aplicação foi criada por Bárbara Brandão.
-        </footer>
+        <div className="min-w-0">
+          <nav className="flex gap-1 overflow-x-auto border-b border-border bg-sidebar px-3 py-3 text-sm text-sidebar-foreground lg:hidden">
+            {navegacao}
+          </nav>
+
+          <main className="mx-auto min-w-0 max-w-7xl px-4 py-8 sm:px-6">
+            <Outlet />
+          </main>
+
+          <footer className="border-t border-border py-4 text-center text-xs text-muted-foreground">
+            Essa aplicação foi criada por Bárbara Brandão.
+          </footer>
+        </div>
       </div>
     </div>
   );
