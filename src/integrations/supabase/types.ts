@@ -14,6 +14,232 @@ export type Database = {
   }
   public: {
     Tables: {
+      baixas_cliente: {
+        Row: {
+          created_at: string
+          descricao_pendencia: string | null
+          encerrado_em: string | null
+          id: string
+          pendencia_com: string | null
+          processo_id: string
+          proxima_cobranca: string | null
+          status: string
+          ultima_cobranca_em: string | null
+          ultima_tentativa_em: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          descricao_pendencia?: string | null
+          encerrado_em?: string | null
+          id?: string
+          pendencia_com?: string | null
+          processo_id: string
+          proxima_cobranca?: string | null
+          status?: string
+          ultima_cobranca_em?: string | null
+          ultima_tentativa_em?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          descricao_pendencia?: string | null
+          encerrado_em?: string | null
+          id?: string
+          pendencia_com?: string | null
+          processo_id?: string
+          proxima_cobranca?: string | null
+          status?: string
+          ultima_cobranca_em?: string | null
+          ultima_tentativa_em?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "baixas_cliente_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: true
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      baixas_cliente_historico: {
+        Row: {
+          baixa_id: string
+          created_at: string
+          created_by: string | null
+          descricao: string | null
+          id: string
+          pendencia_com: string | null
+          proxima_cobranca: string | null
+          resultado: string | null
+          tipo: string
+        }
+        Insert: {
+          baixa_id: string
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          pendencia_com?: string | null
+          proxima_cobranca?: string | null
+          resultado?: string | null
+          tipo: string
+        }
+        Update: {
+          baixa_id?: string
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          pendencia_com?: string | null
+          proxima_cobranca?: string | null
+          resultado?: string | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "baixas_cliente_historico_baixa_id_fkey"
+            columns: ["baixa_id"]
+            isOneToOne: false
+            referencedRelation: "baixas_cliente"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calculos_documentos: {
+        Row: {
+          calculo_id: string
+          caminho: string
+          categoria: string
+          created_at: string
+          created_by: string | null
+          id: string
+          nome_arquivo: string
+          tamanho: number | null
+          tipo: string | null
+        }
+        Insert: {
+          calculo_id: string
+          caminho: string
+          categoria: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome_arquivo: string
+          tamanho?: number | null
+          tipo?: string | null
+        }
+        Update: {
+          calculo_id?: string
+          caminho?: string
+          categoria?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome_arquivo?: string
+          tamanho?: number | null
+          tipo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calculos_documentos_calculo_id_fkey"
+            columns: ["calculo_id"]
+            isOneToOne: false
+            referencedRelation: "calculos_judiciais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calculos_judiciais: {
+        Row: {
+          created_at: string
+          created_by: string
+          criterios: Json
+          data_base: string
+          id: string
+          nome: string
+          observacoes: string | null
+          processo_id: string | null
+          resultado: Json | null
+          updated_at: string
+          versao: number
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          criterios?: Json
+          data_base?: string
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          processo_id?: string | null
+          resultado?: Json | null
+          updated_at?: string
+          versao?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          criterios?: Json
+          data_base?: string
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          processo_id?: string | null
+          resultado?: Json | null
+          updated_at?: string
+          versao?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calculos_judiciais_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calculos_judiciais_versoes: {
+        Row: {
+          calculo_id: string
+          created_at: string
+          created_by: string | null
+          criterios: Json
+          id: string
+          resultado: Json | null
+          versao: number
+        }
+        Insert: {
+          calculo_id: string
+          created_at?: string
+          created_by?: string | null
+          criterios: Json
+          id?: string
+          resultado?: Json | null
+          versao: number
+        }
+        Update: {
+          calculo_id?: string
+          created_at?: string
+          created_by?: string | null
+          criterios?: Json
+          id?: string
+          resultado?: Json | null
+          versao?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calculos_judiciais_versoes_calculo_id_fkey"
+            columns: ["calculo_id"]
+            isOneToOne: false
+            referencedRelation: "calculos_judiciais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       convites_grupo: {
         Row: {
           created_at: string
@@ -747,6 +973,11 @@ export type Database = {
       }
       pode_acessar_processo: {
         Args: { _processo_id: string }
+        Returns: boolean
+      }
+      pode_editar_calculo: { Args: { _calculo_id: string }; Returns: boolean }
+      pode_visualizar_calculo: {
+        Args: { _calculo_id: string }
         Returns: boolean
       }
       pode_visualizar_processo: {
