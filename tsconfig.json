@@ -25,6 +25,7 @@
     "noUncheckedSideEffectImports": true,
     "paths": {
       "@/lib/calculos-judiciais": ["./src/lib/calculos-judiciais-wrapper.ts"],
+      "@/lib/pdf-calculo": ["./src/lib/pdf-calculo-wrapper.ts"],
       "@/*": ["./src/*"]
     }
   }
