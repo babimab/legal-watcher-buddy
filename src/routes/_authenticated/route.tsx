@@ -69,128 +69,28 @@ function AppLayout() {
 
   const navegacao = (
     <>
-      <NavItem
-        to="/painel"
-        icon={<LayoutDashboard className="size-4" />}
-        label="Painel"
-        tourId="nav-painel"
-      />
-      <NavItem
-        to="/painel"
-        icon={<LayoutDashboard className="size-4" />}
-        label="Equipe Souza Cruz"
-        search={{ grupo: "Equipe Souza Cruz" }}
-        tourId="nav-clientes"
-      />
-      <NavItem
-        to="/painel"
-        icon={<LayoutDashboard className="size-4" />}
-        label="Equipe Astro"
-        search={{ grupo: "Equipe Astro" }}
-      />
-      <NavItem
-        to="/processos"
-        icon={<FolderKanban className="size-4" />}
-        label="Meus processos"
-        search={{ advogado: "eu" }}
-        tourId="nav-meus-processos"
-      />
-      <NavItem
-        to="/processos"
-        icon={<List className="size-4" />}
-        label="Todos os processos"
-        tourId="nav-todos-processos"
-      />
-      <NavItem
-        to="/calculos"
-        icon={<Calculator className="size-4" />}
-        label="Cálculos"
-        tourId="nav-calculos"
-      />
-      <NavItem
-        to="/relatorio"
-        icon={<LineChart className="size-4" />}
-        label="Relatórios"
-        contador={prazosUrgentes}
-        tourId="nav-relatorios"
-      />
-      <NavItem
-        to="/relatorio"
-        icon={<AlertTriangle className="size-4" />}
-        label="Meus prazos"
-        search={{ aba: "pendencias", advogado: "eu" }}
-        contador={meusPrazosUrgentes}
-      />
-      {ehEstagiaria ? null : (
-        <NavItem
-          to="/grupos"
-          icon={<Users className="size-4" />}
-          label="Grupos"
-          tourId="nav-grupos"
-        />
-      )}
-      {ehEstagiaria ? null : (
-        <NavItem
-          to="/relatorio"
-          icon={<Archive className="size-4" />}
-          label="Encerramento Souza Cruz"
-          search={{ aba: "encerramento" }}
-          tourId="nav-encerramento"
-        />
-      )}
-      {ehEstagiaria ? null : (
-        <NavItem
-          to="/relatorio"
-          icon={<Archive className="size-4" />}
-          label="Encerramento Astro"
-          search={{ aba: "encerramento-astro" }}
-          tourId="nav-encerramento-astro"
-        />
-      )}
-      {ehEstagiaria ? null : (
-        <NavItem
-          to="/baixas-cliente"
-          icon={<ClipboardCheck className="size-4" />}
-          label="Baixas no cliente"
-          contador={baixasAbertas}
-          tourId="nav-baixas-cliente"
-        />
-      )}
-      <NavItem
-        to="/publicacoes"
-        icon={<Newspaper className="size-4" />}
-        label="Publicações"
-        tourId="nav-publicacoes"
-      />
-      <NavItem
-        to="/citacoes"
-        icon={<Gavel className="size-4" />}
-        label="Citações"
-        tourId="nav-citacoes"
-      />
-      {ehEstagiaria ? null : (
-        <NavItem
-          to="/importar"
-          icon={<Upload className="size-4" />}
-          label="Importar"
-          tourId="nav-importar"
-        />
-      )}
-      {ehEstagiaria ? null : (
-        <NavItem
-          to="/qualidade-dados"
-          icon={<ShieldCheck className="size-4" />}
-          label="Qualidade dos dados"
-          tourId="nav-qualidade"
-        />
-      )}
+      <NavItem to="/painel" icon={<LayoutDashboard className="size-4" />} label="Painel" tourId="nav-painel" />
+      <NavItem to="/painel" icon={<LayoutDashboard className="size-4" />} label="Equipe Souza Cruz" search={{ grupo: "Equipe Souza Cruz" }} tourId="nav-clientes" />
+      <NavItem to="/painel" icon={<LayoutDashboard className="size-4" />} label="Equipe Astro" search={{ grupo: "Equipe Astro" }} />
+      <NavItem to="/processos" icon={<FolderKanban className="size-4" />} label="Meus processos" search={{ advogado: "eu" }} tourId="nav-meus-processos" />
+      <NavItem to="/processos" icon={<List className="size-4" />} label="Todos os processos" tourId="nav-todos-processos" />
+      <NavItem to="/calculos" icon={<Calculator className="size-4" />} label="Cálculos" tourId="nav-calculos" />
+      <NavItem to="/relatorio" icon={<LineChart className="size-4" />} label="Relatórios" contador={prazosUrgentes} tourId="nav-relatorios" />
+      <NavItem to="/relatorio" icon={<AlertTriangle className="size-4" />} label="Meus prazos" search={{ aba: "pendencias", advogado: "eu" }} contador={meusPrazosUrgentes} />
+      {ehEstagiaria ? null : <NavItem to="/grupos" icon={<Users className="size-4" />} label="Grupos" tourId="nav-grupos" />}
+      {ehEstagiaria ? null : <NavItem to="/relatorio" icon={<Archive className="size-4" />} label="Encerramento Souza Cruz" search={{ aba: "encerramento" }} tourId="nav-encerramento" />}
+      {ehEstagiaria ? null : <NavItem to="/relatorio" icon={<Archive className="size-4" />} label="Encerramento Astro" search={{ aba: "encerramento-astro" }} tourId="nav-encerramento-astro" />}
+      {ehEstagiaria ? null : <NavItem to="/baixas-cliente" icon={<ClipboardCheck className="size-4" />} label="Baixas no cliente" contador={baixasAbertas} tourId="nav-baixas-cliente" />}
+      <NavItem to="/publicacoes" icon={<Newspaper className="size-4" />} label="Publicações" tourId="nav-publicacoes" />
+      <NavItem to="/citacoes" icon={<Gavel className="size-4" />} label="Citações" tourId="nav-citacoes" />
+      {ehEstagiaria ? null : <NavItem to="/importar" icon={<Upload className="size-4" />} label="Importar" tourId="nav-importar" />}
+      {ehEstagiaria ? null : <NavItem to="/qualidade-dados" icon={<ShieldCheck className="size-4" />} label="Qualidade dos dados" tourId="nav-qualidade" />}
     </>
   );
 
   const utilidades = (
     <div className="flex items-center gap-1">
       <GuiaRapido />
-      <BuscaGlobal />
       <Link
         to="/perfil"
         aria-label="Meu perfil"
@@ -209,23 +109,26 @@ function AppLayout() {
   return (
     <div className="min-h-screen bg-background lg:grid lg:grid-cols-[232px_minmax(0,1fr)]">
       <aside className="hidden h-screen flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:sticky lg:top-0 lg:flex">
-        <div className="px-5 pb-4 pt-5">
-          <Link to="/painel" className="flex items-center">
+        <div className="px-4 pb-3 pt-5">
+          <Link to="/painel" className="flex items-center px-1">
             <img src="/faro-logo-white.png" alt="FaroLex" className="h-8 w-auto" />
           </Link>
         </div>
 
-        <nav className="flex flex-col gap-1 px-3 pb-4 text-sm">
+        <div className="px-3 pb-4">
+          <div className="flex items-center gap-2.5 rounded-xl border border-sidebar-border bg-sidebar-accent/20 p-2.5">
+            <img
+              src="/faro-advogada.jpg"
+              alt="FaroLex"
+              className="size-12 shrink-0 rounded-lg border border-sidebar-border object-cover shadow-sm"
+            />
+            <BuscaGlobal compacta />
+          </div>
+        </div>
+
+        <nav className="flex flex-col gap-1 px-3 pb-5 text-sm">
           {navegacao}
         </nav>
-
-        <div className="mt-auto px-4 pb-5 pt-2">
-          <img
-            src="/faro-advogada.jpg"
-            alt="FaroLex"
-            className="w-full rounded-xl border border-sidebar-border object-cover shadow-sm"
-          />
-        </div>
       </aside>
 
       <div className="min-w-0">
@@ -236,27 +139,16 @@ function AppLayout() {
             </Link>
             <div className="ml-auto flex items-center gap-1">
               <GuiaRapido />
-              <BuscaGlobal />
-              <Link
-                to="/perfil"
-                aria-label="Meu perfil"
-                className="rounded-md p-2 text-sidebar-foreground hover:bg-sidebar-accent"
-              >
+              <BuscaGlobal atalhoTeclado={false} />
+              <Link to="/perfil" aria-label="Meu perfil" className="rounded-md p-2 text-sidebar-foreground hover:bg-sidebar-accent">
                 <User className="size-4" />
               </Link>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={sair}
-                className="text-sidebar-foreground hover:bg-sidebar-accent"
-              >
+              <Button variant="ghost" size="icon" onClick={sair} className="text-sidebar-foreground hover:bg-sidebar-accent">
                 <LogOut className="size-4" />
               </Button>
             </div>
           </div>
-          <nav className="flex gap-1 overflow-x-auto px-3 pb-3 text-sm">
-            {navegacao}
-          </nav>
+          <nav className="flex gap-1 overflow-x-auto px-3 pb-3 text-sm">{navegacao}</nav>
         </header>
 
         <div className="hidden items-center justify-end border-b border-border bg-background px-6 py-2 lg:flex">
@@ -301,11 +193,7 @@ function NavItem({
     >
       <span className="shrink-0">{icon}</span>
       <span className="whitespace-nowrap">{label}</span>
-      {contador ? (
-        <Badge variant="destructive" className="ml-auto px-1.5 py-0 text-xs">
-          {contador}
-        </Badge>
-      ) : null}
+      {contador ? <Badge variant="destructive" className="ml-auto px-1.5 py-0 text-xs">{contador}</Badge> : null}
     </Link>
   );
 }
