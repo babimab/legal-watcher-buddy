@@ -25,21 +25,85 @@ import { Route as AuthenticatedRelatorioRouteImport } from './routes/_authentica
 import { Route as AuthenticatedProcessosIndexRouteImport } from './routes/_authenticated/processos/index'
 import { Route as AuthenticatedProcessosIdRouteImport } from './routes/_authenticated/processos/$id'
 
-const IndexRoute = IndexRouteImport.update({ id: '/', path: '/', getParentRoute: () => rootRouteImport } as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({ id: '/_authenticated', getParentRoute: () => rootRouteImport } as any)
-const AuthRoute = AuthRouteImport.update({ id: '/auth', path: '/auth', getParentRoute: () => rootRouteImport } as any)
-const AuthenticatedBaixasClienteRoute = AuthenticatedBaixasClienteRouteImport.update({ id: '/baixas-cliente', path: '/baixas-cliente', getParentRoute: () => AuthenticatedRouteRoute } as any)
-const AuthenticatedCalculosRoute = AuthenticatedCalculosRouteImport.update({ id: '/calculos', path: '/calculos', getParentRoute: () => AuthenticatedRouteRoute } as any)
-const AuthenticatedCitacoesRoute = AuthenticatedCitacoesRouteImport.update({ id: '/citacoes', path: '/citacoes', getParentRoute: () => AuthenticatedRouteRoute } as any)
-const AuthenticatedGruposRoute = AuthenticatedGruposRouteImport.update({ id: '/grupos', path: '/grupos', getParentRoute: () => AuthenticatedRouteRoute } as any)
-const AuthenticatedImportarRoute = AuthenticatedImportarRouteImport.update({ id: '/importar', path: '/importar', getParentRoute: () => AuthenticatedRouteRoute } as any)
-const AuthenticatedPainelRoute = AuthenticatedPainelRouteImport.update({ id: '/painel', path: '/painel', getParentRoute: () => AuthenticatedRouteRoute } as any)
-const AuthenticatedPerfilRoute = AuthenticatedPerfilRouteImport.update({ id: '/perfil', path: '/perfil', getParentRoute: () => AuthenticatedRouteRoute } as any)
-const AuthenticatedPublicacoesRoute = AuthenticatedPublicacoesRouteImport.update({ id: '/publicacoes', path: '/publicacoes', getParentRoute: () => AuthenticatedRouteRoute } as any)
-const AuthenticatedQualidadeDadosRoute = AuthenticatedQualidadeDadosRouteImport.update({ id: '/qualidade-dados', path: '/qualidade-dados', getParentRoute: () => AuthenticatedRouteRoute } as any)
-const AuthenticatedRelatorioRoute = AuthenticatedRelatorioRouteImport.update({ id: '/relatorio', path: '/relatorio', getParentRoute: () => AuthenticatedRouteRoute } as any)
-const AuthenticatedProcessosIndexRoute = AuthenticatedProcessosIndexRouteImport.update({ id: '/processos/', path: '/processos/', getParentRoute: () => AuthenticatedRouteRoute } as any)
-const AuthenticatedProcessosIdRoute = AuthenticatedProcessosIdRouteImport.update({ id: '/processos/$id', path: '/processos/$id', getParentRoute: () => AuthenticatedRouteRoute } as any)
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedBaixasClienteRoute =
+  AuthenticatedBaixasClienteRouteImport.update({
+    id: '/baixas-cliente',
+    path: '/baixas-cliente',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCalculosRoute = AuthenticatedCalculosRouteImport.update({
+  id: '/calculos',
+  path: '/calculos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCitacoesRoute = AuthenticatedCitacoesRouteImport.update({
+  id: '/citacoes',
+  path: '/citacoes',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedGruposRoute = AuthenticatedGruposRouteImport.update({
+  id: '/grupos',
+  path: '/grupos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedImportarRoute = AuthenticatedImportarRouteImport.update({
+  id: '/importar',
+  path: '/importar',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPainelRoute = AuthenticatedPainelRouteImport.update({
+  id: '/painel',
+  path: '/painel',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPerfilRoute = AuthenticatedPerfilRouteImport.update({
+  id: '/perfil',
+  path: '/perfil',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPublicacoesRoute =
+  AuthenticatedPublicacoesRouteImport.update({
+    id: '/publicacoes',
+    path: '/publicacoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedQualidadeDadosRoute =
+  AuthenticatedQualidadeDadosRouteImport.update({
+    id: '/qualidade-dados',
+    path: '/qualidade-dados',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedRelatorioRoute = AuthenticatedRelatorioRouteImport.update({
+  id: '/relatorio',
+  path: '/relatorio',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedProcessosIndexRoute =
+  AuthenticatedProcessosIndexRouteImport.update({
+    id: '/processos/',
+    path: '/processos/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedProcessosIdRoute =
+  AuthenticatedProcessosIdRouteImport.update({
+    id: '/processos/$id',
+    path: '/processos/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -57,7 +121,22 @@ export interface FileRoutesByFullPath {
   '/processos/$id': typeof AuthenticatedProcessosIdRoute
   '/processos/': typeof AuthenticatedProcessosIndexRoute
 }
-export interface FileRoutesByTo extends FileRoutesByFullPath {}
+export interface FileRoutesByTo {
+  '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/baixas-cliente': typeof AuthenticatedBaixasClienteRoute
+  '/calculos': typeof AuthenticatedCalculosRoute
+  '/citacoes': typeof AuthenticatedCitacoesRoute
+  '/grupos': typeof AuthenticatedGruposRoute
+  '/importar': typeof AuthenticatedImportarRoute
+  '/painel': typeof AuthenticatedPainelRoute
+  '/perfil': typeof AuthenticatedPerfilRoute
+  '/publicacoes': typeof AuthenticatedPublicacoesRoute
+  '/qualidade-dados': typeof AuthenticatedQualidadeDadosRoute
+  '/relatorio': typeof AuthenticatedRelatorioRoute
+  '/processos/$id': typeof AuthenticatedProcessosIdRoute
+  '/processos': typeof AuthenticatedProcessosIndexRoute
+}
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
@@ -78,10 +157,54 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/baixas-cliente' | '/calculos' | '/citacoes' | '/grupos' | '/importar' | '/painel' | '/perfil' | '/publicacoes' | '/qualidade-dados' | '/relatorio' | '/processos/$id' | '/processos/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/baixas-cliente'
+    | '/calculos'
+    | '/citacoes'
+    | '/grupos'
+    | '/importar'
+    | '/painel'
+    | '/perfil'
+    | '/publicacoes'
+    | '/qualidade-dados'
+    | '/relatorio'
+    | '/processos/$id'
+    | '/processos/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/baixas-cliente' | '/calculos' | '/citacoes' | '/grupos' | '/importar' | '/painel' | '/perfil' | '/publicacoes' | '/qualidade-dados' | '/relatorio' | '/processos/$id' | '/processos'
-  id: '__root__' | '/' | '/_authenticated' | '/auth' | '/_authenticated/baixas-cliente' | '/_authenticated/calculos' | '/_authenticated/citacoes' | '/_authenticated/grupos' | '/_authenticated/importar' | '/_authenticated/painel' | '/_authenticated/perfil' | '/_authenticated/publicacoes' | '/_authenticated/qualidade-dados' | '/_authenticated/relatorio' | '/_authenticated/processos/$id' | '/_authenticated/processos/'
+  to:
+    | '/'
+    | '/auth'
+    | '/baixas-cliente'
+    | '/calculos'
+    | '/citacoes'
+    | '/grupos'
+    | '/importar'
+    | '/painel'
+    | '/perfil'
+    | '/publicacoes'
+    | '/qualidade-dados'
+    | '/relatorio'
+    | '/processos/$id'
+    | '/processos'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/baixas-cliente'
+    | '/_authenticated/calculos'
+    | '/_authenticated/citacoes'
+    | '/_authenticated/grupos'
+    | '/_authenticated/importar'
+    | '/_authenticated/painel'
+    | '/_authenticated/perfil'
+    | '/_authenticated/publicacoes'
+    | '/_authenticated/qualidade-dados'
+    | '/_authenticated/relatorio'
+    | '/_authenticated/processos/$id'
+    | '/_authenticated/processos/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -92,21 +215,111 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': { id: '/'; path: '/'; fullPath: '/'; preLoaderRoute: typeof IndexRouteImport; parentRoute: typeof rootRouteImport }
-    '/_authenticated': { id: '/_authenticated'; path: ''; fullPath: '/'; preLoaderRoute: typeof AuthenticatedRouteRouteImport; parentRoute: typeof rootRouteImport }
-    '/auth': { id: '/auth'; path: '/auth'; fullPath: '/auth'; preLoaderRoute: typeof AuthRouteImport; parentRoute: typeof rootRouteImport }
-    '/_authenticated/baixas-cliente': { id: '/_authenticated/baixas-cliente'; path: '/baixas-cliente'; fullPath: '/baixas-cliente'; preLoaderRoute: typeof AuthenticatedBaixasClienteRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
-    '/_authenticated/calculos': { id: '/_authenticated/calculos'; path: '/calculos'; fullPath: '/calculos'; preLoaderRoute: typeof AuthenticatedCalculosRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
-    '/_authenticated/citacoes': { id: '/_authenticated/citacoes'; path: '/citacoes'; fullPath: '/citacoes'; preLoaderRoute: typeof AuthenticatedCitacoesRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
-    '/_authenticated/grupos': { id: '/_authenticated/grupos'; path: '/grupos'; fullPath: '/grupos'; preLoaderRoute: typeof AuthenticatedGruposRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
-    '/_authenticated/importar': { id: '/_authenticated/importar'; path: '/importar'; fullPath: '/importar'; preLoaderRoute: typeof AuthenticatedImportarRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
-    '/_authenticated/painel': { id: '/_authenticated/painel'; path: '/painel'; fullPath: '/painel'; preLoaderRoute: typeof AuthenticatedPainelRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
-    '/_authenticated/perfil': { id: '/_authenticated/perfil'; path: '/perfil'; fullPath: '/perfil'; preLoaderRoute: typeof AuthenticatedPerfilRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
-    '/_authenticated/publicacoes': { id: '/_authenticated/publicacoes'; path: '/publicacoes'; fullPath: '/publicacoes'; preLoaderRoute: typeof AuthenticatedPublicacoesRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
-    '/_authenticated/qualidade-dados': { id: '/_authenticated/qualidade-dados'; path: '/qualidade-dados'; fullPath: '/qualidade-dados'; preLoaderRoute: typeof AuthenticatedQualidadeDadosRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
-    '/_authenticated/relatorio': { id: '/_authenticated/relatorio'; path: '/relatorio'; fullPath: '/relatorio'; preLoaderRoute: typeof AuthenticatedRelatorioRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
-    '/_authenticated/processos/': { id: '/_authenticated/processos/'; path: '/processos'; fullPath: '/processos/'; preLoaderRoute: typeof AuthenticatedProcessosIndexRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
-    '/_authenticated/processos/$id': { id: '/_authenticated/processos/$id'; path: '/processos/$id'; fullPath: '/processos/$id'; preLoaderRoute: typeof AuthenticatedProcessosIdRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/baixas-cliente': {
+      id: '/_authenticated/baixas-cliente'
+      path: '/baixas-cliente'
+      fullPath: '/baixas-cliente'
+      preLoaderRoute: typeof AuthenticatedBaixasClienteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/calculos': {
+      id: '/_authenticated/calculos'
+      path: '/calculos'
+      fullPath: '/calculos'
+      preLoaderRoute: typeof AuthenticatedCalculosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/citacoes': {
+      id: '/_authenticated/citacoes'
+      path: '/citacoes'
+      fullPath: '/citacoes'
+      preLoaderRoute: typeof AuthenticatedCitacoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/grupos': {
+      id: '/_authenticated/grupos'
+      path: '/grupos'
+      fullPath: '/grupos'
+      preLoaderRoute: typeof AuthenticatedGruposRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/importar': {
+      id: '/_authenticated/importar'
+      path: '/importar'
+      fullPath: '/importar'
+      preLoaderRoute: typeof AuthenticatedImportarRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/painel': {
+      id: '/_authenticated/painel'
+      path: '/painel'
+      fullPath: '/painel'
+      preLoaderRoute: typeof AuthenticatedPainelRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/perfil': {
+      id: '/_authenticated/perfil'
+      path: '/perfil'
+      fullPath: '/perfil'
+      preLoaderRoute: typeof AuthenticatedPerfilRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/publicacoes': {
+      id: '/_authenticated/publicacoes'
+      path: '/publicacoes'
+      fullPath: '/publicacoes'
+      preLoaderRoute: typeof AuthenticatedPublicacoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/qualidade-dados': {
+      id: '/_authenticated/qualidade-dados'
+      path: '/qualidade-dados'
+      fullPath: '/qualidade-dados'
+      preLoaderRoute: typeof AuthenticatedQualidadeDadosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/relatorio': {
+      id: '/_authenticated/relatorio'
+      path: '/relatorio'
+      fullPath: '/relatorio'
+      preLoaderRoute: typeof AuthenticatedRelatorioRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/processos/': {
+      id: '/_authenticated/processos/'
+      path: '/processos'
+      fullPath: '/processos/'
+      preLoaderRoute: typeof AuthenticatedProcessosIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/processos/$id': {
+      id: '/_authenticated/processos/$id'
+      path: '/processos/$id'
+      fullPath: '/processos/$id'
+      preLoaderRoute: typeof AuthenticatedProcessosIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -126,28 +339,31 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedBaixasClienteRoute,
-  AuthenticatedCalculosRoute,
-  AuthenticatedCitacoesRoute,
-  AuthenticatedGruposRoute,
-  AuthenticatedImportarRoute,
-  AuthenticatedPainelRoute,
-  AuthenticatedPerfilRoute,
-  AuthenticatedPublicacoesRoute,
-  AuthenticatedQualidadeDadosRoute,
-  AuthenticatedRelatorioRoute,
-  AuthenticatedProcessosIdRoute,
-  AuthenticatedProcessosIndexRoute,
+  AuthenticatedBaixasClienteRoute: AuthenticatedBaixasClienteRoute,
+  AuthenticatedCalculosRoute: AuthenticatedCalculosRoute,
+  AuthenticatedCitacoesRoute: AuthenticatedCitacoesRoute,
+  AuthenticatedGruposRoute: AuthenticatedGruposRoute,
+  AuthenticatedImportarRoute: AuthenticatedImportarRoute,
+  AuthenticatedPainelRoute: AuthenticatedPainelRoute,
+  AuthenticatedPerfilRoute: AuthenticatedPerfilRoute,
+  AuthenticatedPublicacoesRoute: AuthenticatedPublicacoesRoute,
+  AuthenticatedQualidadeDadosRoute: AuthenticatedQualidadeDadosRoute,
+  AuthenticatedRelatorioRoute: AuthenticatedRelatorioRoute,
+  AuthenticatedProcessosIdRoute: AuthenticatedProcessosIdRoute,
+  AuthenticatedProcessosIndexRoute: AuthenticatedProcessosIndexRoute,
 }
 
-const AuthenticatedRouteRouteWithChildren = AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute,
+  IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
-  AuthRoute,
+  AuthRoute: AuthRoute,
 }
-export const routeTree = rootRouteImport._addFileChildren(rootRouteChildren)._addFileTypes<FileRouteTypes>()
+export const routeTree = rootRouteImport
+  ._addFileChildren(rootRouteChildren)
+  ._addFileTypes<FileRouteTypes>()
 
 import type { getRouter } from './router.tsx'
 import type { startInstance } from './start.ts'
