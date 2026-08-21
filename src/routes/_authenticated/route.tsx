@@ -106,13 +106,13 @@ function AppLayout() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 border-b border-slate-300/70 bg-slate-300/85 shadow-sm backdrop-blur">
-        <div className="flex h-16 items-center gap-3 px-4 sm:px-5 lg:px-6">
+        <div className="flex h-24 items-center gap-4 px-4 sm:h-32 sm:px-5 lg:px-6">
           <img
             src="/faro-advogada.jpg"
             alt="FaroLex"
-            className="size-10 shrink-0 rounded-lg border border-slate-400/60 object-cover shadow-sm"
+            className="size-14 shrink-0 rounded-xl border border-slate-400/60 object-cover shadow-sm sm:size-20"
           />
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 w-full max-w-sm">
             <BuscaGlobal barraSuperior />
           </div>
           <div className="hidden md:flex">{utilidades}</div>
@@ -129,7 +129,7 @@ function AppLayout() {
       </header>
 
       <div className="lg:grid lg:grid-cols-[232px_minmax(0,1fr)]">
-        <aside className="hidden h-[calc(100vh-4rem)] flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:sticky lg:top-16 lg:flex">
+        <aside className="hidden h-[calc(100vh-8rem)] flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:sticky lg:top-32 lg:flex">
           <div className="px-4 pb-4 pt-5">
             <Link to="/painel" className="flex items-center px-1">
               <img src="/faro-logo-white.png" alt="FaroLex" className="h-8 w-auto" />
