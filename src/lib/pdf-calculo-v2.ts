@@ -52,7 +52,7 @@ function wrap(s: string, max: number, size: number) {
   const words = String(s ?? "").split(/\s+/).filter(Boolean);
   if (!words.length) return [""];
   const rows: string[] = [];
-  let row = words[0];
+  let row = words[0] ?? "";
   for (let i = 1; i < words.length; i++) {
     const t = `${row} ${words[i]!}`;
     if (width(t, size) <= max) row = t; else { rows.push(row); row = words[i]!; }

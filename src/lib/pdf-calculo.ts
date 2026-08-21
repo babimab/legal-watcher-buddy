@@ -128,7 +128,7 @@ function quebrarTexto(texto: string, largura: number, tamanho: number) {
   const palavras = String(texto ?? "").split(/\s+/).filter(Boolean);
   if (!palavras.length) return [""];
   const linhas: string[] = [];
-  let atual = palavras[0];
+  let atual = palavras[0] ?? "";
   for (let i = 1; i < palavras.length; i++) {
     const tentativa = `${atual} ${palavras[i]}`;
     if (estimarLargura(tentativa, tamanho) <= largura) atual = tentativa;
