@@ -70,9 +70,6 @@ function PainelPage() {
     [pastasQuery.data],
   );
 
-  // O painel é por grupo (Equipe Souza Cruz, Equipe Astro), não por texto
-  // de cliente — um processo de Merck que fica na pasta do JGV dentro da
-  // Equipe Souza Cruz é contado ali, do jeito que é na planilha real dele.
   const grupoAtual = (gruposQuery.data ?? []).find((g) => g.nome === search.grupo) ?? null;
   const titulo = grupoAtual?.nome ?? null;
 
@@ -82,10 +79,6 @@ function PainelPage() {
     return pastaPorId.get(pastaId)?.grupo_id === grupoAtual.id;
   };
 
-  // A carteira do painel conta só os processos ativos por padrão — um
-  // processo encerrado/baixado não deveria inflar a contagem "normal" de
-  // cada pasta/advogado. Pra ver os outros status é preciso ir em "Todos
-  // os processos" e trocar o filtro de Status lá.
   const processos = {
     data: (processosQuery.data ?? []).filter(
       (p) => pertenceAoGrupo(p.pasta_id) && p.status === "ativo",
@@ -117,6 +110,61 @@ function PainelPage() {
     (m) => m.prazo && m.prazo >= hojeISO && m.prazo <= emSeteDiasISO,
   );
 
+  const meusPrazosVencidos = useMemo(
+    () => prazosVencidos.filter((m) => ehResponsavelDaSigla(m.processos?.responsavel, minhaSigla)),
+    [prazosVencidos, minhaSigla],
+  );
+  const meusPrazosProximos = useMemo(
+    () => prazosProximos.filter((m) => ehResponsavelDaSigla(m.processos?.responsavel, minhaSigla)),
+    [prazosProximos, minhaSigla],
+  );
+  const meusNaoValidados = useMemo(
+    () => (naoValidados.data ?? []).filter((m) => ehResponsavelDaSigla(m.processos?.responsavel, minhaSigla)),
+    [naoValidados.data, minhaSigla],
+  );
+
+  const itensMesa = useMemo(() => {
+    const itens: Array<{
+      chave: string;
+      tipo: "vencido" | "prazo" | "validar";
+      titulo: string;
+      detalhe: string;
+      processoId?: string;
+    }> = [];
+
+    for (const m of meusPrazosVencidos.slice(0, 3)) {
+      itens.push({
+        chave: `vencido-${m.id}`,
+        tipo: "vencido",
+        titulo: m.processos?.parte_contraria || m.processos?.autor || exibir(m.processos?.cliente) || "Processo",
+        detalhe: `${m.prazo ? new Date(`${m.prazo}T12:00:00`).toLocaleDateString("pt-BR") : "Prazo vencido"} — ${m.descricao}`,
+        processoId: m.processos?.id,
+      });
+    }
+
+    for (const m of meusPrazosProximos.slice(0, 3)) {
+      itens.push({
+        chave: `prazo-${m.id}`,
+        tipo: "prazo",
+        titulo: m.processos?.parte_contraria || m.processos?.autor || exibir(m.processos?.cliente) || "Processo",
+        detalhe: `${m.prazo ? new Date(`${m.prazo}T12:00:00`).toLocaleDateString("pt-BR") : "Próximo prazo"} — ${m.descricao}`,
+        processoId: m.processos?.id,
+      });
+    }
+
+    for (const m of meusNaoValidados.slice(0, 3)) {
+      itens.push({
+        chave: `validar-${m.id}`,
+        tipo: "validar",
+        titulo: m.processos?.parte_contraria || m.processos?.autor || exibir(m.processos?.cliente) || "Processo",
+        detalhe: `Validar andamento — ${m.descricao}`,
+        processoId: m.processos?.id,
+      });
+    }
+
+    return itens.slice(0, 7);
+  }, [meusPrazosVencidos, meusPrazosProximos, meusNaoValidados]);
+
   const porFase = useMemo(() => {
     const contagem = new Map<string, number>();
     for (const p of processos.data ?? []) {
@@ -138,14 +186,10 @@ function PainelPage() {
 
   const valorTotal = valorPorCarteira.reduce((soma, [, v]) => soma + v, 0);
 
-  // Só faz sentido nos painéis de equipe (Souza Cruz, Astro) — é onde as
-  // pastas representam o advogado responsável por aquele bloco de processos.
   const porPasta = useMemo(() => {
     if (!grupoAtual) return [];
     const contagem = new Map<string, { nome: string; itens: Processo[] }>();
 
-    // Toda pasta do grupo entra aqui, mesmo com zero processo — senão uma
-    // pasta recém-criada (ou ainda vazia) simplesmente some do painel.
     for (const pasta of pastasQuery.data ?? []) {
       if (pasta.grupo_id !== grupoAtual.id) continue;
       contagem.set(pasta.id, { nome: exibir(pasta.nome), itens: [] });
@@ -217,7 +261,7 @@ function PainelPage() {
         <div>
           <h1 className="font-serif text-3xl font-semibold">{titulo ?? "Painel"}</h1>
           <p className="text-muted-foreground">
-            {titulo ? "Resumo dessa equipe" : "Resumo do escritório"} — {meusProcessos.length}{" "}
+            {titulo ? "Resumo dessa equipe" : "Sua mesa de trabalho"} — {meusProcessos.length}{" "}
             processo(s) seus, {processos.data?.length ?? 0} no total.
           </p>
         </div>
@@ -230,12 +274,69 @@ function PainelPage() {
         ) : null}
       </div>
 
+      {!titulo ? (
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b bg-muted/30 pb-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <CardTitle className="font-serif text-xl">Minha mesa</CardTitle>
+                <CardDescription>O que pede sua atenção agora.</CardDescription>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/relatorio" search={{ aba: "pendencias", advogado: "eu" }}>Ver meus prazos</Link>
+                </Button>
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/processos" search={{ advogado: "eu" }}>Meus processos</Link>
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            {itensMesa.length === 0 ? (
+              <div className="flex items-center gap-2 px-5 py-6 text-sm text-muted-foreground">
+                <CheckCircle2 className="size-4 text-primary" /> Nada urgente na sua mesa agora.
+              </div>
+            ) : (
+              <div className="divide-y">
+                {itensMesa.map((item) => {
+                  const conteudo = (
+                    <div className="flex items-start gap-3 px-5 py-3.5 transition-colors hover:bg-muted/40">
+                      {item.tipo === "vencido" ? (
+                        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
+                      ) : item.tipo === "prazo" ? (
+                        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-500" />
+                      ) : (
+                        <FileWarning className="mt-0.5 size-4 shrink-0 text-amber-500" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium">{item.titulo}</p>
+                          <Badge variant={item.tipo === "vencido" ? "destructive" : "outline"}>
+                            {item.tipo === "vencido" ? "Prazo vencido" : item.tipo === "prazo" ? "Próximo prazo" : "Validar andamento"}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{item.detalhe}</p>
+                      </div>
+                    </div>
+                  );
+
+                  return item.processoId ? (
+                    <Link key={item.chave} to="/processos/$id" params={{ id: item.processoId }} className="block">
+                      {conteudo}
+                    </Link>
+                  ) : (
+                    <div key={item.chave}>{conteudo}</div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Link
-          to="/relatorio"
-          search={{ aba: "pendencias", urgencia: "vencidos" }}
-          className="block"
-        >
+        <Link to="/relatorio" search={{ aba: "pendencias", urgencia: "vencidos" }} className="block">
           <Card className="transition-colors hover:border-destructive/50">
             <CardContent className="flex items-center gap-3 py-5">
               <AlertTriangle className="size-8 text-destructive" />
@@ -290,12 +391,7 @@ function PainelPage() {
                 onChange={(e) => setNovaPastaNome(e.target.value)}
                 className="h-9 w-48"
               />
-              <Button
-                type="submit"
-                variant="outline"
-                size="sm"
-                disabled={criandoPasta || !novaPastaNome.trim()}
-              >
+              <Button type="submit" variant="outline" size="sm" disabled={criandoPasta || !novaPastaNome.trim()}>
                 <Plus className="size-4" /> Adicionar
               </Button>
             </form>
@@ -323,29 +419,18 @@ function PainelPage() {
                   <CardContent className="flex h-full flex-col justify-between gap-4 py-5">
                     <div>
                       <p className="pr-6 font-serif text-lg font-semibold">{nome}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {itens.length} processo{itens.length === 1 ? "" : "s"}
-                      </p>
+                      <p className="text-sm text-muted-foreground">{itens.length} processo{itens.length === 1 ? "" : "s"}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       {chave !== "sem-pasta" ? (
                         <Button asChild variant="outline" size="sm" className="flex-1">
-                          <Link to="/processos" search={{ pasta: chave }}>
-                            Ver processos
-                          </Link>
+                          <Link to="/processos" search={{ pasta: chave }}>Ver processos</Link>
                         </Button>
                       ) : (
                         <span className="flex-1" />
                       )}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={exportandoPasta === chave || itens.length === 0}
-                        onClick={() => exportarPasta(chave, nome, itens)}
-                      >
-                        <Download className="size-4" />
-                        Exportar
+                      <Button type="button" variant="outline" size="sm" disabled={exportandoPasta === chave || itens.length === 0} onClick={() => exportarPasta(chave, nome, itens)}>
+                        <Download className="size-4" /> Exportar
                       </Button>
                     </div>
                   </CardContent>
@@ -368,13 +453,7 @@ function PainelPage() {
             ) : (
               porFase.map(([fase, qtd]) => (
                 <div key={fase} className="flex items-center justify-between text-sm">
-                  <Link
-                    to="/processos"
-                    search={{ fase }}
-                    className="underline-offset-4 hover:underline"
-                  >
-                    {exibir(fase)}
-                  </Link>
+                  <Link to="/processos" search={{ fase }} className="underline-offset-4 hover:underline">{exibir(fase)}</Link>
                   <Badge variant="outline">{qtd}</Badge>
                 </div>
               ))
@@ -385,9 +464,7 @@ function PainelPage() {
         <Card>
           <CardHeader>
             <CardTitle className="font-serif text-lg">Valor em causa por carteira</CardTitle>
-            <CardDescription>
-              Soma do valor da causa dos processos com valor informado.
-            </CardDescription>
+            <CardDescription>Soma do valor da causa dos processos com valor informado.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {valorPorCarteira.length === 0 ? (
@@ -406,16 +483,12 @@ function PainelPage() {
 
       {naoValidados.data && naoValidados.data.length === 0 && prazosVencidos.length === 0 ? (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <CheckCircle2 className="size-4 text-primary" /> Tudo em dia: sem prazo vencido nem
-          andamento pendente de validação.
+          <CheckCircle2 className="size-4 text-primary" /> Tudo em dia: sem prazo vencido nem andamento pendente de validação.
         </p>
       ) : null}
 
       {ehEstagiaria ? null : (
-        <Link
-          to="/qualidade-dados"
-          className="flex items-center gap-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-        >
+        <Link to="/qualidade-dados" className="flex items-center gap-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
           <ShieldCheck className="size-4" /> Qualidade dos dados
         </Link>
       )}
