@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, CalendarPlus, CalendarRange, CheckCircle2, Download, Mail, Play } from "lucide-react";
+import { AlertTriangle, CalendarPlus, CalendarRange, CheckCircle2, Copy, Download, Mail, Play } from "lucide-react";
 import ExcelJS from "exceljs";
 
 import { Button } from "@/components/ui/button";
@@ -133,25 +133,20 @@ async function exportarAndamentosExcel(itens: MovimentacaoComProcesso[], nomeArq
 
   planilha.columns = [
     { header: "Número CNJ", key: "numero_cnj", width: 22 },
-    { header: "Cliente", key: "cliente", width: 26 },
     { header: "Cliente/Caso", key: "cliente_caso", width: 18 },
-    { header: "Autor", key: "autor", width: 26 },
+    { header: "Cliente", key: "cliente", width: 26 },
+    { header: "Parte Adversa", key: "parte_adversa", width: 30 },
     { header: "Réu", key: "reu", width: 26 },
     { header: "Parte contrária", key: "parte_contraria", width: 26 },
     { header: "Comarca", key: "comarca", width: 22 },
     { header: "Juízo", key: "vara", width: 26 },
     { header: "UF", key: "uf", width: 10 },
-    { header: "Responsável", key: "responsavel", width: 14 },
-    { header: "Sócio", key: "socio", width: 10 },
-    { header: "Qtd. andamentos", key: "quantidade", width: 16 },
     { header: "Andamentos do período", key: "andamentos", width: 80 },
-    { header: "Destacar no e-mail", key: "destacar_email", width: 20 },
     { header: "Observações", key: "observacoes", width: 50 },
   ];
 
   for (const grupo of grupos) {
     const p = grupo.processo;
-    const destacados = grupo.itens.filter((m) => m.destacar_email).length;
     const andamentos = grupo.itens
       .map((m) => `${formatarDataCurta(m.data_movimentacao)} — ${m.descricao}`)
       .join("\n");
@@ -162,19 +157,15 @@ async function exportarAndamentosExcel(itens: MovimentacaoComProcesso[], nomeArq
 
     planilha.addRow({
       numero_cnj: p ? formatarCNJ(p.numero_cnj) : "",
-      cliente: exibir(p?.cliente) ?? "",
       cliente_caso: clienteCasoDoProcesso(p),
-      autor: p?.autor ?? "",
+      cliente: exibir(p?.cliente) ?? "",
+      parte_adversa: nomeParteAdversa(p),
       reu: p?.reu ?? "",
       parte_contraria: p?.parte_contraria ?? "",
       comarca: p?.comarca ?? "",
       vara: p?.vara ?? "",
       uf: p?.uf ?? "",
-      responsavel: p?.responsavel ?? "",
-      socio: p?.socio ?? "",
-      quantidade: grupo.itens.length,
       andamentos,
-      destacar_email: destacados > 0 ? `Sim (${destacados})` : "Não",
       observacoes,
     });
   }
@@ -264,10 +255,13 @@ function nomeParteAdversa(processo: Partial<DadosEmailProcesso> | null | undefin
 
 function linhaClienteCaso(processo: Partial<DadosEmailProcesso> | null | undefined) {
   if (!processo) return "";
+  const clienteCaso =
+    processo.numero_cliente && processo.numero_interno
+      ? `${processo.numero_cliente}/${processo.numero_interno}`
+      : processo.numero_interno ?? processo.numero_cliente ?? "";
   return [
+    clienteCaso ? `Cliente/Caso: ${clienteCaso}` : "",
     processo.cliente ? `Cliente: ${exibir(processo.cliente)}` : "",
-    processo.numero_interno ? `Caso: ${processo.numero_interno}` : "",
-    processo.numero_cliente ? `Nº cliente: ${processo.numero_cliente}` : "",
   ]
     .filter(Boolean)
     .join(" | ");
@@ -284,62 +278,167 @@ function linhaJuizoUf(processo: Partial<DadosEmailProcesso> | null | undefined) 
     .join(" | ");
 }
 
-function blocoAndamentosProcesso(
-  indice: number,
-  grupo: GrupoAndamentos,
-  processoCompleto?: Processo,
-) {
-  const processo = processoCompleto ?? grupo.processo;
-  const numero = grupo.processo ? formatarCNJ(grupo.processo.numero_cnj) : "—";
-  const adversa = nomeParteAdversa(processo);
-  const cabecalho = [numero, adversa].filter(Boolean).join(" — ");
-  const clienteCaso = linhaClienteCaso(processo);
-  const juizoUf = linhaJuizoUf(processo);
-  const andamentos = grupo.itens
-    .map((m) => `${formatarDataCurta(m.data_movimentacao)} — ${m.descricao}`)
-    .join(" // ");
+type BlocoEmailAndamentos = {
+  cabecalho: string;
+  clienteCaso: string;
+  juizoUf: string;
+  andamentos: string;
+  observacoes: string;
+};
 
+type ConteudoEmailAndamentos = {
+  assunto: string;
+  saudacao: string;
+  introducao: string;
+  referencia: string;
+  blocos: BlocoEmailAndamentos[];
+  fechamento: string;
+};
+
+function montarConteudoEmailAndamentos(
+  itens: MovimentacaoComProcesso[],
+  titulo: string,
+  referenciaRelatorio: string,
+  processosCompletos: Processo[],
+): ConteudoEmailAndamentos {
+  const porId = new Map(processosCompletos.map((p) => [p.id, p]));
+  const blocos = agruparAndamentosPorProcesso(itens).map((grupo, i) => {
+    const processo = grupo.processo
+      ? porId.get(grupo.processo.id) ?? grupo.processo
+      : grupo.processo;
+    const numero = grupo.processo ? formatarCNJ(grupo.processo.numero_cnj) : "—";
+    const adversa = nomeParteAdversa(processo);
+    const observacoes = grupo.itens
+      .filter((m) => m.observacao?.trim())
+      .map((m) => `${formatarDataCurta(m.data_movimentacao)} — ${m.observacao!.trim()}`)
+      .join(" // ");
+
+    return {
+      cabecalho: `${i + 1}. ${[numero, adversa].filter(Boolean).join(" — ")}`,
+      clienteCaso: linhaClienteCaso(processo),
+      juizoUf: linhaJuizoUf(processo),
+      andamentos: grupo.itens
+        .map((m) => `${formatarDataCurta(m.data_movimentacao)} — ${m.descricao}`)
+        .join(" // "),
+      observacoes,
+    };
+  });
+
+  return {
+    assunto: `FaroLex — ${referenciaRelatorio} — ${titulo}`,
+    saudacao: `Olá, ${saudacao()}.`,
+    introducao: `Seguem os andamentos novos — ${titulo}.`,
+    referencia: `Referência: ${referenciaRelatorio}`,
+    blocos,
+    fechamento: "Abs.,",
+  };
+}
+
+function blocoEmailTexto(bloco: BlocoEmailAndamentos) {
   return [
-    `${indice}. ${cabecalho}`,
-    clienteCaso ? `   ${clienteCaso}` : "",
-    juizoUf ? `   ${juizoUf}` : "",
-    `   ${andamentos}`,
+    bloco.cabecalho,
+    bloco.clienteCaso ? `   ${bloco.clienteCaso}` : "",
+    bloco.juizoUf ? `   ${bloco.juizoUf}` : "",
+    bloco.andamentos ? `   ${bloco.andamentos}` : "",
+    bloco.observacoes ? `   Observações: ${bloco.observacoes}` : "",
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function conteudoEmailTexto(conteudo: ConteudoEmailAndamentos, limite?: number) {
+  const blocos = limite ? conteudo.blocos.slice(0, limite) : conteudo.blocos;
+  const restante =
+    limite && conteudo.blocos.length > limite
+      ? `\n\n... e mais ${conteudo.blocos.length - limite} processo(s). Consulte o Word do relatório para a lista completa.`
+      : "";
+
+  return `${conteudo.saudacao}\n\n${conteudo.introducao}\n${conteudo.referencia}\n\n${blocos
+    .map(blocoEmailTexto)
+    .join("\n\n")}${restante}\n\n${conteudo.fechamento}`;
+}
+
+function escaparHtml(valor: string) {
+  return valor
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function conteudoEmailHtml(conteudo: ConteudoEmailAndamentos) {
+  const blocos = conteudo.blocos
+    .map((bloco) => {
+      const linhas = [
+        bloco.clienteCaso,
+        bloco.juizoUf,
+        bloco.andamentos,
+        bloco.observacoes ? `Observações: ${bloco.observacoes}` : "",
+      ].filter(Boolean);
+
+      return `<div style="margin:0 0 16px 0"><div><strong>${escaparHtml(
+        bloco.cabecalho,
+      )}</strong></div>${linhas
+        .map((linha) => `<div>${escaparHtml(linha)}</div>`)
+        .join("")}</div>`;
+    })
+    .join("");
+
+  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:11pt;color:#000"><p>${escaparHtml(
+    conteudo.saudacao,
+  )}</p><p>${escaparHtml(conteudo.introducao)}<br>${escaparHtml(
+    conteudo.referencia,
+  )}</p>${blocos}<p>${escaparHtml(conteudo.fechamento)}</p></div>`;
+}
+
+function baixarWordEmail(conteudo: ConteudoEmailAndamentos, nomeArquivo: string) {
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escaparHtml(
+    conteudo.assunto,
+  )}</title></head><body>${conteudoEmailHtml(conteudo)}</body></html>`;
+  const blob = new Blob(["\ufeff", html], { type: "application/msword;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `texto-email-${nomeArquivo}.doc`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function copiarEmailFormatado(conteudo: ConteudoEmailAndamentos) {
+  const texto = conteudoEmailTexto(conteudo);
+  const html = conteudoEmailHtml(conteudo);
+
+  if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+    const item = new ClipboardItem({
+      "text/html": new Blob([html], { type: "text/html" }),
+      "text/plain": new Blob([texto], { type: "text/plain" }),
+    });
+    await navigator.clipboard.write([item]);
+    return;
+  }
+
+  await navigator.clipboard.writeText(texto);
 }
 
 function montarMailto(
   destinatarios: string[],
   itens: MovimentacaoComProcesso[],
   titulo: string,
+  referenciaRelatorio: string,
   processosCompletos: Processo[],
 ) {
-  const assunto = `FaroLex — ${titulo}`;
-  const grupos = agruparAndamentosPorProcesso(itens);
-  const cortado = grupos.length > MAX_PROCESSOS_NO_EMAIL;
-  const visiveis = grupos.slice(0, MAX_PROCESSOS_NO_EMAIL);
-  const porId = new Map(processosCompletos.map((p) => [p.id, p]));
-  const blocos = visiveis.map((grupo, i) =>
-    blocoAndamentosProcesso(
-      i + 1,
-      grupo,
-      grupo.processo ? porId.get(grupo.processo.id) : undefined,
-    ),
+  const conteudo = montarConteudoEmailAndamentos(
+    itens,
+    titulo,
+    referenciaRelatorio,
+    processosCompletos,
   );
-  const linhaCortado = cortado
-    ? `\n\n... e mais ${grupos.length - MAX_PROCESSOS_NO_EMAIL} processo(s). A lista completa está na planilha em anexo.`
-    : "";
+  const corpo = conteudoEmailTexto(conteudo, MAX_PROCESSOS_NO_EMAIL);
 
-  const corpo = `Olá, ${saudacao()}.
-
-Seguem os andamentos novos — ${titulo}. A planilha completa foi baixada agora e é só arrastar pra cá antes de enviar.
-
-${blocos.join("\n\n")}${linhaCortado}
-
-Abs.,`;
-
-  return `mailto:${destinatarios.join(",")}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+  return `mailto:${destinatarios.join(",")}?subject=${encodeURIComponent(
+    conteudo.assunto,
+  )}&body=${encodeURIComponent(corpo)}`;
 }
 
 function montarMailtoEncerramento(destinatarios: string[], processos: Processo[]) {
@@ -635,6 +734,21 @@ function RelatorioPage() {
     aba === "periodo" && periodoValido
       ? `andamentos-${periodoDe}-a-${periodoAte}`
       : NOME_ARQUIVO_POR_ABA[aba]!;
+  const referenciaRelatorio =
+    pastaSelecionada === "todas"
+      ? "Todas as pastas"
+      : exibir(pastasOrdenadas.find((p) => p.id === pastaSelecionada)?.nome) ??
+        "Pasta selecionada";
+  const itensDestacadosDaAba = itensDaAba.filter((m) => m.destacar_email);
+  const conteudoEmailDaAba =
+    itensDestacadosDaAba.length > 0
+      ? montarConteudoEmailAndamentos(
+          itensDestacadosDaAba,
+          tituloDaAba,
+          referenciaRelatorio,
+          processos.data ?? [],
+        )
+      : null;
 
   const abrirEmail = async () => {
     const destinatarios = emails
@@ -656,30 +770,54 @@ function RelatorioPage() {
       return;
     }
 
-    const itensDestacados = itensDaAba.filter((m) => m.destacar_email);
+    if (itensDestacadosDaAba.length === 0) {
+      toast.warning("Nenhum andamento foi marcado como ‘Destacar no e-mail’.", {
+        duration: 6000,
+      });
+      return;
+    }
 
-    await exportarAndamentosExcel(itensDaAba, nomeArquivoDaAba).catch(() => {
-      toast.error("Não consegui gerar a planilha, mas vou abrir o e-mail mesmo assim.");
-    });
-    if (itensDestacados.length === 0) {
+    window.location.href = montarMailto(
+      destinatarios,
+      itensDestacadosDaAba,
+      tituloDaAba,
+      referenciaRelatorio,
+      processos.data ?? [],
+    );
+  };
+
+  const copiarEmail = async () => {
+    if (!conteudoEmailDaAba) {
+      toast.warning("Nenhum andamento foi marcado como ‘Destacar no e-mail’.");
+      return;
+    }
+
+    try {
+      await copiarEmailFormatado(conteudoEmailDaAba);
+      toast.success("E-mail formatado copiado. É só colar no Outlook.");
+    } catch {
+      toast.error("Não consegui copiar o e-mail formatado.");
+    }
+  };
+
+  const exportarRelatorio = async () => {
+    try {
+      await exportarAndamentosExcel(itensDaAba, nomeArquivoDaAba);
+    } catch {
+      toast.error("Não consegui gerar o Excel.");
+      return;
+    }
+
+    if (!conteudoEmailDaAba) {
       toast.warning(
-        "Nenhum andamento foi marcado como ‘Destacar no e-mail’. A planilha foi gerada com todos os andamentos, mas o e-mail não será aberto.",
-        { duration: 7000 },
+        "Excel baixado com todos os andamentos. Não havia itens destacados, então o Word do e-mail não foi gerado.",
+        { duration: 6500 },
       );
       return;
     }
 
-    const processosDestacados = agruparAndamentosPorProcesso(itensDestacados).length;
-    toast.success(
-      `Planilha completa baixada. O corpo do e-mail levará ${processosDestacados} processo(s), com ${itensDestacados.length} andamento(s) destacado(s).`,
-      { duration: 6000 },
-    );
-    window.location.href = montarMailto(
-      destinatarios,
-      itensDestacados,
-      tituloDaAba,
-      processos.data ?? [],
-    );
+    baixarWordEmail(conteudoEmailDaAba, nomeArquivoDaAba);
+    toast.success("Relatório baixado: Excel completo + Word com o texto do e-mail.");
   };
 
   const rodar = async () => {
@@ -824,12 +962,10 @@ function RelatorioPage() {
                 ).catch(() => toast.error("Não consegui gerar o Excel."));
                 return;
               }
-              void exportarAndamentosExcel(itensDaAba, nomeArquivoDaAba).catch(() =>
-                toast.error("Não consegui gerar o Excel."),
-              );
+              void exportarRelatorio();
             }}
           >
-            <Download className="size-4" /> Exportar Excel
+            <Download className="size-4" /> {ehAbaEncerramento ? "Exportar Excel" : "Exportar relatório"}
           </Button>
           <Button onClick={rodar} disabled={rodando}>
             <Play className="size-4" /> {rodando ? "Registrando..." : "Marcar como verificado"}
@@ -919,10 +1055,17 @@ function RelatorioPage() {
             />
             <Button
               variant="outline"
+              disabled={!conteudoEmailDaAba}
+              onClick={() => void copiarEmail()}
+            >
+              <Copy className="size-4" /> Copiar e-mail formatado
+            </Button>
+            <Button
+              variant="outline"
               disabled={itensDaAba.length === 0}
               onClick={() => void abrirEmail()}
             >
-              <Mail className="size-4" /> Enviar por e-mail
+              <Mail className="size-4" /> Abrir e-mail
             </Button>
           </div>
 
@@ -1041,10 +1184,17 @@ function RelatorioPage() {
             />
             <Button
               variant="outline"
+              disabled={!conteudoEmailDaAba}
+              onClick={() => void copiarEmail()}
+            >
+              <Copy className="size-4" /> Copiar e-mail formatado
+            </Button>
+            <Button
+              variant="outline"
               disabled={itensDaAba.length === 0}
               onClick={() => void abrirEmail()}
             >
-              <Mail className="size-4" /> Enviar por e-mail
+              <Mail className="size-4" /> Abrir e-mail
             </Button>
           </div>
 
