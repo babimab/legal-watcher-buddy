@@ -18,6 +18,7 @@ import {
 import { ProcessoDialog } from "@/components/ProcessoDialog";
 import {
   listarProcessos,
+  ordenarProcessos,
   listarUltimasMovimentacoes,
   formatarCNJ,
   STATUS_OPCOES,
@@ -106,8 +107,6 @@ function ProcessosPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
 
-  // Guarda o filtro na URL (replace pra não encher o histórico a cada
-  // tecla digitada na busca); o valor padrão sai da URL pra ela ficar limpa.
   const combinar = (
     anterior: ProcessosSearch,
     patch: Partial<Record<keyof ProcessosSearch, string | undefined>>,
@@ -124,20 +123,14 @@ function ProcessosPage() {
     void navigate({
       search: (anterior: ProcessosSearch) =>
         combinar(anterior, { [chave]: valor === padrao ? undefined : valor }),
-
       replace: true,
     });
   };
 
   const busca = search.q ?? "";
   const setBusca = (v: string) => definir("q", v, "");
-  // Padrão é só ativo — processo encerrado/baixado/etc. só aparece se a
-  // pessoa escolher isso explicitamente no filtro de Status.
   const status = search.status ?? "ativo";
   const setStatus = (v: string) => definir("status", v, "ativo");
-  // Padrão esconde quem já foi vinculado como desdobramento de outro
-  // processo (ele já aparece dentro do processo principal) — só some da
-  // lista de novo se a pessoa escolher ver todos.
   const desdobramento = search.desdobramento ?? "ocultar";
   const setDesdobramento = (v: string) => definir("desdobramento", v, "ocultar");
   const fase = search.fase ?? "todas";
@@ -231,7 +224,7 @@ function ProcessosPage() {
 
   const lista = useMemo(() => {
     const termo = busca.trim().toLowerCase();
-    return (data ?? []).filter((p) => {
+    const filtrados = (data ?? []).filter((p) => {
       const casaStatus = status === "todos" || p.status === status;
       const casaDesdobramento = desdobramento === "todos" || !p.processo_pai_id;
       const casaFase = fase === "todas" || (fase === "nenhuma" ? !p.fase : p.fase === fase);
@@ -297,6 +290,10 @@ function ProcessosPage() {
         casaBusca
       );
     });
+
+    // Os filtros continuam literais (ex.: UF=SC traz apenas SC). Depois deles,
+    // a ordem é refeita pelo número do caso para manter casos iguais juntos.
+    return ordenarProcessos(filtrados);
   }, [
     data,
     busca,
@@ -315,10 +312,6 @@ function ProcessosPage() {
     pastaPorId,
   ]);
 
-  // "Meus processos" sem filtro de cliente já ativo: agrupa em pastas por
-  // cliente (Astro, Souza Cruz, Merck, PRC, Outros). As pastas aparecem
-  // sempre, mesmo vazias — é um padrão igual pra todo mundo, não muda
-  // conforme o que cada advogado tem hoje.
   const gruposPorCliente = useMemo(() => {
     if (!somenteMeus || cliente !== "todos") return null;
     const porCategoria = new Map<string, typeof lista>(CATEGORIAS_CLIENTE.map((c) => [c, []]));
@@ -410,129 +403,79 @@ function ProcessosPage() {
           />
         </div>
         <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-44">
-            <SelectValue />
-          </SelectTrigger>
+          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos os status</SelectItem>
-            {STATUS_OPCOES.map((s) => (
-              <SelectItem key={s} value={s}>
-                {s}
-              </SelectItem>
-            ))}
+            {STATUS_OPCOES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={desdobramento} onValueChange={setDesdobramento}>
-          <SelectTrigger className="w-56">
-            <SelectValue />
-          </SelectTrigger>
+          <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="ocultar">Sem desdobramentos vinculados</SelectItem>
             <SelectItem value="todos">Mostrar desdobramentos vinculados</SelectItem>
           </SelectContent>
         </Select>
         <Select value={fase} onValueChange={setFase}>
-          <SelectTrigger className="w-44">
-            <SelectValue />
-          </SelectTrigger>
+          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="todas">Todas as fases</SelectItem>
             <SelectItem value="nenhuma">Sem fase definida</SelectItem>
-            {FASE_OPCOES.map((f) => (
-              <SelectItem key={f} value={f}>
-                {f}
-              </SelectItem>
-            ))}
+            {FASE_OPCOES.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={cliente} onValueChange={setCliente}>
-          <SelectTrigger className="w-44">
-            <SelectValue />
-          </SelectTrigger>
+          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos os clientes</SelectItem>
-            {CATEGORIAS_CLIENTE.map((c) => (
-              <SelectItem key={c} value={c}>
-                {c}
-              </SelectItem>
-            ))}
+            {CATEGORIAS_CLIENTE.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
         {carteiras.length > 0 ? (
           <Select value={carteira} onValueChange={setCarteira}>
-            <SelectTrigger className="w-56">
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todas">Todas as carteiras</SelectItem>
-              {carteiras.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
+              {carteiras.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
             </SelectContent>
           </Select>
         ) : null}
         {ufs.length > 0 ? (
           <Select value={uf} onValueChange={setUf}>
-            <SelectTrigger className="w-44">
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todas">Todos os estados</SelectItem>
-              {ufs.map((u) => (
-                <SelectItem key={u} value={u}>
-                  {u}
-                </SelectItem>
-              ))}
+              {ufs.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
             </SelectContent>
           </Select>
         ) : null}
         {sistemas.length > 0 ? (
           <Select value={sistema} onValueChange={setSistema}>
-            <SelectTrigger className="w-52">
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="w-52"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os sistemas</SelectItem>
-              {sistemas.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
+              {sistemas.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
         ) : null}
         {!somenteMeus && (advogados.temMeus || advogados.outros.length > 0) ? (
           <Select value={advogado} onValueChange={setAdvogado}>
-            <SelectTrigger className="w-52">
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="w-52"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os advogados</SelectItem>
               <SelectItem value="nenhum">Sem responsável</SelectItem>
               {advogados.temMeus ? <SelectItem value="eu">{minhaSigla} (meus)</SelectItem> : null}
-              {advogados.outros.map((a) => (
-                <SelectItem key={a} value={a}>
-                  {a}
-                </SelectItem>
-              ))}
+              {advogados.outros.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
             </SelectContent>
           </Select>
         ) : null}
         {socios.length > 0 ? (
           <Select value={socio} onValueChange={setSocio}>
-            <SelectTrigger className="w-44">
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os sócios</SelectItem>
               <SelectItem value="nenhum">Sem sócio definido</SelectItem>
-              {socios.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
+              {socios.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
         ) : null}
@@ -550,32 +493,20 @@ function ProcessosPage() {
               });
             }}
           >
-            <SelectTrigger className="w-52">
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="w-52"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os grupos</SelectItem>
-              {(grupos.data ?? []).map((g) => (
-                <SelectItem key={g.id} value={g.id}>
-                  {exibir(g.nome)}
-                </SelectItem>
-              ))}
+              {(grupos.data ?? []).map((g) => <SelectItem key={g.id} value={g.id}>{exibir(g.nome)}</SelectItem>)}
             </SelectContent>
           </Select>
         ) : null}
         {(pastas.data ?? []).length > 0 ? (
           <Select value={pastaId} onValueChange={setPastaId}>
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todas">Todas as pastas</SelectItem>
               <SelectItem value="nenhuma">Sem pasta</SelectItem>
-              {pastasDoGrupoSelecionado.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {exibir(p.nome)}
-                </SelectItem>
-              ))}
+              {pastasDoGrupoSelecionado.map((p) => <SelectItem key={p.id} value={p.id}>{exibir(p.nome)}</SelectItem>)}
             </SelectContent>
           </Select>
         ) : null}
@@ -594,24 +525,18 @@ function ProcessosPage() {
           {gruposPorCliente.map(([categoria, itens]) => (
             <details key={categoria} className="group" open={itens.length > 0}>
               <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 font-serif text-lg font-semibold transition-colors hover:border-primary">
-                <span className="text-muted-foreground transition-transform group-open:rotate-90">
-                  ▸
-                </span>
+                <span className="text-muted-foreground transition-transform group-open:rotate-90">▸</span>
                 {categoria}
                 <Badge variant="secondary">{itens.length}</Badge>
               </summary>
               <div className="mt-3 space-y-3 pl-2">
                 {itens.length === 0 ? (
-                  <p className="px-2 text-sm text-muted-foreground">
-                    Nenhum processo seu de {categoria} no momento.
-                  </p>
+                  <p className="px-2 text-sm text-muted-foreground">Nenhum processo seu de {categoria} no momento.</p>
                 ) : (
                   agruparPorCarteira(itens).map(([carteiraNome, subItens]) => (
                     <details key={carteiraNome} className="group/carteira" open>
                       <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm font-medium transition-colors hover:border-primary">
-                        <span className="text-muted-foreground transition-transform group-open/carteira:rotate-90">
-                          ▸
-                        </span>
+                        <span className="text-muted-foreground transition-transform group-open/carteira:rotate-90">▸</span>
                         {carteiraNome}
                         <Badge variant="secondary">{subItens.length}</Badge>
                       </summary>
@@ -648,9 +573,6 @@ function ProcessosPage() {
   );
 }
 
-// Subdivide os processos de um cliente por carteira (pra dentro de cada
-// pasta de cliente em "Meus processos"), com "Sem carteira" sempre por
-// último.
 function agruparPorCarteira(itens: Processo[]): [string, Processo[]][] {
   const porCarteira = new Map<string, Processo[]>();
   for (const p of itens) {
@@ -738,15 +660,11 @@ function ProcessoCard({
         ) : p.carteira ? (
           <Badge variant="outline">{p.carteira}</Badge>
         ) : null}
-        {p.tipo_desdobramento ? (
-          <Badge variant="secondary">{exibir(p.tipo_desdobramento)}</Badge>
-        ) : null}
+        {p.tipo_desdobramento ? <Badge variant="secondary">{exibir(p.tipo_desdobramento)}</Badge> : null}
         {p.socio ? <Badge variant="outline">sócio {p.socio}</Badge> : null}
         {p.coordenador ? <Badge variant="outline">coord. {p.coordenador}</Badge> : null}
         {p.fase ? <Badge variant="outline">{p.fase}</Badge> : null}
-        {p.criticidade ? (
-          <Badge variant={variantCriticidade(p.criticidade)}>{p.criticidade}</Badge>
-        ) : null}
+        {p.criticidade ? <Badge variant={variantCriticidade(p.criticidade)}>{p.criticidade}</Badge> : null}
         {p.numero_interno || p.numero_cliente ? (
           <span className="text-xs text-muted-foreground">
             {p.numero_cliente && p.numero_interno
@@ -768,9 +686,7 @@ function ProcessoCard({
       {ultimaMovimentacao ? (
         <p className="mt-2 line-clamp-1 text-sm">
           <span className="text-muted-foreground">
-            {new Date(`${ultimaMovimentacao.data_movimentacao}T12:00:00`).toLocaleDateString(
-              "pt-BR",
-            )}
+            {new Date(`${ultimaMovimentacao.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR")}
             {" — "}
           </span>
           {ultimaMovimentacao.descricao}
