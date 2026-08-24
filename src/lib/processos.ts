@@ -309,7 +309,12 @@ export async function atualizarLinkTribunalManual(id: string, link: string | nul
 const CLIENTES_CONHECIDOS: { padrao: RegExp; nome: string }[] = [
   { padrao: /souza\s*cruz/i, nome: "Souza Cruz LTDA." },
   { padrao: /astro/i, nome: "Astromarítima" },
+  { padrao: /\bfasc\b/i, nome: "FASC" },
+  { padrao: /eduardo\s+de\s+souza\s+campos/i, nome: "EDUARDO DE SOUZA CAMPOS" },
+  { padrao: /paulo\s+rog[eé]rio/i, nome: "Paulo Rogério" },
+  { padrao: /ian\s+de\s+porto\s+alegre\s+muniz/i, nome: "Ian de Porto Alegre Muniz" },
 ];
+
 
 export const CATEGORIAS_CLIENTE = ["Astro", "Souza Cruz", "Merck", "PRC", "Outros"] as const;
 
