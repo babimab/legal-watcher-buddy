@@ -48,7 +48,13 @@ import {
   exportarProcessosExcel,
 } from "@/lib/excel";
 
-type RelatorioSearch = { aba?: string; advogado?: string; urgencia?: string; pasta?: string };
+type RelatorioSearch = {
+  aba?: string;
+  advogado?: string;
+  urgencia?: string;
+  pasta?: string;
+  socio?: string;
+};
 
 export const Route = createFileRoute("/_authenticated/relatorio")({
   validateSearch: (search: Record<string, unknown>): RelatorioSearch => ({
@@ -56,6 +62,7 @@ export const Route = createFileRoute("/_authenticated/relatorio")({
     ...(typeof search["advogado"] === "string" ? { advogado: search["advogado"] } : {}),
     ...(typeof search["urgencia"] === "string" ? { urgencia: search["urgencia"] } : {}),
     ...(typeof search["pasta"] === "string" ? { pasta: search["pasta"] } : {}),
+    ...(typeof search["socio"] === "string" ? { socio: search["socio"] } : {}),
   }),
   head: () => ({
     meta: [
@@ -593,6 +600,7 @@ function RelatorioPage() {
   const [advogado, setAdvogado] = useState(search.advogado ?? "todos");
   const [urgencia, setUrgencia] = useState(search.urgencia ?? "todos");
   const [pastaSelecionada, setPastaSelecionada] = useState(search.pasta ?? "todas");
+  const [socioSelecionado, setSocioSelecionado] = useState(search.socio ?? "todos");
   const [soProntos, setSoProntos] = useState(false);
   const [ufEncerramento, setUfEncerramento] = useState("todos");
   const minhaSigla = useSiglaAtual();
@@ -602,7 +610,8 @@ function RelatorioPage() {
     setAdvogado(search.advogado ?? "todos");
     setUrgencia(search.urgencia ?? "todos");
     setPastaSelecionada(search.pasta ?? "todas");
-  }, [search.aba, search.advogado, search.urgencia, search.pasta]);
+    setSocioSelecionado(search.socio ?? "todos");
+  }, [search.aba, search.advogado, search.urgencia, search.pasta, search.socio]);
 
   const advogados = useMemo(() => {
     const todosItens = [
@@ -630,6 +639,21 @@ function RelatorioPage() {
     [pastas.data],
   );
 
+  // Sócios vêm dos próprios dados carregados, pra listar só o que existe.
+  const socios = useMemo(() => {
+    const todosItens = [
+      ...(novidades.data ?? []),
+      ...(semana.data ?? []),
+      ...(mes.data ?? []),
+      ...(periodo.data ?? []),
+      ...(ultimos.data ?? []),
+      ...(pendencias.data ?? []),
+    ];
+    return [
+      ...new Set(todosItens.map((m) => m.processos?.socio).filter(Boolean) as string[]),
+    ].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [novidades.data, semana.data, mes.data, periodo.data, ultimos.data, pendencias.data]);
+
   const filtrarPorAdvogado = (itens: MovimentacaoComProcesso[]) =>
     advogado === "todos"
       ? itens
@@ -644,8 +668,13 @@ function RelatorioPage() {
       ? itens
       : itens.filter((m) => m.processos?.pasta_id === pastaSelecionada);
 
+  const filtrarPorSocio = (itens: MovimentacaoComProcesso[]) =>
+    socioSelecionado === "todos"
+      ? itens
+      : itens.filter((m) => m.processos?.socio === socioSelecionado);
+
   const aplicarFiltrosRelatorio = (itens: MovimentacaoComProcesso[]) =>
-    filtrarPorPasta(filtrarPorAdvogado(itens));
+    filtrarPorSocio(filtrarPorPasta(filtrarPorAdvogado(itens)));
 
   const novidadesSemImportacao = (novidades.data ?? []).filter((m) => m.fonte !== "planilha");
   const novidadesFiltradas = aplicarFiltrosRelatorio(novidadesSemImportacao);
@@ -896,6 +925,21 @@ function RelatorioPage() {
               </SelectContent>
             </Select>
           ) : null}
+          {!ehAbaEncerramento && socios.length > 0 ? (
+            <Select value={socioSelecionado} onValueChange={setSocioSelecionado}>
+              <SelectTrigger className="w-52">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os sócios</SelectItem>
+                {socios.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {exibir(s) ?? s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
           {aba === "pendencias" ? (
             <Select value={urgencia} onValueChange={setUrgencia}>
               <SelectTrigger className="w-48">
@@ -998,7 +1042,7 @@ function RelatorioPage() {
             </h2>
             <Link
               to="/relatorio"
-              search={{ aba: "novidades", advogado, pasta: pastaSelecionada }}
+              search={{ aba: "novidades", advogado, pasta: pastaSelecionada, socio: socioSelecionado }}
               className="text-sm text-primary underline-offset-4 hover:underline"
             >
               Ver relatório de andamentos
@@ -1159,7 +1203,7 @@ function RelatorioPage() {
               <span className="text-sm font-medium text-muted-foreground">Atalhos:</span>
               <Link
                 to="/relatorio"
-                search={{ aba: "pendencias", advogado, pasta: pastaSelecionada }}
+                search={{ aba: "pendencias", advogado, pasta: pastaSelecionada, socio: socioSelecionado }}
                 className="inline-flex items-center gap-1 text-sm text-primary underline-offset-4 hover:underline"
               >
                 Ver prazos
