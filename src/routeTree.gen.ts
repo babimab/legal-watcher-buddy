@@ -46,11 +46,12 @@ const AuthenticatedBaixasClienteRoute =
     path: '/baixas-cliente',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedCaixaEntradaRoute = AuthenticatedCaixaEntradaRouteImport.update({
-  id: '/caixa-entrada',
-  path: '/caixa-entrada',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
+const AuthenticatedCaixaEntradaRoute =
+  AuthenticatedCaixaEntradaRouteImport.update({
+    id: '/caixa-entrada',
+    path: '/caixa-entrada',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCalculosRoute = AuthenticatedCalculosRouteImport.update({
   id: '/calculos',
   path: '/calculos',
