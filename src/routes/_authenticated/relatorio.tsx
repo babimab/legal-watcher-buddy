@@ -639,6 +639,21 @@ function RelatorioPage() {
     [pastas.data],
   );
 
+  // Sócios vêm dos próprios dados carregados, pra listar só o que existe.
+  const socios = useMemo(() => {
+    const todosItens = [
+      ...(novidades.data ?? []),
+      ...(semana.data ?? []),
+      ...(mes.data ?? []),
+      ...(periodo.data ?? []),
+      ...(ultimos.data ?? []),
+      ...(pendencias.data ?? []),
+    ];
+    return [
+      ...new Set(todosItens.map((m) => m.processos?.socio).filter(Boolean) as string[]),
+    ].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [novidades.data, semana.data, mes.data, periodo.data, ultimos.data, pendencias.data]);
+
   const filtrarPorAdvogado = (itens: MovimentacaoComProcesso[]) =>
     advogado === "todos"
       ? itens
@@ -653,8 +668,13 @@ function RelatorioPage() {
       ? itens
       : itens.filter((m) => m.processos?.pasta_id === pastaSelecionada);
 
+  const filtrarPorSocio = (itens: MovimentacaoComProcesso[]) =>
+    socioSelecionado === "todos"
+      ? itens
+      : itens.filter((m) => m.processos?.socio === socioSelecionado);
+
   const aplicarFiltrosRelatorio = (itens: MovimentacaoComProcesso[]) =>
-    filtrarPorPasta(filtrarPorAdvogado(itens));
+    filtrarPorSocio(filtrarPorPasta(filtrarPorAdvogado(itens)));
 
   const novidadesSemImportacao = (novidades.data ?? []).filter((m) => m.fonte !== "planilha");
   const novidadesFiltradas = aplicarFiltrosRelatorio(novidadesSemImportacao);
