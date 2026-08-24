@@ -925,6 +925,21 @@ function RelatorioPage() {
               </SelectContent>
             </Select>
           ) : null}
+          {!ehAbaEncerramento && socios.length > 0 ? (
+            <Select value={socioSelecionado} onValueChange={setSocioSelecionado}>
+              <SelectTrigger className="w-52">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os sócios</SelectItem>
+                {socios.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {exibir(s) ?? s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
           {aba === "pendencias" ? (
             <Select value={urgencia} onValueChange={setUrgencia}>
               <SelectTrigger className="w-48">
