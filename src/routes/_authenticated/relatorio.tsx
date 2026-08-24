@@ -600,6 +600,7 @@ function RelatorioPage() {
   const [advogado, setAdvogado] = useState(search.advogado ?? "todos");
   const [urgencia, setUrgencia] = useState(search.urgencia ?? "todos");
   const [pastaSelecionada, setPastaSelecionada] = useState(search.pasta ?? "todas");
+  const [socioSelecionado, setSocioSelecionado] = useState(search.socio ?? "todos");
   const [soProntos, setSoProntos] = useState(false);
   const [ufEncerramento, setUfEncerramento] = useState("todos");
   const minhaSigla = useSiglaAtual();
@@ -609,7 +610,8 @@ function RelatorioPage() {
     setAdvogado(search.advogado ?? "todos");
     setUrgencia(search.urgencia ?? "todos");
     setPastaSelecionada(search.pasta ?? "todas");
-  }, [search.aba, search.advogado, search.urgencia, search.pasta]);
+    setSocioSelecionado(search.socio ?? "todos");
+  }, [search.aba, search.advogado, search.urgencia, search.pasta, search.socio]);
 
   const advogados = useMemo(() => {
     const todosItens = [
