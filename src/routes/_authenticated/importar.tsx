@@ -427,6 +427,13 @@ function ImportarPage() {
     return nomes;
   }, [abas, mapas]);
 
+  const limparSelecao = () => {
+    setArquivoSelecionado(null);
+    setInputKey((k) => k + 1);
+  };
+
+  // A leitura só acontece quando a pessoa confirma o arquivo — escolher no
+  // seletor apenas guarda o File.
   const ler = async (arquivo: File) => {
     const nome = arquivo.name.toLowerCase();
     if (!EXTENSOES.some((ext) => nome.endsWith(ext))) {
@@ -437,6 +444,7 @@ function ImportarPage() {
       toast.error("Arquivo muito grande (máximo 15 MB).");
       return;
     }
+    setLendo(true);
     try {
       const lidas = lerArquivo(await arquivo.arrayBuffer());
       if (lidas.length === 0) {
@@ -450,8 +458,11 @@ function ImportarPage() {
       toast.success(`${lidas.length} aba(s) lida(s). Confira o mapeamento das colunas.`);
     } catch {
       toast.error("Não consegui ler o arquivo.");
+    } finally {
+      setLendo(false);
     }
   };
+
 
   const inserirAndamentosNovos = async (
     alvos: ProcessoImport[],
