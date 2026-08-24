@@ -345,16 +345,42 @@ function montar(
   };
 }
 
+// Cada consulta/inserção no banco tem um teto de tempo: sem isso, uma
+// chamada que nunca responde deixava a tela "importando" pra sempre.
+const TIMEOUT_MS = 30000;
+
+async function comTimeout<T>(rotulo: string, promessa: PromiseLike<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      Promise.resolve(promessa),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`${rotulo}: a operação demorou demais (mais de 30s). Tente novamente.`)),
+          TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 function ImportarPage() {
   const [modo, setModo] = useState<ModoImportacao>("atualizar");
   const [abas, setAbas] = useState<Aba[]>([]);
   const [mapas, setMapas] = useState<Record<string, Record<string, Campo | "">>>({});
   const [importando, setImportando] = useState(false);
+  const [progresso, setProgresso] = useState("");
+  const [arquivoSelecionado, setArquivoSelecionado] = useState<File | null>(null);
+  const [lendo, setLendo] = useState(false);
+  const [inputKey, setInputKey] = useState(0);
   const [grupoId, setGrupoId] = useState("");
   const [pastaId, setPastaId] = useState("");
   const [responsavel, setResponsavel] = useState("");
   const [socio, setSocio] = useState("");
   const queryClient = useQueryClient();
+
 
   const grupos = useQuery({ queryKey: ["grupos"], queryFn: listarGrupos });
   const pastas = useQuery({ queryKey: ["pastas"], queryFn: listarPastas });
