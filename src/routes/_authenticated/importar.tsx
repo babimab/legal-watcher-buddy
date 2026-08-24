@@ -345,8 +345,6 @@ function montar(
   };
 }
 
-// Cada consulta/inserção no banco tem um teto de tempo: sem isso, uma
-// chamada que nunca responde deixava a tela "importando" pra sempre.
 const TIMEOUT_MS = 30000;
 
 async function comTimeout<T>(rotulo: string, promessa: PromiseLike<T>): Promise<T> {
@@ -380,7 +378,6 @@ function ImportarPage() {
   const [responsavel, setResponsavel] = useState("");
   const [socio, setSocio] = useState("");
   const queryClient = useQueryClient();
-
 
   const grupos = useQuery({ queryKey: ["grupos"], queryFn: listarGrupos });
   const pastas = useQuery({ queryKey: ["pastas"], queryFn: listarPastas });
@@ -432,8 +429,6 @@ function ImportarPage() {
     setInputKey((k) => k + 1);
   };
 
-  // A leitura só acontece quando a pessoa confirma o arquivo — escolher no
-  // seletor apenas guarda o File.
   const ler = async (arquivo: File) => {
     const nome = arquivo.name.toLowerCase();
     if (!EXTENSOES.some((ext) => nome.endsWith(ext))) {
@@ -463,7 +458,6 @@ function ImportarPage() {
     }
   };
 
-
   const inserirAndamentosNovos = async (
     alvos: ProcessoImport[],
     idPorNumero: Map<string, string>,
@@ -472,11 +466,18 @@ function ImportarPage() {
   ) => {
     const ids = [...idPorNumero.values()];
     const existentes = new Set<string>();
+    const totalConsultas = Math.ceil(ids.length / 100);
+
     for (let i = 0; i < ids.length; i += 100) {
-      const { data, error } = await supabase
-        .from("movimentacoes")
-        .select("processo_id, data_movimentacao, descricao")
-        .in("processo_id", ids.slice(i, i + 100));
+      const loteAtual = Math.floor(i / 100) + 1;
+      setProgresso(`Conferindo andamentos existentes... lote ${loteAtual}/${totalConsultas}`);
+      const { data, error } = await comTimeout(
+        `Conferência de andamentos (lote ${loteAtual})`,
+        supabase
+          .from("movimentacoes")
+          .select("processo_id, data_movimentacao, descricao")
+          .in("processo_id", ids.slice(i, i + 100)),
+      );
       if (error) throw error;
       for (const m of data ?? [])
         existentes.add(`${m.processo_id}|${m.data_movimentacao}|${m.descricao}`);
@@ -490,6 +491,7 @@ function ImportarPage() {
       fonte: string;
       created_by: string;
     }[] = [];
+
     for (const p of alvos) {
       const processoId = idPorNumero.get(p.numero_cnj);
       if (!processoId) continue;
@@ -509,9 +511,13 @@ function ImportarPage() {
     }
 
     let movsOk = 0;
-    for (let i = 0; i < novas.length; i += 300) {
-      const lote = novas.slice(i, i + 300);
-      const { error } = await supabase.from("movimentacoes").insert(lote);
+    for (let i = 0; i < novas.length; i += 100) {
+      const lote = novas.slice(i, i + 100);
+      setProgresso(`Importando andamentos... ${Math.min(i + lote.length, novas.length)}/${novas.length}`);
+      const { error } = await comTimeout(
+        `Importação de andamentos (${i + 1}–${i + lote.length})`,
+        supabase.from("movimentacoes").insert(lote),
+      );
       if (error) falhas.push(`Andamentos ${i + 1}–${i + lote.length}: ${error.message}`);
       else movsOk += lote.length;
     }
@@ -524,7 +530,6 @@ function ImportarPage() {
       const existente = existentesPorCnj.get(p.numero_cnj.replace(/\D/g, ""));
       if (existente) idPorNumero.set(p.numero_cnj, existente.id);
     }
-
     const movsOk = await inserirAndamentosNovos(processosJaCadastrados, idPorNumero, criador, falhas);
     return { processosOk: processosJaCadastrados.length, movsOk };
   };
@@ -533,33 +538,38 @@ function ImportarPage() {
     const idPorNumero = new Map<string, string>();
     let processosOk = 0;
 
-    for (const p of processosNovos) {
-      const { data, error } = await supabase
-        .from("processos")
-        .insert({
-          numero_cnj: p.numero_cnj,
-          numero_cliente: p.numero_cliente,
-          numero_interno: p.numero_interno,
-          numero_antigo: p.numero_antigo,
-          cliente: p.cliente,
-          parte_contraria: p.parte_contraria,
-          autor: p.autor,
-          reu: p.reu,
-          uf: p.uf,
-          comarca: p.comarca,
-          vara: p.vara,
-          tribunal: p.tribunal,
-          sistema: p.sistema,
-          carteira: p.carteira,
-          valor_causa: p.valor_causa,
-          ...(pastaId ? { pasta_id: pastaId } : {}),
-          ...(responsavel.trim() ? { responsavel: responsavel.trim() } : {}),
-          ...(socio.trim() ? { socio: socio.trim() } : {}),
-          status: "ativo",
-          created_by: criador,
-        })
-        .select("id, numero_cnj")
-        .maybeSingle();
+    for (let i = 0; i < processosNovos.length; i++) {
+      const p = processosNovos[i]!;
+      setProgresso(`Criando processos... ${i + 1}/${processosNovos.length}`);
+      const { data, error } = await comTimeout(
+        `Criação do processo ${p.numero_cnj}`,
+        supabase
+          .from("processos")
+          .insert({
+            numero_cnj: p.numero_cnj,
+            numero_cliente: p.numero_cliente,
+            numero_interno: p.numero_interno,
+            numero_antigo: p.numero_antigo,
+            cliente: p.cliente,
+            parte_contraria: p.parte_contraria,
+            autor: p.autor,
+            reu: p.reu,
+            uf: p.uf,
+            comarca: p.comarca,
+            vara: p.vara,
+            tribunal: p.tribunal,
+            sistema: p.sistema,
+            carteira: p.carteira,
+            valor_causa: p.valor_causa,
+            ...(pastaId ? { pasta_id: pastaId } : {}),
+            ...(responsavel.trim() ? { responsavel: responsavel.trim() } : {}),
+            ...(socio.trim() ? { socio: socio.trim() } : {}),
+            status: "ativo",
+            created_by: criador,
+          })
+          .select("id, numero_cnj")
+          .maybeSingle(),
+      );
 
       if (error || !data) {
         falhas.push(`${p.numero_cnj}: ${error?.message ?? "não foi possível criar o processo"}`);
@@ -576,9 +586,10 @@ function ImportarPage() {
 
   const importar = async () => {
     setImportando(true);
+    setProgresso("Preparando importação...");
     const falhas: string[] = [];
     try {
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: userData } = await comTimeout("Validação da sessão", supabase.auth.getUser());
       const criador = userData.user?.id;
       if (!criador) throw new Error("Sessão expirada. Entre novamente para importar.");
 
@@ -595,6 +606,7 @@ function ImportarPage() {
           );
           setAbas([]);
           setMapas({});
+          limparSelecao();
         }
       } else {
         const { processosOk, movsOk } = await importarCriacao(criador, falhas);
@@ -609,14 +621,17 @@ function ImportarPage() {
           );
           setAbas([]);
           setMapas({});
+          limparSelecao();
         }
       }
 
+      setProgresso("Atualizando dados da tela...");
       await queryClient.invalidateQueries();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao importar.");
     } finally {
       setImportando(false);
+      setProgresso("");
     }
   };
 
@@ -676,21 +691,39 @@ function ImportarPage() {
         <CardHeader>
           <CardTitle className="font-serif text-lg">Arquivo</CardTitle>
           <CardDescription>
-            Formatos aceitos: .xlsx, .xls e .csv (até 15 MB). As colunas são reconhecidas automaticamente e você pode ajustar o mapeamento antes de confirmar.
+            Formatos aceitos: .xlsx, .xls e .csv (até 15 MB). Selecione o arquivo e confirme antes da leitura.
             {modo === "atualizar"
               ? " Neste modo, o CNJ é usado apenas para localizar processos já existentes."
               : " Neste modo, o sistema separa os casos novos dos que já estão cadastrados antes de criar qualquer registro."}
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <Input
+            key={inputKey}
             type="file"
             accept=".xlsx,.xls,.csv"
             onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void ler(f);
+              const f = e.target.files?.[0] ?? null;
+              setArquivoSelecionado(f);
+              setAbas([]);
+              setMapas({});
             }}
           />
+          {arquivoSelecionado ? (
+            <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-muted/30 p-3">
+              <p className="min-w-0 flex-1 text-sm">
+                Arquivo selecionado: <strong className="break-all">{arquivoSelecionado.name}</strong>
+              </p>
+              <Button
+                type="button"
+                onClick={() => void ler(arquivoSelecionado)}
+                disabled={lendo || importando}
+              >
+                <Upload className="size-4" />
+                {lendo ? "Lendo arquivo..." : "Confirmar arquivo"}
+              </Button>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -935,14 +968,21 @@ function ImportarPage() {
               </p>
             ) : null}
 
-            <Button onClick={importar} disabled={!podeImportar}>
-              <Upload className="size-4" />
-              {importando
-                ? "Importando..."
-                : modo === "atualizar"
-                  ? `Importar andamentos em ${processosJaCadastrados.length} processo(s)`
-                  : `Criar ${processosNovos.length} processo(s) novo(s)`}
-            </Button>
+            <div className="space-y-2">
+              <Button onClick={importar} disabled={!podeImportar}>
+                <Upload className="size-4" />
+                {importando
+                  ? "Importando..."
+                  : modo === "atualizar"
+                    ? `Importar andamentos em ${processosJaCadastrados.length} processo(s)`
+                    : `Criar ${processosNovos.length} processo(s) novo(s)`}
+              </Button>
+              {importando && progresso ? (
+                <p className="text-sm text-muted-foreground" role="status" aria-live="polite">
+                  {progresso}
+                </p>
+              ) : null}
+            </div>
           </CardContent>
         </Card>
       ) : null}
