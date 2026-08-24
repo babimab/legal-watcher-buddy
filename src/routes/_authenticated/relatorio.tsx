@@ -1042,7 +1042,7 @@ function RelatorioPage() {
             </h2>
             <Link
               to="/relatorio"
-              search={{ aba: "novidades", advogado, pasta: pastaSelecionada }}
+              search={{ aba: "novidades", advogado, pasta: pastaSelecionada, socio: socioSelecionado }}
               className="text-sm text-primary underline-offset-4 hover:underline"
             >
               Ver relatório de andamentos
@@ -1203,7 +1203,7 @@ function RelatorioPage() {
               <span className="text-sm font-medium text-muted-foreground">Atalhos:</span>
               <Link
                 to="/relatorio"
-                search={{ aba: "pendencias", advogado, pasta: pastaSelecionada }}
+                search={{ aba: "pendencias", advogado, pasta: pastaSelecionada, socio: socioSelecionado }}
                 className="inline-flex items-center gap-1 text-sm text-primary underline-offset-4 hover:underline"
               >
                 Ver prazos
