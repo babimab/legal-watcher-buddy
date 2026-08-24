@@ -121,11 +121,10 @@ function AppLayout() {
             className="ml-1 size-28 shrink-0 rounded-xl border border-slate-400/60 object-cover object-center shadow-sm"
           />
 
-          <div className="min-w-0 w-full max-w-sm">
-            <BuscaGlobal barraSuperior />
-          </div>
-
-          <div className="ml-auto flex shrink-0 items-center gap-1 text-slate-700">
+          <div className="ml-auto flex shrink-0 items-center gap-2 text-slate-700">
+            <div className="min-w-0 w-full max-w-sm">
+              <BuscaGlobal barraSuperior />
+            </div>
             <GuiaRapido />
             {perfilESair}
           </div>
@@ -140,9 +139,6 @@ function AppLayout() {
             alt="FaroLex"
             className="size-14 shrink-0 rounded-xl border border-slate-400/60 object-cover object-center shadow-sm"
           />
-          <div className="min-w-52 flex-1">
-            <BuscaGlobal barraSuperior />
-          </div>
           <div className="ml-auto flex items-center gap-1 text-slate-700">
             <GuiaRapido />
             <Link to="/perfil" aria-label="Meu perfil" className="rounded-md p-2 hover:bg-white/60">
@@ -151,6 +147,9 @@ function AppLayout() {
             <Button variant="ghost" size="icon" onClick={sair} className="text-slate-700 hover:bg-white/60 hover:text-slate-900">
               <LogOut className="size-4" />
             </Button>
+          </div>
+          <div className="min-w-52 flex-1">
+            <BuscaGlobal barraSuperior />
           </div>
         </div>
       </header>
