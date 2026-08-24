@@ -48,7 +48,13 @@ import {
   exportarProcessosExcel,
 } from "@/lib/excel";
 
-type RelatorioSearch = { aba?: string; advogado?: string; urgencia?: string; pasta?: string };
+type RelatorioSearch = {
+  aba?: string;
+  advogado?: string;
+  urgencia?: string;
+  pasta?: string;
+  socio?: string;
+};
 
 export const Route = createFileRoute("/_authenticated/relatorio")({
   validateSearch: (search: Record<string, unknown>): RelatorioSearch => ({
@@ -56,6 +62,7 @@ export const Route = createFileRoute("/_authenticated/relatorio")({
     ...(typeof search["advogado"] === "string" ? { advogado: search["advogado"] } : {}),
     ...(typeof search["urgencia"] === "string" ? { urgencia: search["urgencia"] } : {}),
     ...(typeof search["pasta"] === "string" ? { pasta: search["pasta"] } : {}),
+    ...(typeof search["socio"] === "string" ? { socio: search["socio"] } : {}),
   }),
   head: () => ({
     meta: [
