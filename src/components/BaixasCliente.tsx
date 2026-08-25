@@ -231,6 +231,7 @@ function BaixaCard({ baixa, podeEditar }: { baixa: BaixaCliente; podeEditar: boo
         <div className="flex flex-wrap gap-2">
           {podeEditar && baixa.status !== "encerrado" ? <TentativaDialog baixa={baixa} /> : null}
           {podeEditar && baixa.status === "bloqueado" ? <CobrancaDialog baixa={baixa} /> : null}
+          {podeEditar && baixa.status !== "encerrado" ? <EncerrarDialog baixa={baixa} /> : null}
           <HistoricoDialog baixa={baixa} />
         </div>
       </CardContent>
