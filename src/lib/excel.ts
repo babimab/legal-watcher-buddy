@@ -1,6 +1,11 @@
 import ExcelJS from "exceljs";
 
-import { formatarCNJ, exibir, type Processo } from "@/lib/processos";
+import {
+  formatarCNJ,
+  exibir,
+  listarUltimosAndamentosPorProcessos,
+  type Processo,
+} from "@/lib/processos";
 import type { GrupoParteAdversa } from "@/lib/saude";
 
 // Mesmo azul escuro usado no cabeçalho do site (--primary), pra planilha
@@ -68,13 +73,31 @@ export async function exportarProcessosExcel(processos: Processo[], nomeArquivo 
     { header: "Número do caso", key: "numero_interno", width: 16 },
     { header: "Comarca", key: "comarca", width: 22 },
     { header: "UF", key: "uf", width: 10 },
+    { header: "Juízo", key: "vara", width: 22 },
     { header: "Responsável", key: "responsavel", width: 14 },
     { header: "Sócio", key: "socio", width: 10 },
     { header: "Fase", key: "fase", width: 16 },
     { header: "Status", key: "status", width: 14 },
+    { header: "Últimos andamentos", key: "ultimos_andamentos", width: 50 },
   ];
 
+  // Só busca andamento dos processos que estão realmente sendo exportados
+  // (não da base inteira), pra não pesar quando a pasta é pequena mas o
+  // total de movimentações no sistema é grande.
+  const andamentosPorProcesso = await listarUltimosAndamentosPorProcessos(
+    processos.map((p) => p.id),
+    3,
+  );
+
   for (const p of processos) {
+    const ultimos = andamentosPorProcesso.get(p.id) ?? [];
+    const ultimosAndamentos = ultimos
+      .map(
+        (m) =>
+          `${new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR")} - ${m.descricao}`,
+      )
+      .join("\n");
+
     planilha.addRow({
       numero_cnj: formatarCNJ(p.numero_cnj),
       cliente: exibir(p.cliente) ?? "",
@@ -83,15 +106,17 @@ export async function exportarProcessosExcel(processos: Processo[], nomeArquivo 
       numero_interno: p.numero_interno ?? "",
       comarca: p.comarca ?? "",
       uf: p.uf ?? "",
+      vara: p.vara ?? "",
       responsavel: p.responsavel ?? "",
       socio: p.socio ?? "",
       fase: p.fase ?? "",
       status: p.status,
+      ultimos_andamentos: ultimosAndamentos,
     });
   }
 
   estilizarCabecalho(planilha);
-  centralizarLinhas(planilha, new Set());
+  centralizarLinhas(planilha, new Set(["ultimos_andamentos"]));
   finalizarPlanilha(planilha);
 
   await baixarPlanilha(workbook, nomeArquivo);

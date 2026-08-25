@@ -315,7 +315,6 @@ const CLIENTES_CONHECIDOS: { padrao: RegExp; nome: string }[] = [
   { padrao: /ian\s+de\s+porto\s+alegre\s+muniz/i, nome: "Ian de Porto Alegre Muniz" },
 ];
 
-
 export const CATEGORIAS_CLIENTE = ["Astro", "Souza Cruz", "Merck", "PRC", "Outros"] as const;
 
 // Agrupa o cliente do processo numa das categorias do filtro. Compara
@@ -580,6 +579,36 @@ export async function listarUltimasMovimentacoes(): Promise<Map<string, Moviment
     if (!ultimas.has(m.processo_id)) ultimas.set(m.processo_id, m);
   }
   return ultimas;
+}
+
+// Últimos andamentos só dos processos passados (não da base inteira) —
+// usado na exportação de planilha, pra não pesar quando é uma pasta
+// pequena mas a base geral é grande. Busca em lotes (o "in" do Supabase
+// não aguenta uma lista enorme de ids numa chamada só).
+export async function listarUltimosAndamentosPorProcessos(
+  processoIds: string[],
+  limitePorProcesso = 3,
+): Promise<Map<string, Movimentacao[]>> {
+  const resultado = new Map<string, Movimentacao[]>();
+  if (processoIds.length === 0) return resultado;
+
+  const TAMANHO_LOTE = 200;
+  for (let i = 0; i < processoIds.length; i += TAMANHO_LOTE) {
+    const lote = processoIds.slice(i, i + TAMANHO_LOTE);
+    const { data, error } = await supabase
+      .from("movimentacoes")
+      .select("*")
+      .in("processo_id", lote)
+      .order("data_movimentacao", { ascending: false })
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    for (const m of (data ?? []) as unknown as Movimentacao[]) {
+      const atual = resultado.get(m.processo_id);
+      if (!atual) resultado.set(m.processo_id, [m]);
+      else if (atual.length < limitePorProcesso) atual.push(m);
+    }
+  }
+  return resultado;
 }
 
 export async function listarPendencias(): Promise<MovimentacaoComProcesso[]> {
