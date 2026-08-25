@@ -30,15 +30,20 @@ export async function listarCaixaEntrada(): Promise<ItemCaixaEntrada[]> {
 export async function concluirTriagem(ids: string[]): Promise<void> {
   if (!ids.length) return;
   const quem = await siglaOuEmailAtual();
-  const { error } = await supabaseSolto
-    .from("movimentacoes")
-    .update({
-      validado: true,
-      validado_por: quem,
-      validado_em: new Date().toISOString(),
-    })
-    .in("id", ids);
+  const { data, error } = await supabaseSolto.rpc("concluir_triagem_movimentacoes", {
+    _ids: ids,
+    _validado_por: quem,
+  });
   if (error) throw error;
+
+  const quantidade = typeof data === "number" ? data : Number(data ?? 0);
+  if (quantidade !== ids.length) {
+    throw new Error(
+      quantidade === 0
+        ? "A publicação não pôde ser concluída. Atualize a página e tente novamente."
+        : `${quantidade} de ${ids.length} item(ns) foram concluídos. Atualize a página antes de tentar os demais.`,
+    );
+  }
 }
 
 export async function definirDestaqueCaixa(ids: string[], destacar: boolean): Promise<void> {
