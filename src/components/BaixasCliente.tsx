@@ -231,6 +231,7 @@ function BaixaCard({ baixa, podeEditar }: { baixa: BaixaCliente; podeEditar: boo
         <div className="flex flex-wrap gap-2">
           {podeEditar && baixa.status !== "encerrado" ? <TentativaDialog baixa={baixa} /> : null}
           {podeEditar && baixa.status === "bloqueado" ? <CobrancaDialog baixa={baixa} /> : null}
+          {podeEditar && baixa.status !== "encerrado" ? <EncerrarDialog baixa={baixa} /> : null}
           <HistoricoDialog baixa={baixa} />
         </div>
       </CardContent>
@@ -305,6 +306,52 @@ function CobrancaDialog({ baixa }: { baixa: BaixaCliente }) {
     <Dialog open={aberto} onOpenChange={setAberto}>
       <DialogTrigger asChild><Button size="sm" variant="outline">Registrar cobrança</Button></DialogTrigger>
       <DialogContent><DialogHeader><DialogTitle>Registrar cobrança</DialogTitle><DialogDescription>Registre o follow-up feito sobre a pendência.</DialogDescription></DialogHeader><div className="space-y-4"><div className="space-y-2"><Label>Observação</Label><Textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={3} /></div><div className="space-y-2"><Label>Próxima cobrança</Label><Input type="date" value={proxima} onChange={(e) => setProxima(e.target.value)} /></div></div><DialogFooter><Button onClick={() => void salvar()} disabled={salvando}>{salvando ? "Salvando..." : "Salvar cobrança"}</Button></DialogFooter></DialogContent>
+    </Dialog>
+  );
+}
+
+function EncerrarDialog({ baixa }: { baixa: BaixaCliente }) {
+  const [aberto, setAberto] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const qc = useQueryClient();
+
+  const confirmar = async () => {
+    setSalvando(true);
+    try {
+      await registrarTentativaBaixa({
+        baixaId: baixa.id,
+        resultado: "concluida",
+        pendenciaCom: null,
+        descricao: null,
+        proximaCobranca: null,
+      });
+      toast.success("Baixa marcada como concluída no sistema do cliente.");
+      await qc.invalidateQueries({ queryKey: ["baixas-cliente"] });
+      setAberto(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não consegui encerrar a baixa.");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <Dialog open={aberto} onOpenChange={setAberto}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline"><CheckCircle2 className="size-4" /> Encerrar baixa</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Encerrar baixa</DialogTitle>
+          <DialogDescription>
+            A baixa será marcada como concluída no sistema do cliente. Esta ação registra o encerramento administrativo da baixa.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setAberto(false)} disabled={salvando}>Cancelar</Button>
+          <Button onClick={() => void confirmar()} disabled={salvando}>{salvando ? "Encerrando..." : "Confirmar encerramento"}</Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   );
 }
