@@ -485,8 +485,6 @@ Abs.,`;
   return `mailto:${destinatarios.join(",")}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
 }
 
-// Escapa vírgula, ponto e vírgula, barra invertida e quebra de linha
-// conforme o RFC 5545 — sem isso o Outlook lê o campo cortado no meio.
 function escaparIcs(texto: string) {
   return texto
     .replace(/\\/g, "\\\\")
@@ -495,9 +493,6 @@ function escaparIcs(texto: string) {
     .replace(/\n/g, "\\n");
 }
 
-// .ics é o formato aberto de convite de calendário — funciona igual no
-// Outlook, Google Calendar e Apple Calendar, sem precisar de conta ou
-// integração com nenhum deles.
 function baixarPrazoIcs(m: MovimentacaoComProcesso) {
   if (!m.prazo) return;
   const dataEvento = m.prazo.replace(/-/g, "");
@@ -565,8 +560,6 @@ function RelatorioPage() {
     enabled: periodoValido,
   });
 
-  // Aqui a ordem é pela data real da movimentação; created_at serve só
-  // como desempate quando há mais de um andamento na mesma data.
   const ultimos = useQuery({
     queryKey: ["ultimos-andamentos"],
     queryFn: () => listarMovimentacoesPorData(null, LIMITE_ULTIMOS_ANDAMENTOS),
@@ -574,15 +567,12 @@ function RelatorioPage() {
 
   const pendencias = useQuery({ queryKey: ["pendencias"], queryFn: listarPendencias });
 
-  // Relatório pré-programado: processos em fase de Encerramento, pra
-  // decidir quais já podem ser baixados.
   const processos = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
   const encerramento = (processos.data ?? []).filter((p) => p.fase === "Encerramento");
 
-  // Encerramento da Astro é um fluxo à parte, de propósito: só a pasta de
-  // cobrança, sem depender da fase (as ações de cobrança não seguem a
-  // mesma fase Instrutória/Recursal/Encerramento da Souza Cruz) e nunca
-  // misturado com a lista acima, que é só da Souza Cruz.
+  // Encerramento da Astro: somente processos da pasta de cobrança que já
+  // estejam efetivamente na fase Encerramento. Instrutória, Recursal,
+  // Execução e demais fases ficam fora desta lista.
   const grupos = useQuery({ queryKey: ["grupos"], queryFn: listarGrupos });
   const pastas = useQuery({ queryKey: ["pastas"], queryFn: listarPastas });
   const pastaCobrancaAstroId = useMemo(() => {
@@ -594,7 +584,7 @@ function RelatorioPage() {
     return pasta?.id ?? null;
   }, [grupos.data, pastas.data]);
   const encerramentoAstro = (processos.data ?? []).filter(
-    (p) => pastaCobrancaAstroId && p.pasta_id === pastaCobrancaAstroId,
+    (p) => pastaCobrancaAstroId && p.pasta_id === pastaCobrancaAstroId && p.fase === "Encerramento",
   );
 
   const [advogado, setAdvogado] = useState(search.advogado ?? "todos");
@@ -639,7 +629,6 @@ function RelatorioPage() {
     [pastas.data],
   );
 
-  // Sócios vêm dos próprios dados carregados, pra listar só o que existe.
   const socios = useMemo(() => {
     const todosItens = [
       ...(novidades.data ?? []),
@@ -1051,284 +1040,46 @@ function RelatorioPage() {
 
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-medium text-muted-foreground">Novo prazo:</span>
-            <NovoPrazoDialog
-              tipo="Prazo"
-              processos={processos.data ?? []}
-              trigger={
-                <Button variant="outline" size="sm">
-                  Prazo
-                </Button>
-              }
-            />
-            <NovoPrazoDialog
-              tipo="Audiência"
-              processos={processos.data ?? []}
-              trigger={
-                <Button variant="outline" size="sm">
-                  Audiência
-                </Button>
-              }
-            />
-            <NovoPrazoDialog
-              tipo="Julgamento"
-              processos={processos.data ?? []}
-              trigger={
-                <Button variant="outline" size="sm">
-                  Julgamento
-                </Button>
-              }
-            />
-            <NovoPrazoDialog
-              tipo="Providência interna"
-              processos={processos.data ?? []}
-              trigger={
-                <Button variant="outline" size="sm">
-                  Providência interna
-                </Button>
-              }
-            />
+            <NovoPrazoDialog tipo="Prazo" processos={processos.data ?? []} trigger={<Button variant="outline" size="sm">Prazo</Button>} />
+            <NovoPrazoDialog tipo="Audiência" processos={processos.data ?? []} trigger={<Button variant="outline" size="sm">Audiência</Button>} />
+            <NovoPrazoDialog tipo="Julgamento" processos={processos.data ?? []} trigger={<Button variant="outline" size="sm">Julgamento</Button>} />
+            <NovoPrazoDialog tipo="Providência interna" processos={processos.data ?? []} trigger={<Button variant="outline" size="sm">Providência interna</Button>} />
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Input
-              type="text"
-              placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br"
-              value={emails}
-              onChange={(e) => setEmails(e.target.value)}
-              className="max-w-sm"
-            />
-            <Button
-              variant="outline"
-              disabled={!conteudoEmailDaAba}
-              onClick={() => void copiarEmail()}
-            >
-              <Copy className="size-4" /> Copiar e-mail formatado
-            </Button>
-            <Button
-              variant="outline"
-              disabled={itensDaAba.length === 0}
-              onClick={() => void abrirEmail()}
-            >
-              <Mail className="size-4" /> Abrir e-mail
-            </Button>
+            <Input type="text" placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br" value={emails} onChange={(e) => setEmails(e.target.value)} className="max-w-sm" />
+            <Button variant="outline" disabled={!conteudoEmailDaAba} onClick={() => void copiarEmail()}><Copy className="size-4" /> Copiar e-mail formatado</Button>
+            <Button variant="outline" disabled={itensDaAba.length === 0} onClick={() => void abrirEmail()}><Mail className="size-4" /> Abrir e-mail</Button>
           </div>
 
           <Lista itens={pendenciasFiltradas} vazio="Nenhuma providência em aberto." destaque />
         </>
       ) : aba === "encerramento" ? (
         <>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-serif text-xl font-semibold">
-              Encerramento Souza Cruz ({encerramentoExibido.length})
-            </h2>
-            <Link
-              to="/relatorio"
-              search={{ aba: "novidades", advogado }}
-              className="text-sm text-primary underline-offset-4 hover:underline"
-            >
-              Ver relatório de andamentos
-            </Link>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              type="text"
-              placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br"
-              value={emails}
-              onChange={(e) => setEmails(e.target.value)}
-              className="max-w-sm"
-            />
-            <Button
-              variant="outline"
-              disabled={encerramentoProntos.length === 0}
-              onClick={() => void abrirEmail()}
-            >
-              <Mail className="size-4" />
-              Mandar prontos pra Eliane ({encerramentoProntos.length})
-            </Button>
-          </div>
-
-          <ListaProcessos
-            processos={encerramentoExibido}
-            vazio="Nenhum processo em fase de Encerramento."
-          />
+          <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-serif text-xl font-semibold">Encerramento Souza Cruz ({encerramentoExibido.length})</h2><Link to="/relatorio" search={{ aba: "novidades", advogado }} className="text-sm text-primary underline-offset-4 hover:underline">Ver relatório de andamentos</Link></div>
+          <div className="flex flex-wrap items-center gap-2"><Input type="text" placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br" value={emails} onChange={(e) => setEmails(e.target.value)} className="max-w-sm" /><Button variant="outline" disabled={encerramentoProntos.length === 0} onClick={() => void abrirEmail()}><Mail className="size-4" /> Mandar prontos pra Eliane ({encerramentoProntos.length})</Button></div>
+          <ListaProcessos processos={encerramentoExibido} vazio="Nenhum processo em fase de Encerramento." />
         </>
       ) : aba === "encerramento-astro" ? (
         <>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-serif text-xl font-semibold">
-              Encerramento Astro ({encerramentoAstroExibido.length})
-            </h2>
-            <Link
-              to="/relatorio"
-              search={{ aba: "novidades", advogado }}
-              className="text-sm text-primary underline-offset-4 hover:underline"
-            >
-              Ver relatório de andamentos
-            </Link>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Só a pasta de cobrança da Equipe Astro — não mistura com o Encerramento da Souza Cruz.
-          </p>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              type="text"
-              placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br"
-              value={emails}
-              onChange={(e) => setEmails(e.target.value)}
-              className="max-w-sm"
-            />
-            <Button
-              variant="outline"
-              disabled={encerramentoAstroProntos.length === 0}
-              onClick={() => void abrirEmail()}
-            >
-              <Mail className="size-4" />
-              Mandar prontos ({encerramentoAstroProntos.length})
-            </Button>
-          </div>
-
-          <ListaProcessos
-            processos={encerramentoAstroExibido}
-            vazio="Nenhum processo na pasta de cobrança da Astro."
-            descricaoEncerramento="Preenche o que precisa pra dar baixa nesse processo de cobrança."
-            mostrarDecisoesNoLd={false}
-          />
+          <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-serif text-xl font-semibold">Encerramento Astro ({encerramentoAstroExibido.length})</h2><Link to="/relatorio" search={{ aba: "novidades", advogado }} className="text-sm text-primary underline-offset-4 hover:underline">Ver relatório de andamentos</Link></div>
+          <p className="text-sm text-muted-foreground">Só processos da pasta de cobrança da Equipe Astro que estejam na fase Encerramento.</p>
+          <div className="flex flex-wrap items-center gap-2"><Input type="text" placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br" value={emails} onChange={(e) => setEmails(e.target.value)} className="max-w-sm" /><Button variant="outline" disabled={encerramentoAstroProntos.length === 0} onClick={() => void abrirEmail()}><Mail className="size-4" /> Mandar prontos ({encerramentoAstroProntos.length})</Button></div>
+          <ListaProcessos processos={encerramentoAstroExibido} vazio="Nenhum processo da Astro em fase de Encerramento." descricaoEncerramento="Preenche o que precisa pra dar baixa nesse processo de cobrança." mostrarDecisoesNoLd={false} />
         </>
       ) : (
         <>
-          <Card>
-            <CardContent className="flex flex-wrap items-center gap-3 py-4">
-              <span className="text-sm font-medium text-muted-foreground">Atalhos:</span>
-              <Link
-                to="/relatorio"
-                search={{ aba: "pendencias", advogado, pasta: pastaSelecionada, socio: socioSelecionado }}
-                className="inline-flex items-center gap-1 text-sm text-primary underline-offset-4 hover:underline"
-              >
-                Ver prazos
-              </Link>
-              <Link
-                to="/relatorio"
-                search={{ aba: "encerramento", advogado }}
-                className="inline-flex items-center gap-1 text-sm text-primary underline-offset-4 hover:underline"
-              >
-                Ver Encerramento Souza Cruz
-              </Link>
-            </CardContent>
-          </Card>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              type="text"
-              placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br"
-              value={emails}
-              onChange={(e) => setEmails(e.target.value)}
-              className="max-w-sm"
-            />
-            <Button
-              variant="outline"
-              disabled={!conteudoEmailDaAba}
-              onClick={() => void copiarEmail()}
-            >
-              <Copy className="size-4" /> Copiar e-mail formatado
-            </Button>
-            <Button
-              variant="outline"
-              disabled={itensDaAba.length === 0}
-              onClick={() => void abrirEmail()}
-            >
-              <Mail className="size-4" /> Abrir e-mail
-            </Button>
-          </div>
-
+          <Card><CardContent className="flex flex-wrap items-center gap-3 py-4"><span className="text-sm font-medium text-muted-foreground">Atalhos:</span><Link to="/relatorio" search={{ aba: "pendencias", advogado, pasta: pastaSelecionada, socio: socioSelecionado }} className="inline-flex items-center gap-1 text-sm text-primary underline-offset-4 hover:underline">Ver prazos</Link><Link to="/relatorio" search={{ aba: "encerramento", advogado }} className="inline-flex items-center gap-1 text-sm text-primary underline-offset-4 hover:underline">Ver Encerramento Souza Cruz</Link></CardContent></Card>
+          <div className="flex flex-wrap items-center gap-2"><Input type="text" placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br" value={emails} onChange={(e) => setEmails(e.target.value)} className="max-w-sm" /><Button variant="outline" disabled={!conteudoEmailDaAba} onClick={() => void copiarEmail()}><Copy className="size-4" /> Copiar e-mail formatado</Button><Button variant="outline" disabled={itensDaAba.length === 0} onClick={() => void abrirEmail()}><Mail className="size-4" /> Abrir e-mail</Button></div>
           {aba === "periodo" ? (
-            <div className="space-y-4">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 font-serif text-lg">
-                    <CalendarRange className="size-5" /> Relatório por período
-                  </CardTitle>
-                  <CardDescription>
-                    Escolha o intervalo pela data real do andamento. Os filtros de advogado e pasta continuam valendo.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-wrap items-end gap-4">
-                  <label className="space-y-1.5 text-sm">
-                    <span className="font-medium">De</span>
-                    <Input
-                      type="date"
-                      value={periodoDe}
-                      onChange={(e) => setPeriodoDe(e.target.value)}
-                      className="w-44"
-                    />
-                  </label>
-                  <label className="space-y-1.5 text-sm">
-                    <span className="font-medium">Até</span>
-                    <Input
-                      type="date"
-                      value={periodoAte}
-                      onChange={(e) => setPeriodoAte(e.target.value)}
-                      className="w-44"
-                    />
-                  </label>
-                  {periodoDe && periodoAte && periodoDe > periodoAte ? (
-                    <span className="pb-2 text-sm text-destructive">
-                      A data inicial deve ser anterior ou igual à final.
-                    </span>
-                  ) : periodoValido ? (
-                    <span className="pb-2 text-sm text-muted-foreground">
-                      {periodoFiltrado.length} andamento(s) em {agruparAndamentosPorProcesso(periodoFiltrado).length} processo(s) no período.
-                    </span>
-                  ) : null}
-                </CardContent>
-              </Card>
-              <ListaAndamentosConsolidada
-                itens={periodoFiltrado}
-                vazio={
-                  periodoValido
-                    ? "Nenhuma movimentação encontrada nesse período."
-                    : "Escolha as datas inicial e final para gerar o relatório."
-                }
-              />
-            </div>
+            <div className="space-y-4"><Card><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 font-serif text-lg"><CalendarRange className="size-5" /> Relatório por período</CardTitle><CardDescription>Escolha o intervalo pela data real do andamento. Os filtros de advogado e pasta continuam valendo.</CardDescription></CardHeader><CardContent className="flex flex-wrap items-end gap-4"><label className="space-y-1.5 text-sm"><span className="font-medium">De</span><Input type="date" value={periodoDe} onChange={(e) => setPeriodoDe(e.target.value)} className="w-44" /></label><label className="space-y-1.5 text-sm"><span className="font-medium">Até</span><Input type="date" value={periodoAte} onChange={(e) => setPeriodoAte(e.target.value)} className="w-44" /></label>{periodoDe && periodoAte && periodoDe > periodoAte ? <span className="pb-2 text-sm text-destructive">A data inicial deve ser anterior ou igual à final.</span> : periodoValido ? <span className="pb-2 text-sm text-muted-foreground">{periodoFiltrado.length} andamento(s) em {agruparAndamentosPorProcesso(periodoFiltrado).length} processo(s) no período.</span> : null}</CardContent></Card><ListaAndamentosConsolidada itens={periodoFiltrado} vazio={periodoValido ? "Nenhuma movimentação encontrada nesse período." : "Escolha as datas inicial e final para gerar o relatório."} /></div>
           ) : (
-            <Tabs value={aba} onValueChange={setAba}>
-              <TabsList>
-                <TabsTrigger value="novidades">Novidades ({novidadesFiltradas.length})</TabsTrigger>
-                <TabsTrigger value="semana">Semana ({semanaFiltrada.length})</TabsTrigger>
-                <TabsTrigger value="mes">Mês ({mesFiltrado.length})</TabsTrigger>
-                <TabsTrigger value="ultimos">
-                  Últimos andamentos ({ultimosFiltrados.length})
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="novidades" className="mt-4">
-                <ListaAndamentosConsolidada itens={novidadesFiltradas} vazio="Nada novo desde a última verificação." />
-              </TabsContent>
-              <TabsContent value="semana" className="mt-4">
-                <ListaAndamentosConsolidada itens={semanaFiltrada} vazio="Nenhuma movimentação nos últimos 7 dias." />
-              </TabsContent>
-              <TabsContent value="mes" className="mt-4">
-                <ListaAndamentosConsolidada itens={mesFiltrado} vazio="Nenhuma movimentação nos últimos 30 dias." />
-              </TabsContent>
-              <TabsContent value="ultimos" className="mt-4">
-                <ListaAndamentosConsolidada itens={ultimosFiltrados} vazio="Nenhum andamento registrado ainda." />
-              </TabsContent>
-            </Tabs>
+            <Tabs value={aba} onValueChange={setAba}><TabsList><TabsTrigger value="novidades">Novidades ({novidadesFiltradas.length})</TabsTrigger><TabsTrigger value="semana">Semana ({semanaFiltrada.length})</TabsTrigger><TabsTrigger value="mes">Mês ({mesFiltrado.length})</TabsTrigger><TabsTrigger value="ultimos">Últimos andamentos ({ultimosFiltrados.length})</TabsTrigger></TabsList><TabsContent value="novidades" className="mt-4"><ListaAndamentosConsolidada itens={novidadesFiltradas} vazio="Nada novo desde a última verificação." /></TabsContent><TabsContent value="semana" className="mt-4"><ListaAndamentosConsolidada itens={semanaFiltrada} vazio="Nenhuma movimentação nos últimos 7 dias." /></TabsContent><TabsContent value="mes" className="mt-4"><ListaAndamentosConsolidada itens={mesFiltrado} vazio="Nenhuma movimentação nos últimos 30 dias." /></TabsContent><TabsContent value="ultimos" className="mt-4"><ListaAndamentosConsolidada itens={ultimosFiltrados} vazio="Nenhum andamento registrado ainda." /></TabsContent></Tabs>
           )}
         </>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-serif text-lg">Envio automático por e-mail</CardTitle>
-          <CardDescription>
-            O resumo diário/semanal por e-mail é o próximo passo — precisa de um serviço de e-mail
-            configurado. Por enquanto, o relatório fica disponível aqui sob demanda.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <Card><CardHeader><CardTitle className="font-serif text-lg">Envio automático por e-mail</CardTitle><CardDescription>O resumo diário/semanal por e-mail é o próximo passo — precisa de um serviço de e-mail configurado. Por enquanto, o relatório fica disponível aqui sob demanda.</CardDescription></CardHeader></Card>
     </div>
   );
 }
@@ -1340,253 +1091,25 @@ function validarMovimentacao(id: string, queryClient: ReturnType<typeof useQuery
       .from("movimentacoes")
       .update({ validado: true, validado_por: quem, validado_em: new Date().toISOString() })
       .eq("id", id);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
+    if (error) { toast.error(error.message); return; }
     await queryClient.invalidateQueries();
   })();
 }
 
-function ListaAndamentosConsolidada({
-  itens,
-  vazio,
-}: {
-  itens: MovimentacaoComProcesso[];
-  vazio: string;
-}) {
+function ListaAndamentosConsolidada({ itens, vazio }: { itens: MovimentacaoComProcesso[]; vazio: string }) {
   const queryClient = useQueryClient();
   const grupos = agruparAndamentosPorProcesso(itens);
-
-  if (itens.length === 0)
-    return (
-      <Card>
-        <CardContent className="py-10 text-center text-muted-foreground">{vazio}</CardContent>
-      </Card>
-    );
-
-  return (
-    <ol className="space-y-3">
-      {grupos.map((grupo) => {
-        const p = grupo.processo;
-        const temNaoValidado = grupo.itens.some((m) => !m.validado);
-        return (
-          <li
-            key={grupo.chave}
-            className={`overflow-hidden rounded-lg border ${temNaoValidado ? "border-amber-500/50 bg-amber-50/30" : "border-border bg-card"}`}
-          >
-            <div className="flex flex-wrap items-center gap-2 border-b bg-muted/20 px-4 py-3 text-sm">
-              {p ? (
-                <Link
-                  to="/processos/$id"
-                  params={{ id: p.id }}
-                  className="font-mono text-xs underline-offset-4 hover:underline"
-                >
-                  {formatarCNJ(p.numero_cnj)}
-                </Link>
-              ) : null}
-              <span className="font-medium">{exibir(p?.cliente)}</span>
-              {p?.parte_contraria ? (
-                <span className="text-muted-foreground">— {p.parte_contraria}</span>
-              ) : p?.autor || p?.reu ? (
-                <span className="text-muted-foreground">
-                  {p.autor ?? "—"}{p.reu ? ` x ${p.reu}` : ""}
-                </span>
-              ) : null}
-              {clienteCasoDoProcesso(p) ? (
-                <Badge variant="outline">Cliente/Caso {clienteCasoDoProcesso(p)}</Badge>
-              ) : null}
-              <Badge variant="secondary">{grupo.itens.length} andamento(s)</Badge>
-            </div>
-
-            <div className="divide-y">
-              {grupo.itens.map((m) => (
-                <div key={m.id} className="px-4 py-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold text-foreground">
-                      {formatarDataCurta(m.data_movimentacao)}
-                    </span>
-                    {m.tipo ? <Badge variant="outline">{m.tipo}</Badge> : null}
-                    {m.destacar_email ? <Badge>Destacar no e-mail</Badge> : null}
-                    {!m.validado ? <Badge variant="secondary">Sugerido — não validado</Badge> : null}
-                  </div>
-                  <p className="mt-1 whitespace-pre-wrap text-sm">{m.descricao}</p>
-                  <div className="mt-2 flex items-center justify-between gap-2">
-                    {m.observacao ? (
-                      <p className="text-xs text-muted-foreground">Obs.: {m.observacao}</p>
-                    ) : <span />}
-                    {!m.validado ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => void validarMovimentacao(m.id, queryClient)}
-                      >
-                        <CheckCircle2 className="size-3.5" /> Marcar como validado
-                      </Button>
-                    ) : m.validado_por ? (
-                      <p className="text-xs text-muted-foreground">
-                        Validado por {m.validado_por}
-                        {m.validado_em ? ` em ${new Date(m.validado_em).toLocaleDateString("pt-BR")}` : ""}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </li>
-        );
-      })}
-    </ol>
-  );
+  if (itens.length === 0) return <Card><CardContent className="py-10 text-center text-muted-foreground">{vazio}</CardContent></Card>;
+  return <ol className="space-y-3">{grupos.map((grupo) => { const p = grupo.processo; const temNaoValidado = grupo.itens.some((m) => !m.validado); return <li key={grupo.chave} className={`overflow-hidden rounded-lg border ${temNaoValidado ? "border-amber-500/50 bg-amber-50/30" : "border-border bg-card"}`}><div className="flex flex-wrap items-center gap-2 border-b bg-muted/20 px-4 py-3 text-sm">{p ? <Link to="/processos/$id" params={{ id: p.id }} className="font-mono text-xs underline-offset-4 hover:underline">{formatarCNJ(p.numero_cnj)}</Link> : null}<span className="font-medium">{exibir(p?.cliente)}</span>{p?.parte_contraria ? <span className="text-muted-foreground">— {p.parte_contraria}</span> : p?.autor || p?.reu ? <span className="text-muted-foreground">{p.autor ?? "—"}{p.reu ? ` x ${p.reu}` : ""}</span> : null}{clienteCasoDoProcesso(p) ? <Badge variant="outline">Cliente/Caso {clienteCasoDoProcesso(p)}</Badge> : null}<Badge variant="secondary">{grupo.itens.length} andamento(s)</Badge></div><div className="divide-y">{grupo.itens.map((m) => <div key={m.id} className="px-4 py-3"><div className="flex flex-wrap items-center gap-2"><span className="text-sm font-semibold text-foreground">{formatarDataCurta(m.data_movimentacao)}</span>{m.tipo ? <Badge variant="outline">{m.tipo}</Badge> : null}{m.destacar_email ? <Badge>Destacar no e-mail</Badge> : null}{!m.validado ? <Badge variant="secondary">Sugerido — não validado</Badge> : null}</div><p className="mt-1 whitespace-pre-wrap text-sm">{m.descricao}</p><div className="mt-2 flex items-center justify-between gap-2">{m.observacao ? <p className="text-xs text-muted-foreground">Obs.: {m.observacao}</p> : <span />}{!m.validado ? <Button type="button" size="sm" variant="outline" onClick={() => void validarMovimentacao(m.id, queryClient)}><CheckCircle2 className="size-3.5" /> Marcar como validado</Button> : m.validado_por ? <p className="text-xs text-muted-foreground">Validado por {m.validado_por}{m.validado_em ? ` em ${new Date(m.validado_em).toLocaleDateString("pt-BR")}` : ""}</p> : null}</div></div>)}</div></li>; })}</ol>;
 }
 
-function Lista({
-  itens,
-  vazio,
-  destaque,
-}: {
-  itens: MovimentacaoComProcesso[];
-  vazio: string;
-  destaque?: boolean;
-}) {
+function Lista({ itens, vazio, destaque }: { itens: MovimentacaoComProcesso[]; vazio: string; destaque?: boolean }) {
   const queryClient = useQueryClient();
-
-  if (itens.length === 0)
-    return (
-      <Card>
-        <CardContent className="py-10 text-center text-muted-foreground">{vazio}</CardContent>
-      </Card>
-    );
-
-  return (
-    <ol className="space-y-3">
-      {itens.map((m) => (
-        <li
-          key={m.id}
-          className={`rounded-lg border p-4 ${m.validado ? "border-border bg-card" : "border-amber-500/50 bg-amber-50/50"}`}
-        >
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            {m.processos ? (
-              <Link
-                to="/processos/$id"
-                params={{ id: m.processos.id }}
-                className="font-mono text-xs underline-offset-4 hover:underline"
-              >
-                {formatarCNJ(m.processos.numero_cnj)}
-              </Link>
-            ) : null}
-            <span className="font-medium">{exibir(m.processos?.cliente)}</span>
-            {m.processos?.autor || m.processos?.reu ? (
-              <span className="text-muted-foreground">
-                {m.processos.autor ?? "—"}
-                {m.processos.reu ? ` x ${m.processos.reu}` : ""}
-              </span>
-            ) : m.processos?.parte_contraria ? (
-              <span className="text-muted-foreground">x {m.processos.parte_contraria}</span>
-            ) : null}
-            {m.tipo ? <Badge variant="outline">{m.tipo}</Badge> : null}
-            {m.destacar_email ? <Badge>Destacar no e-mail</Badge> : null}
-            {!m.validado ? <Badge variant="secondary">Sugerido — não validado</Badge> : null}
-            {destaque && m.prazo ? (
-              <>
-                <Badge variant="destructive">
-                  <AlertTriangle className="size-3" />
-                  Prazo {new Date(`${m.prazo}T12:00:00`).toLocaleDateString("pt-BR")}
-                </Badge>
-                <button
-                  type="button"
-                  title="Exportar prazo para o calendário (Outlook, Google, Apple)"
-                  className="inline-flex items-center gap-1 text-xs text-primary underline-offset-4 hover:underline"
-                  onClick={() => baixarPrazoIcs(m)}
-                >
-                  <CalendarPlus className="size-3.5" /> Exportar
-                </button>
-              </>
-            ) : null}
-          </div>
-          <p className="mt-2 whitespace-pre-wrap text-sm">{m.descricao}</p>
-          <div className="mt-1 flex items-center justify-between gap-2">
-            <p className="text-xs text-muted-foreground">
-              {new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR")}
-            </p>
-            {!m.validado ? (
-              <Button type="button" size="sm" variant="outline" onClick={() => void validarMovimentacao(m.id, queryClient)}>
-                <CheckCircle2 className="size-3.5" /> Marcar como validado
-              </Button>
-            ) : m.validado_por ? (
-              <p className="text-xs text-muted-foreground">
-                Validado por {m.validado_por}
-                {m.validado_em ? ` em ${new Date(m.validado_em).toLocaleDateString("pt-BR")}` : ""}
-              </p>
-            ) : null}
-          </div>
-        </li>
-      ))}
-    </ol>
-  );
+  if (itens.length === 0) return <Card><CardContent className="py-10 text-center text-muted-foreground">{vazio}</CardContent></Card>;
+  return <ol className="space-y-3">{itens.map((m) => <li key={m.id} className={`rounded-lg border p-4 ${m.validado ? "border-border bg-card" : "border-amber-500/50 bg-amber-50/50"}`}><div className="flex flex-wrap items-center gap-2 text-sm">{m.processos ? <Link to="/processos/$id" params={{ id: m.processos.id }} className="font-mono text-xs underline-offset-4 hover:underline">{formatarCNJ(m.processos.numero_cnj)}</Link> : null}<span className="font-medium">{exibir(m.processos?.cliente)}</span>{m.processos?.autor || m.processos?.reu ? <span className="text-muted-foreground">{m.processos.autor ?? "—"}{m.processos.reu ? ` x ${m.processos.reu}` : ""}</span> : m.processos?.parte_contraria ? <span className="text-muted-foreground">x {m.processos.parte_contraria}</span> : null}{m.tipo ? <Badge variant="outline">{m.tipo}</Badge> : null}{m.destacar_email ? <Badge>Destacar no e-mail</Badge> : null}{!m.validado ? <Badge variant="secondary">Sugerido — não validado</Badge> : null}{destaque && m.prazo ? <><Badge variant="destructive"><AlertTriangle className="size-3" />Prazo {new Date(`${m.prazo}T12:00:00`).toLocaleDateString("pt-BR")}</Badge><button type="button" title="Exportar prazo para o calendário (Outlook, Google, Apple)" className="inline-flex items-center gap-1 text-xs text-primary underline-offset-4 hover:underline" onClick={() => baixarPrazoIcs(m)}><CalendarPlus className="size-3.5" /> Exportar</button></> : null}</div><p className="mt-2 whitespace-pre-wrap text-sm">{m.descricao}</p><div className="mt-1 flex items-center justify-between gap-2"><p className="text-xs text-muted-foreground">{new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR")}</p>{!m.validado ? <Button type="button" size="sm" variant="outline" onClick={() => void validarMovimentacao(m.id, queryClient)}><CheckCircle2 className="size-3.5" /> Marcar como validado</Button> : m.validado_por ? <p className="text-xs text-muted-foreground">Validado por {m.validado_por}{m.validado_em ? ` em ${new Date(m.validado_em).toLocaleDateString("pt-BR")}` : ""}</p> : null}</div></li>)}</ol>;
 }
 
-function ListaProcessos({
-  processos,
-  vazio,
-  descricaoEncerramento,
-  mostrarDecisoesNoLd = true,
-}: {
-  processos: Processo[];
-  vazio: string;
-  descricaoEncerramento?: string;
-  mostrarDecisoesNoLd?: boolean;
-}) {
-  if (processos.length === 0)
-    return (
-      <Card>
-        <CardContent className="py-10 text-center text-muted-foreground">{vazio}</CardContent>
-      </Card>
-    );
-
-  return (
-    <ol className="space-y-3">
-      {processos.map((p) => (
-        <li key={p.id} className="rounded-lg border border-border bg-card p-4">
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <Link
-              to="/processos/$id"
-              params={{ id: p.id }}
-              className="font-mono text-xs underline-offset-4 hover:underline"
-            >
-              {formatarCNJ(p.numero_cnj)}
-            </Link>
-            <span className="font-medium">{exibir(p.cliente)}</span>
-            {p.comarca || p.uf ? (
-              <span className="text-muted-foreground">
-                {[p.comarca, p.uf].filter(Boolean).join(" / ")}
-              </span>
-            ) : null}
-            {p.responsavel ? <Badge variant="outline">{p.responsavel}</Badge> : null}
-            {p.socio ? <Badge variant="outline">sócio {p.socio}</Badge> : null}
-            {p.fase ? <Badge variant="secondary">{p.fase}</Badge> : null}
-            {mostrarDecisoesNoLd && p.decisoes_no_ld ? (
-              <Badge variant="outline">Decisões no LD</Badge>
-            ) : null}
-            <span className="ml-auto flex items-center gap-3">
-              {p.valor_encerramento != null ? (
-                <span className="text-base font-semibold text-foreground">
-                  {p.valor_encerramento.toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
-                </span>
-              ) : null}
-              <EncerramentoDialog
-                processo={p}
-                descricao={descricaoEncerramento}
-                mostrarDecisoesNoLd={mostrarDecisoesNoLd}
-              />
-            </span>
-          </div>
-        </li>
-      ))}
-    </ol>
-  );
+function ListaProcessos({ processos, vazio, descricaoEncerramento, mostrarDecisoesNoLd = true }: { processos: Processo[]; vazio: string; descricaoEncerramento?: string; mostrarDecisoesNoLd?: boolean }) {
+  if (processos.length === 0) return <Card><CardContent className="py-10 text-center text-muted-foreground">{vazio}</CardContent></Card>;
+  return <ol className="space-y-3">{processos.map((p) => <li key={p.id} className="rounded-lg border border-border bg-card p-4"><div className="flex flex-wrap items-center gap-2 text-sm"><Link to="/processos/$id" params={{ id: p.id }} className="font-mono text-xs underline-offset-4 hover:underline">{formatarCNJ(p.numero_cnj)}</Link><span className="font-medium">{exibir(p.cliente)}</span>{p.comarca || p.uf ? <span className="text-muted-foreground">{[p.comarca, p.uf].filter(Boolean).join(" / ")}</span> : null}{p.responsavel ? <Badge variant="outline">{p.responsavel}</Badge> : null}{p.socio ? <Badge variant="outline">sócio {p.socio}</Badge> : null}{p.fase ? <Badge variant="secondary">{p.fase}</Badge> : null}{mostrarDecisoesNoLd && p.decisoes_no_ld ? <Badge variant="outline">Decisões no LD</Badge> : null}<span className="ml-auto flex items-center gap-3">{p.valor_encerramento != null ? <span className="text-base font-semibold text-foreground">{p.valor_encerramento.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span> : null}<EncerramentoDialog processo={p} descricao={descricaoEncerramento} mostrarDecisoesNoLd={mostrarDecisoesNoLd} /></span></div></li>)}</ol>;
 }
