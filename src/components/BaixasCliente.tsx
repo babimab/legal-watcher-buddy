@@ -310,6 +310,52 @@ function CobrancaDialog({ baixa }: { baixa: BaixaCliente }) {
   );
 }
 
+function EncerrarDialog({ baixa }: { baixa: BaixaCliente }) {
+  const [aberto, setAberto] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const qc = useQueryClient();
+
+  const confirmar = async () => {
+    setSalvando(true);
+    try {
+      await registrarTentativaBaixa({
+        baixaId: baixa.id,
+        resultado: "concluida",
+        pendenciaCom: null,
+        descricao: null,
+        proximaCobranca: null,
+      });
+      toast.success("Baixa marcada como concluída no sistema do cliente.");
+      await qc.invalidateQueries({ queryKey: ["baixas-cliente"] });
+      setAberto(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não consegui encerrar a baixa.");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <Dialog open={aberto} onOpenChange={setAberto}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline"><CheckCircle2 className="size-4" /> Encerrar baixa</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Encerrar baixa</DialogTitle>
+          <DialogDescription>
+            A baixa será marcada como concluída no sistema do cliente. Esta ação registra o encerramento administrativo da baixa.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setAberto(false)} disabled={salvando}>Cancelar</Button>
+          <Button onClick={() => void confirmar()} disabled={salvando}>{salvando ? "Encerrando..." : "Confirmar encerramento"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function HistoricoDialog({ baixa }: { baixa: BaixaCliente }) {
   const [aberto, setAberto] = useState(false);
   const historico = useQuery({ queryKey: ["historico-baixa", baixa.id], queryFn: () => listarHistoricoBaixa(baixa.id), enabled: aberto });
