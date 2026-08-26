@@ -75,16 +75,16 @@ export function estilizarComoLink(planilha: ExcelJS.Worksheet, colunas: Set<stri
   });
 }
 
-/** Fecha cada linha de dados (menos o cabeçalho) com borda fina, pra ficar clara na impressão. */
+/** Fecha cada linha de dados (menos o cabeçalho) com borda, pra ficar clara na impressão. */
 export function fecharLinhasComBorda(planilha: ExcelJS.Worksheet, quebraDePaginaPorLinha = false) {
   planilha.eachRow((linha, numeroLinha) => {
     if (numeroLinha === 1) return;
     linha.eachCell((celula) => {
       celula.border = {
-        top: { style: "thin", color: { argb: "FFD0D0D0" } },
-        left: { style: "thin", color: { argb: "FFD0D0D0" } },
-        bottom: { style: "thin", color: { argb: "FFD0D0D0" } },
-        right: { style: "thin", color: { argb: "FFD0D0D0" } },
+        top: { style: "medium", color: { argb: "FF9E9E9E" } },
+        left: { style: "medium", color: { argb: "FF9E9E9E" } },
+        bottom: { style: "medium", color: { argb: "FF9E9E9E" } },
+        right: { style: "medium", color: { argb: "FF9E9E9E" } },
       };
     });
     if (quebraDePaginaPorLinha) linha.addPageBreak();
