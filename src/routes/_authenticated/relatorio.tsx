@@ -2,7 +2,16 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, CalendarPlus, CalendarRange, CheckCircle2, Copy, Download, Mail, Play } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarPlus,
+  CalendarRange,
+  CheckCircle2,
+  Copy,
+  Download,
+  Mail,
+  Play,
+} from "lucide-react";
 import ExcelJS from "exceljs";
 
 import { Button } from "@/components/ui/button";
@@ -179,8 +188,16 @@ async function exportarAndamentosExcel(itens: MovimentacaoComProcesso[], nomeArq
 
   estilizarCabecalho(planilha);
   centralizarLinhas(planilha, COLUNAS_TEXTO_LIVRE);
-  planilha.getColumn("andamentos").alignment = { vertical: "top", horizontal: "left", wrapText: true };
-  planilha.getColumn("observacoes").alignment = { vertical: "top", horizontal: "left", wrapText: true };
+  planilha.getColumn("andamentos").alignment = {
+    vertical: "top",
+    horizontal: "left",
+    wrapText: true,
+  };
+  planilha.getColumn("observacoes").alignment = {
+    vertical: "top",
+    horizontal: "left",
+    wrapText: true,
+  };
   finalizarPlanilha(planilha);
 
   await baixarPlanilha(workbook, nomeArquivo);
@@ -265,7 +282,7 @@ function linhaClienteCaso(processo: Partial<DadosEmailProcesso> | null | undefin
   const clienteCaso =
     processo.numero_cliente && processo.numero_interno
       ? `${processo.numero_cliente}/${processo.numero_interno}`
-      : processo.numero_interno ?? processo.numero_cliente ?? "";
+      : (processo.numero_interno ?? processo.numero_cliente ?? "");
   return [
     clienteCaso ? `Cliente/Caso: ${clienteCaso}` : "",
     processo.cliente ? `Cliente: ${exibir(processo.cliente)}` : "",
@@ -311,7 +328,7 @@ function montarConteudoEmailAndamentos(
   const porId = new Map(processosCompletos.map((p) => [p.id, p]));
   const blocos = agruparAndamentosPorProcesso(itens).map((grupo, i) => {
     const processo = grupo.processo
-      ? porId.get(grupo.processo.id) ?? grupo.processo
+      ? (porId.get(grupo.processo.id) ?? grupo.processo)
       : grupo.processo;
     const numero = grupo.processo ? formatarCNJ(grupo.processo.numero_cnj) : "—";
     const adversa = nomeParteAdversa(processo);
@@ -386,9 +403,7 @@ function conteudoEmailHtml(conteudo: ConteudoEmailAndamentos) {
 
       return `<div style="margin:0 0 16px 0"><div><strong>${escaparHtml(
         bloco.cabecalho,
-      )}</strong></div>${linhas
-        .map((linha) => `<div>${escaparHtml(linha)}</div>`)
-        .join("")}</div>`;
+      )}</strong></div>${linhas.map((linha) => `<div>${escaparHtml(linha)}</div>`).join("")}</div>`;
     })
     .join("");
 
@@ -622,7 +637,15 @@ function RelatorioPage() {
       temMeus: !!minhaSigla,
       outros: valores.filter((v) => !ehResponsavelDaSigla(v, minhaSigla)).sort(),
     };
-  }, [novidades.data, semana.data, mes.data, periodo.data, ultimos.data, pendencias.data, minhaSigla]);
+  }, [
+    novidades.data,
+    semana.data,
+    mes.data,
+    periodo.data,
+    ultimos.data,
+    pendencias.data,
+    minhaSigla,
+  ]);
 
   const pastasOrdenadas = useMemo(
     () => [...(pastas.data ?? [])].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),
@@ -638,9 +661,9 @@ function RelatorioPage() {
       ...(ultimos.data ?? []),
       ...(pendencias.data ?? []),
     ];
-    return [
-      ...new Set(todosItens.map((m) => m.processos?.socio).filter(Boolean) as string[]),
-    ].sort((a, b) => a.localeCompare(b, "pt-BR"));
+    return [...new Set(todosItens.map((m) => m.processos?.socio).filter(Boolean) as string[])].sort(
+      (a, b) => a.localeCompare(b, "pt-BR"),
+    );
   }, [novidades.data, semana.data, mes.data, periodo.data, ultimos.data, pendencias.data]);
 
   const filtrarPorAdvogado = (itens: MovimentacaoComProcesso[]) =>
@@ -702,30 +725,43 @@ function RelatorioPage() {
     [encerramento],
   );
 
-  const encerramentoFiltrado = (
+  const encerramentoFiltrado =
     ufEncerramento === "todos"
       ? encerramentoPorAdvogado
-      : encerramentoPorAdvogado.filter((p) => p.uf === ufEncerramento)
-  );
+      : encerramentoPorAdvogado.filter((p) => p.uf === ufEncerramento);
 
   const encerramentoProntos = encerramentoFiltrado.filter((p) => p.pronto_para_encerrar);
   const encerramentoExibido = soProntos ? encerramentoProntos : encerramentoFiltrado;
 
-  const encerramentoAstroPorAdvogado = (
+  const encerramentoAstroPorAdvogado =
     advogado === "todos"
       ? encerramentoAstro
       : encerramentoAstro.filter((p) =>
           advogado === "eu"
             ? ehResponsavelDaSigla(p.responsavel, minhaSigla)
             : p.responsavel === advogado,
-        )
-  );
+        );
   const encerramentoAstroProntos = encerramentoAstroPorAdvogado.filter(
     (p) => p.pronto_para_encerrar,
   );
   const encerramentoAstroExibido = soProntos
     ? encerramentoAstroProntos
     : encerramentoAstroPorAdvogado;
+
+  // Base completa (todos os processos, não só os com andamento novo) do
+  // advogado/pasta/sócio selecionados, pra exportar com destaque em
+  // amarelo pra quem prefere ver o caso inteiro em vez de receber uma
+  // planilha só com os andamentos novos.
+  const processosDaBaseFiltrados = (processos.data ?? [])
+    .filter((p) =>
+      advogado === "todos"
+        ? true
+        : advogado === "eu"
+          ? ehResponsavelDaSigla(p.responsavel, minhaSigla)
+          : p.responsavel === advogado,
+    )
+    .filter((p) => (pastaSelecionada === "todas" ? true : p.pasta_id === pastaSelecionada))
+    .filter((p) => (socioSelecionado === "todos" ? true : p.socio === socioSelecionado));
 
   const itensDaAba =
     aba === "semana"
@@ -735,12 +771,12 @@ function RelatorioPage() {
         : aba === "periodo"
           ? periodoFiltrado
           : aba === "ultimos"
-          ? ultimosFiltrados
-          : aba === "pendencias"
-            ? pendenciasFiltradas
-            : aba === "encerramento" || aba === "encerramento-astro" || aba === "baixas"
-              ? []
-              : novidadesFiltradas;
+            ? ultimosFiltrados
+            : aba === "pendencias"
+              ? pendenciasFiltradas
+              : aba === "encerramento" || aba === "encerramento-astro" || aba === "baixas"
+                ? []
+                : novidadesFiltradas;
 
   const [emails, setEmails] = useState("");
 
@@ -755,8 +791,8 @@ function RelatorioPage() {
   const referenciaRelatorio =
     pastaSelecionada === "todas"
       ? "Todas as pastas"
-      : exibir(pastasOrdenadas.find((p) => p.id === pastaSelecionada)?.nome) ??
-        "Pasta selecionada";
+      : (exibir(pastasOrdenadas.find((p) => p.id === pastaSelecionada)?.nome) ??
+        "Pasta selecionada");
   const itensDestacadosDaAba = itensDaAba.filter((m) => m.destacar_email);
   const conteudoEmailDaAba =
     itensDestacadosDaAba.length > 0
@@ -838,6 +874,26 @@ function RelatorioPage() {
     toast.success("Relatório baixado: Excel completo + Word com o texto do e-mail.");
   };
 
+  // Alternativa ao "Exportar relatório": em vez de uma planilha só com os
+  // andamentos novos, exporta a base completa do advogado/pasta/sócio
+  // selecionado, com as linhas dos processos que têm item na aba atual
+  // (novidades, semana, mês etc.) destacadas em amarelo.
+  const exportarBaseCompleta = async () => {
+    const idsComItemNaAba = new Set(itensDaAba.map((m) => m.processo_id));
+    try {
+      await exportarProcessosExcel(
+        processosDaBaseFiltrados,
+        `${nomeArquivoDaAba}-base-completa`,
+        idsComItemNaAba,
+      );
+      toast.success(
+        "Base completa exportada, com os processos com item na aba destacados em amarelo.",
+      );
+    } catch {
+      toast.error("Não consegui gerar o Excel.");
+    }
+  };
+
   const rodar = async () => {
     setRodando(true);
     const { data: userData } = await supabase.auth.getUser();
@@ -870,11 +926,7 @@ function RelatorioPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-serif text-3xl font-semibold">
-            {aba === "pendencias"
-              ? "Prazos"
-              : ehModoEncerramentos
-                ? "Encerramentos"
-                : "Relatórios"}
+            {aba === "pendencias" ? "Prazos" : ehModoEncerramentos ? "Encerramentos" : "Relatórios"}
           </h1>
           <p className="text-muted-foreground">
             {desde
@@ -998,8 +1050,19 @@ function RelatorioPage() {
               void exportarRelatorio();
             }}
           >
-            <Download className="size-4" /> {ehAbaEncerramento ? "Exportar Excel" : "Exportar relatório"}
+            <Download className="size-4" />{" "}
+            {ehAbaEncerramento ? "Exportar Excel" : "Exportar relatório"}
           </Button>
+          {!ehAbaEncerramento ? (
+            <Button
+              variant="outline"
+              disabled={processosDaBaseFiltrados.length === 0}
+              onClick={() => void exportarBaseCompleta()}
+              title="Planilha com todos os processos do advogado, com os que têm item nesta aba destacados em amarelo"
+            >
+              <Download className="size-4" /> Exportar base completa
+            </Button>
+          ) : null}
           <Button onClick={rodar} disabled={rodando}>
             <Play className="size-4" /> {rodando ? "Registrando..." : "Marcar como verificado"}
           </Button>
@@ -1031,7 +1094,12 @@ function RelatorioPage() {
             </h2>
             <Link
               to="/relatorio"
-              search={{ aba: "novidades", advogado, pasta: pastaSelecionada, socio: socioSelecionado }}
+              search={{
+                aba: "novidades",
+                advogado,
+                pasta: pastaSelecionada,
+                socio: socioSelecionado,
+              }}
               className="text-sm text-primary underline-offset-4 hover:underline"
             >
               Ver relatório de andamentos
@@ -1040,46 +1108,294 @@ function RelatorioPage() {
 
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-medium text-muted-foreground">Novo prazo:</span>
-            <NovoPrazoDialog tipo="Prazo" processos={processos.data ?? []} trigger={<Button variant="outline" size="sm">Prazo</Button>} />
-            <NovoPrazoDialog tipo="Audiência" processos={processos.data ?? []} trigger={<Button variant="outline" size="sm">Audiência</Button>} />
-            <NovoPrazoDialog tipo="Julgamento" processos={processos.data ?? []} trigger={<Button variant="outline" size="sm">Julgamento</Button>} />
-            <NovoPrazoDialog tipo="Providência interna" processos={processos.data ?? []} trigger={<Button variant="outline" size="sm">Providência interna</Button>} />
+            <NovoPrazoDialog
+              tipo="Prazo"
+              processos={processos.data ?? []}
+              trigger={
+                <Button variant="outline" size="sm">
+                  Prazo
+                </Button>
+              }
+            />
+            <NovoPrazoDialog
+              tipo="Audiência"
+              processos={processos.data ?? []}
+              trigger={
+                <Button variant="outline" size="sm">
+                  Audiência
+                </Button>
+              }
+            />
+            <NovoPrazoDialog
+              tipo="Julgamento"
+              processos={processos.data ?? []}
+              trigger={
+                <Button variant="outline" size="sm">
+                  Julgamento
+                </Button>
+              }
+            />
+            <NovoPrazoDialog
+              tipo="Providência interna"
+              processos={processos.data ?? []}
+              trigger={
+                <Button variant="outline" size="sm">
+                  Providência interna
+                </Button>
+              }
+            />
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Input type="text" placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br" value={emails} onChange={(e) => setEmails(e.target.value)} className="max-w-sm" />
-            <Button variant="outline" disabled={!conteudoEmailDaAba} onClick={() => void copiarEmail()}><Copy className="size-4" /> Copiar e-mail formatado</Button>
-            <Button variant="outline" disabled={itensDaAba.length === 0} onClick={() => void abrirEmail()}><Mail className="size-4" /> Abrir e-mail</Button>
+            <Input
+              type="text"
+              placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br"
+              value={emails}
+              onChange={(e) => setEmails(e.target.value)}
+              className="max-w-sm"
+            />
+            <Button
+              variant="outline"
+              disabled={!conteudoEmailDaAba}
+              onClick={() => void copiarEmail()}
+            >
+              <Copy className="size-4" /> Copiar e-mail formatado
+            </Button>
+            <Button
+              variant="outline"
+              disabled={itensDaAba.length === 0}
+              onClick={() => void abrirEmail()}
+            >
+              <Mail className="size-4" /> Abrir e-mail
+            </Button>
           </div>
 
           <Lista itens={pendenciasFiltradas} vazio="Nenhuma providência em aberto." destaque />
         </>
       ) : aba === "encerramento" ? (
         <>
-          <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-serif text-xl font-semibold">Encerramento Souza Cruz ({encerramentoExibido.length})</h2><Link to="/relatorio" search={{ aba: "novidades", advogado }} className="text-sm text-primary underline-offset-4 hover:underline">Ver relatório de andamentos</Link></div>
-          <div className="flex flex-wrap items-center gap-2"><Input type="text" placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br" value={emails} onChange={(e) => setEmails(e.target.value)} className="max-w-sm" /><Button variant="outline" disabled={encerramentoProntos.length === 0} onClick={() => void abrirEmail()}><Mail className="size-4" /> Mandar prontos pra Eliane ({encerramentoProntos.length})</Button></div>
-          <ListaProcessos processos={encerramentoExibido} vazio="Nenhum processo em fase de Encerramento." />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-serif text-xl font-semibold">
+              Encerramento Souza Cruz ({encerramentoExibido.length})
+            </h2>
+            <Link
+              to="/relatorio"
+              search={{ aba: "novidades", advogado }}
+              className="text-sm text-primary underline-offset-4 hover:underline"
+            >
+              Ver relatório de andamentos
+            </Link>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              type="text"
+              placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br"
+              value={emails}
+              onChange={(e) => setEmails(e.target.value)}
+              className="max-w-sm"
+            />
+            <Button
+              variant="outline"
+              disabled={encerramentoProntos.length === 0}
+              onClick={() => void abrirEmail()}
+            >
+              <Mail className="size-4" /> Mandar prontos pra Eliane ({encerramentoProntos.length})
+            </Button>
+          </div>
+          <ListaProcessos
+            processos={encerramentoExibido}
+            vazio="Nenhum processo em fase de Encerramento."
+          />
         </>
       ) : aba === "encerramento-astro" ? (
         <>
-          <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-serif text-xl font-semibold">Encerramento Astro ({encerramentoAstroExibido.length})</h2><Link to="/relatorio" search={{ aba: "novidades", advogado }} className="text-sm text-primary underline-offset-4 hover:underline">Ver relatório de andamentos</Link></div>
-          <p className="text-sm text-muted-foreground">Só processos da pasta de cobrança da Equipe Astro que estejam na fase Encerramento.</p>
-          <div className="flex flex-wrap items-center gap-2"><Input type="text" placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br" value={emails} onChange={(e) => setEmails(e.target.value)} className="max-w-sm" /><Button variant="outline" disabled={encerramentoAstroProntos.length === 0} onClick={() => void abrirEmail()}><Mail className="size-4" /> Mandar prontos ({encerramentoAstroProntos.length})</Button></div>
-          <ListaProcessos processos={encerramentoAstroExibido} vazio="Nenhum processo da Astro em fase de Encerramento." descricaoEncerramento="Preenche o que precisa pra dar baixa nesse processo de cobrança." mostrarDecisoesNoLd={false} />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-serif text-xl font-semibold">
+              Encerramento Astro ({encerramentoAstroExibido.length})
+            </h2>
+            <Link
+              to="/relatorio"
+              search={{ aba: "novidades", advogado }}
+              className="text-sm text-primary underline-offset-4 hover:underline"
+            >
+              Ver relatório de andamentos
+            </Link>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Só processos da pasta de cobrança da Equipe Astro que estejam na fase Encerramento.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              type="text"
+              placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br"
+              value={emails}
+              onChange={(e) => setEmails(e.target.value)}
+              className="max-w-sm"
+            />
+            <Button
+              variant="outline"
+              disabled={encerramentoAstroProntos.length === 0}
+              onClick={() => void abrirEmail()}
+            >
+              <Mail className="size-4" /> Mandar prontos ({encerramentoAstroProntos.length})
+            </Button>
+          </div>
+          <ListaProcessos
+            processos={encerramentoAstroExibido}
+            vazio="Nenhum processo da Astro em fase de Encerramento."
+            descricaoEncerramento="Preenche o que precisa pra dar baixa nesse processo de cobrança."
+            mostrarDecisoesNoLd={false}
+          />
         </>
       ) : (
         <>
-          <Card><CardContent className="flex flex-wrap items-center gap-3 py-4"><span className="text-sm font-medium text-muted-foreground">Atalhos:</span><Link to="/relatorio" search={{ aba: "pendencias", advogado, pasta: pastaSelecionada, socio: socioSelecionado }} className="inline-flex items-center gap-1 text-sm text-primary underline-offset-4 hover:underline">Ver prazos</Link><Link to="/relatorio" search={{ aba: "encerramento", advogado }} className="inline-flex items-center gap-1 text-sm text-primary underline-offset-4 hover:underline">Ver Encerramento Souza Cruz</Link></CardContent></Card>
-          <div className="flex flex-wrap items-center gap-2"><Input type="text" placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br" value={emails} onChange={(e) => setEmails(e.target.value)} className="max-w-sm" /><Button variant="outline" disabled={!conteudoEmailDaAba} onClick={() => void copiarEmail()}><Copy className="size-4" /> Copiar e-mail formatado</Button><Button variant="outline" disabled={itensDaAba.length === 0} onClick={() => void abrirEmail()}><Mail className="size-4" /> Abrir e-mail</Button></div>
+          <Card>
+            <CardContent className="flex flex-wrap items-center gap-3 py-4">
+              <span className="text-sm font-medium text-muted-foreground">Atalhos:</span>
+              <Link
+                to="/relatorio"
+                search={{
+                  aba: "pendencias",
+                  advogado,
+                  pasta: pastaSelecionada,
+                  socio: socioSelecionado,
+                }}
+                className="inline-flex items-center gap-1 text-sm text-primary underline-offset-4 hover:underline"
+              >
+                Ver prazos
+              </Link>
+              <Link
+                to="/relatorio"
+                search={{ aba: "encerramento", advogado }}
+                className="inline-flex items-center gap-1 text-sm text-primary underline-offset-4 hover:underline"
+              >
+                Ver Encerramento Souza Cruz
+              </Link>
+            </CardContent>
+          </Card>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              type="text"
+              placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br"
+              value={emails}
+              onChange={(e) => setEmails(e.target.value)}
+              className="max-w-sm"
+            />
+            <Button
+              variant="outline"
+              disabled={!conteudoEmailDaAba}
+              onClick={() => void copiarEmail()}
+            >
+              <Copy className="size-4" /> Copiar e-mail formatado
+            </Button>
+            <Button
+              variant="outline"
+              disabled={itensDaAba.length === 0}
+              onClick={() => void abrirEmail()}
+            >
+              <Mail className="size-4" /> Abrir e-mail
+            </Button>
+          </div>
           {aba === "periodo" ? (
-            <div className="space-y-4"><Card><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 font-serif text-lg"><CalendarRange className="size-5" /> Relatório por período</CardTitle><CardDescription>Escolha o intervalo pela data real do andamento. Os filtros de advogado e pasta continuam valendo.</CardDescription></CardHeader><CardContent className="flex flex-wrap items-end gap-4"><label className="space-y-1.5 text-sm"><span className="font-medium">De</span><Input type="date" value={periodoDe} onChange={(e) => setPeriodoDe(e.target.value)} className="w-44" /></label><label className="space-y-1.5 text-sm"><span className="font-medium">Até</span><Input type="date" value={periodoAte} onChange={(e) => setPeriodoAte(e.target.value)} className="w-44" /></label>{periodoDe && periodoAte && periodoDe > periodoAte ? <span className="pb-2 text-sm text-destructive">A data inicial deve ser anterior ou igual à final.</span> : periodoValido ? <span className="pb-2 text-sm text-muted-foreground">{periodoFiltrado.length} andamento(s) em {agruparAndamentosPorProcesso(periodoFiltrado).length} processo(s) no período.</span> : null}</CardContent></Card><ListaAndamentosConsolidada itens={periodoFiltrado} vazio={periodoValido ? "Nenhuma movimentação encontrada nesse período." : "Escolha as datas inicial e final para gerar o relatório."} /></div>
+            <div className="space-y-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 font-serif text-lg">
+                    <CalendarRange className="size-5" /> Relatório por período
+                  </CardTitle>
+                  <CardDescription>
+                    Escolha o intervalo pela data real do andamento. Os filtros de advogado e pasta
+                    continuam valendo.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-wrap items-end gap-4">
+                  <label className="space-y-1.5 text-sm">
+                    <span className="font-medium">De</span>
+                    <Input
+                      type="date"
+                      value={periodoDe}
+                      onChange={(e) => setPeriodoDe(e.target.value)}
+                      className="w-44"
+                    />
+                  </label>
+                  <label className="space-y-1.5 text-sm">
+                    <span className="font-medium">Até</span>
+                    <Input
+                      type="date"
+                      value={periodoAte}
+                      onChange={(e) => setPeriodoAte(e.target.value)}
+                      className="w-44"
+                    />
+                  </label>
+                  {periodoDe && periodoAte && periodoDe > periodoAte ? (
+                    <span className="pb-2 text-sm text-destructive">
+                      A data inicial deve ser anterior ou igual à final.
+                    </span>
+                  ) : periodoValido ? (
+                    <span className="pb-2 text-sm text-muted-foreground">
+                      {periodoFiltrado.length} andamento(s) em{" "}
+                      {agruparAndamentosPorProcesso(periodoFiltrado).length} processo(s) no período.
+                    </span>
+                  ) : null}
+                </CardContent>
+              </Card>
+              <ListaAndamentosConsolidada
+                itens={periodoFiltrado}
+                vazio={
+                  periodoValido
+                    ? "Nenhuma movimentação encontrada nesse período."
+                    : "Escolha as datas inicial e final para gerar o relatório."
+                }
+              />
+            </div>
           ) : (
-            <Tabs value={aba} onValueChange={setAba}><TabsList><TabsTrigger value="novidades">Novidades ({novidadesFiltradas.length})</TabsTrigger><TabsTrigger value="semana">Semana ({semanaFiltrada.length})</TabsTrigger><TabsTrigger value="mes">Mês ({mesFiltrado.length})</TabsTrigger><TabsTrigger value="ultimos">Últimos andamentos ({ultimosFiltrados.length})</TabsTrigger></TabsList><TabsContent value="novidades" className="mt-4"><ListaAndamentosConsolidada itens={novidadesFiltradas} vazio="Nada novo desde a última verificação." /></TabsContent><TabsContent value="semana" className="mt-4"><ListaAndamentosConsolidada itens={semanaFiltrada} vazio="Nenhuma movimentação nos últimos 7 dias." /></TabsContent><TabsContent value="mes" className="mt-4"><ListaAndamentosConsolidada itens={mesFiltrado} vazio="Nenhuma movimentação nos últimos 30 dias." /></TabsContent><TabsContent value="ultimos" className="mt-4"><ListaAndamentosConsolidada itens={ultimosFiltrados} vazio="Nenhum andamento registrado ainda." /></TabsContent></Tabs>
+            <Tabs value={aba} onValueChange={setAba}>
+              <TabsList>
+                <TabsTrigger value="novidades">Novidades ({novidadesFiltradas.length})</TabsTrigger>
+                <TabsTrigger value="semana">Semana ({semanaFiltrada.length})</TabsTrigger>
+                <TabsTrigger value="mes">Mês ({mesFiltrado.length})</TabsTrigger>
+                <TabsTrigger value="ultimos">
+                  Últimos andamentos ({ultimosFiltrados.length})
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="novidades" className="mt-4">
+                <ListaAndamentosConsolidada
+                  itens={novidadesFiltradas}
+                  vazio="Nada novo desde a última verificação."
+                />
+              </TabsContent>
+              <TabsContent value="semana" className="mt-4">
+                <ListaAndamentosConsolidada
+                  itens={semanaFiltrada}
+                  vazio="Nenhuma movimentação nos últimos 7 dias."
+                />
+              </TabsContent>
+              <TabsContent value="mes" className="mt-4">
+                <ListaAndamentosConsolidada
+                  itens={mesFiltrado}
+                  vazio="Nenhuma movimentação nos últimos 30 dias."
+                />
+              </TabsContent>
+              <TabsContent value="ultimos" className="mt-4">
+                <ListaAndamentosConsolidada
+                  itens={ultimosFiltrados}
+                  vazio="Nenhum andamento registrado ainda."
+                />
+              </TabsContent>
+            </Tabs>
           )}
         </>
       )}
 
-      <Card><CardHeader><CardTitle className="font-serif text-lg">Envio automático por e-mail</CardTitle><CardDescription>O resumo diário/semanal por e-mail é o próximo passo — precisa de um serviço de e-mail configurado. Por enquanto, o relatório fica disponível aqui sob demanda.</CardDescription></CardHeader></Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-serif text-lg">Envio automático por e-mail</CardTitle>
+          <CardDescription>
+            O resumo diário/semanal por e-mail é o próximo passo — precisa de um serviço de e-mail
+            configurado. Por enquanto, o relatório fica disponível aqui sob demanda.
+          </CardDescription>
+        </CardHeader>
+      </Card>
     </div>
   );
 }
@@ -1091,25 +1407,259 @@ function validarMovimentacao(id: string, queryClient: ReturnType<typeof useQuery
       .from("movimentacoes")
       .update({ validado: true, validado_por: quem, validado_em: new Date().toISOString() })
       .eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     await queryClient.invalidateQueries();
   })();
 }
 
-function ListaAndamentosConsolidada({ itens, vazio }: { itens: MovimentacaoComProcesso[]; vazio: string }) {
+function ListaAndamentosConsolidada({
+  itens,
+  vazio,
+}: {
+  itens: MovimentacaoComProcesso[];
+  vazio: string;
+}) {
   const queryClient = useQueryClient();
   const grupos = agruparAndamentosPorProcesso(itens);
-  if (itens.length === 0) return <Card><CardContent className="py-10 text-center text-muted-foreground">{vazio}</CardContent></Card>;
-  return <ol className="space-y-3">{grupos.map((grupo) => { const p = grupo.processo; const temNaoValidado = grupo.itens.some((m) => !m.validado); return <li key={grupo.chave} className={`overflow-hidden rounded-lg border ${temNaoValidado ? "border-amber-500/50 bg-amber-50/30" : "border-border bg-card"}`}><div className="flex flex-wrap items-center gap-2 border-b bg-muted/20 px-4 py-3 text-sm">{p ? <Link to="/processos/$id" params={{ id: p.id }} className="font-mono text-xs underline-offset-4 hover:underline">{formatarCNJ(p.numero_cnj)}</Link> : null}<span className="font-medium">{exibir(p?.cliente)}</span>{p?.parte_contraria ? <span className="text-muted-foreground">— {p.parte_contraria}</span> : p?.autor || p?.reu ? <span className="text-muted-foreground">{p.autor ?? "—"}{p.reu ? ` x ${p.reu}` : ""}</span> : null}{clienteCasoDoProcesso(p) ? <Badge variant="outline">Cliente/Caso {clienteCasoDoProcesso(p)}</Badge> : null}<Badge variant="secondary">{grupo.itens.length} andamento(s)</Badge></div><div className="divide-y">{grupo.itens.map((m) => <div key={m.id} className="px-4 py-3"><div className="flex flex-wrap items-center gap-2"><span className="text-sm font-semibold text-foreground">{formatarDataCurta(m.data_movimentacao)}</span>{m.tipo ? <Badge variant="outline">{m.tipo}</Badge> : null}{m.destacar_email ? <Badge>Destacar no e-mail</Badge> : null}{!m.validado ? <Badge variant="secondary">Sugerido — não validado</Badge> : null}</div><p className="mt-1 whitespace-pre-wrap text-sm">{m.descricao}</p><div className="mt-2 flex items-center justify-between gap-2">{m.observacao ? <p className="text-xs text-muted-foreground">Obs.: {m.observacao}</p> : <span />}{!m.validado ? <Button type="button" size="sm" variant="outline" onClick={() => void validarMovimentacao(m.id, queryClient)}><CheckCircle2 className="size-3.5" /> Marcar como validado</Button> : m.validado_por ? <p className="text-xs text-muted-foreground">Validado por {m.validado_por}{m.validado_em ? ` em ${new Date(m.validado_em).toLocaleDateString("pt-BR")}` : ""}</p> : null}</div></div>)}</div></li>; })}</ol>;
+  if (itens.length === 0)
+    return (
+      <Card>
+        <CardContent className="py-10 text-center text-muted-foreground">{vazio}</CardContent>
+      </Card>
+    );
+  return (
+    <ol className="space-y-3">
+      {grupos.map((grupo) => {
+        const p = grupo.processo;
+        const temNaoValidado = grupo.itens.some((m) => !m.validado);
+        return (
+          <li
+            key={grupo.chave}
+            className={`overflow-hidden rounded-lg border ${temNaoValidado ? "border-amber-500/50 bg-amber-50/30" : "border-border bg-card"}`}
+          >
+            <div className="flex flex-wrap items-center gap-2 border-b bg-muted/20 px-4 py-3 text-sm">
+              {p ? (
+                <Link
+                  to="/processos/$id"
+                  params={{ id: p.id }}
+                  className="font-mono text-xs underline-offset-4 hover:underline"
+                >
+                  {formatarCNJ(p.numero_cnj)}
+                </Link>
+              ) : null}
+              <span className="font-medium">{exibir(p?.cliente)}</span>
+              {p?.parte_contraria ? (
+                <span className="text-muted-foreground">— {p.parte_contraria}</span>
+              ) : p?.autor || p?.reu ? (
+                <span className="text-muted-foreground">
+                  {p.autor ?? "—"}
+                  {p.reu ? ` x ${p.reu}` : ""}
+                </span>
+              ) : null}
+              {clienteCasoDoProcesso(p) ? (
+                <Badge variant="outline">Cliente/Caso {clienteCasoDoProcesso(p)}</Badge>
+              ) : null}
+              <Badge variant="secondary">{grupo.itens.length} andamento(s)</Badge>
+            </div>
+            <div className="divide-y">
+              {grupo.itens.map((m) => (
+                <div key={m.id} className="px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-semibold text-foreground">
+                      {formatarDataCurta(m.data_movimentacao)}
+                    </span>
+                    {m.tipo ? <Badge variant="outline">{m.tipo}</Badge> : null}
+                    {m.destacar_email ? <Badge>Destacar no e-mail</Badge> : null}
+                    {!m.validado ? (
+                      <Badge variant="secondary">Sugerido — não validado</Badge>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 whitespace-pre-wrap text-sm">{m.descricao}</p>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    {m.observacao ? (
+                      <p className="text-xs text-muted-foreground">Obs.: {m.observacao}</p>
+                    ) : (
+                      <span />
+                    )}
+                    {!m.validado ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void validarMovimentacao(m.id, queryClient)}
+                      >
+                        <CheckCircle2 className="size-3.5" /> Marcar como validado
+                      </Button>
+                    ) : m.validado_por ? (
+                      <p className="text-xs text-muted-foreground">
+                        Validado por {m.validado_por}
+                        {m.validado_em
+                          ? ` em ${new Date(m.validado_em).toLocaleDateString("pt-BR")}`
+                          : ""}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
 }
 
-function Lista({ itens, vazio, destaque }: { itens: MovimentacaoComProcesso[]; vazio: string; destaque?: boolean }) {
+function Lista({
+  itens,
+  vazio,
+  destaque,
+}: {
+  itens: MovimentacaoComProcesso[];
+  vazio: string;
+  destaque?: boolean;
+}) {
   const queryClient = useQueryClient();
-  if (itens.length === 0) return <Card><CardContent className="py-10 text-center text-muted-foreground">{vazio}</CardContent></Card>;
-  return <ol className="space-y-3">{itens.map((m) => <li key={m.id} className={`rounded-lg border p-4 ${m.validado ? "border-border bg-card" : "border-amber-500/50 bg-amber-50/50"}`}><div className="flex flex-wrap items-center gap-2 text-sm">{m.processos ? <Link to="/processos/$id" params={{ id: m.processos.id }} className="font-mono text-xs underline-offset-4 hover:underline">{formatarCNJ(m.processos.numero_cnj)}</Link> : null}<span className="font-medium">{exibir(m.processos?.cliente)}</span>{m.processos?.autor || m.processos?.reu ? <span className="text-muted-foreground">{m.processos.autor ?? "—"}{m.processos.reu ? ` x ${m.processos.reu}` : ""}</span> : m.processos?.parte_contraria ? <span className="text-muted-foreground">x {m.processos.parte_contraria}</span> : null}{m.tipo ? <Badge variant="outline">{m.tipo}</Badge> : null}{m.destacar_email ? <Badge>Destacar no e-mail</Badge> : null}{!m.validado ? <Badge variant="secondary">Sugerido — não validado</Badge> : null}{destaque && m.prazo ? <><Badge variant="destructive"><AlertTriangle className="size-3" />Prazo {new Date(`${m.prazo}T12:00:00`).toLocaleDateString("pt-BR")}</Badge><button type="button" title="Exportar prazo para o calendário (Outlook, Google, Apple)" className="inline-flex items-center gap-1 text-xs text-primary underline-offset-4 hover:underline" onClick={() => baixarPrazoIcs(m)}><CalendarPlus className="size-3.5" /> Exportar</button></> : null}</div><p className="mt-2 whitespace-pre-wrap text-sm">{m.descricao}</p><div className="mt-1 flex items-center justify-between gap-2"><p className="text-xs text-muted-foreground">{new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR")}</p>{!m.validado ? <Button type="button" size="sm" variant="outline" onClick={() => void validarMovimentacao(m.id, queryClient)}><CheckCircle2 className="size-3.5" /> Marcar como validado</Button> : m.validado_por ? <p className="text-xs text-muted-foreground">Validado por {m.validado_por}{m.validado_em ? ` em ${new Date(m.validado_em).toLocaleDateString("pt-BR")}` : ""}</p> : null}</div></li>)}</ol>;
+  if (itens.length === 0)
+    return (
+      <Card>
+        <CardContent className="py-10 text-center text-muted-foreground">{vazio}</CardContent>
+      </Card>
+    );
+  return (
+    <ol className="space-y-3">
+      {itens.map((m) => (
+        <li
+          key={m.id}
+          className={`rounded-lg border p-4 ${m.validado ? "border-border bg-card" : "border-amber-500/50 bg-amber-50/50"}`}
+        >
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            {m.processos ? (
+              <Link
+                to="/processos/$id"
+                params={{ id: m.processos.id }}
+                className="font-mono text-xs underline-offset-4 hover:underline"
+              >
+                {formatarCNJ(m.processos.numero_cnj)}
+              </Link>
+            ) : null}
+            <span className="font-medium">{exibir(m.processos?.cliente)}</span>
+            {m.processos?.autor || m.processos?.reu ? (
+              <span className="text-muted-foreground">
+                {m.processos.autor ?? "—"}
+                {m.processos.reu ? ` x ${m.processos.reu}` : ""}
+              </span>
+            ) : m.processos?.parte_contraria ? (
+              <span className="text-muted-foreground">x {m.processos.parte_contraria}</span>
+            ) : null}
+            {m.tipo ? <Badge variant="outline">{m.tipo}</Badge> : null}
+            {m.destacar_email ? <Badge>Destacar no e-mail</Badge> : null}
+            {!m.validado ? <Badge variant="secondary">Sugerido — não validado</Badge> : null}
+            {destaque && m.prazo ? (
+              <>
+                <Badge variant="destructive">
+                  <AlertTriangle className="size-3" />
+                  Prazo {new Date(`${m.prazo}T12:00:00`).toLocaleDateString("pt-BR")}
+                </Badge>
+                <button
+                  type="button"
+                  title="Exportar prazo para o calendário (Outlook, Google, Apple)"
+                  className="inline-flex items-center gap-1 text-xs text-primary underline-offset-4 hover:underline"
+                  onClick={() => baixarPrazoIcs(m)}
+                >
+                  <CalendarPlus className="size-3.5" /> Exportar
+                </button>
+              </>
+            ) : null}
+          </div>
+          <p className="mt-2 whitespace-pre-wrap text-sm">{m.descricao}</p>
+          <div className="mt-1 flex items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
+              {new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR")}
+            </p>
+            {!m.validado ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => void validarMovimentacao(m.id, queryClient)}
+              >
+                <CheckCircle2 className="size-3.5" /> Marcar como validado
+              </Button>
+            ) : m.validado_por ? (
+              <p className="text-xs text-muted-foreground">
+                Validado por {m.validado_por}
+                {m.validado_em ? ` em ${new Date(m.validado_em).toLocaleDateString("pt-BR")}` : ""}
+              </p>
+            ) : null}
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
 }
 
-function ListaProcessos({ processos, vazio, descricaoEncerramento, mostrarDecisoesNoLd = true }: { processos: Processo[]; vazio: string; descricaoEncerramento?: string; mostrarDecisoesNoLd?: boolean }) {
-  if (processos.length === 0) return <Card><CardContent className="py-10 text-center text-muted-foreground">{vazio}</CardContent></Card>;
-  return <ol className="space-y-3">{processos.map((p) => <li key={p.id} className="rounded-lg border border-border bg-card p-4"><div className="flex flex-wrap items-center gap-2 text-sm"><Link to="/processos/$id" params={{ id: p.id }} className="font-mono text-xs underline-offset-4 hover:underline">{formatarCNJ(p.numero_cnj)}</Link><span className="font-medium">{exibir(p.cliente)}</span>{p.comarca || p.uf ? <span className="text-muted-foreground">{[p.comarca, p.uf].filter(Boolean).join(" / ")}</span> : null}{p.responsavel ? <Badge variant="outline">{p.responsavel}</Badge> : null}{p.socio ? <Badge variant="outline">sócio {p.socio}</Badge> : null}{p.fase ? <Badge variant="secondary">{p.fase}</Badge> : null}{mostrarDecisoesNoLd && p.decisoes_no_ld ? <Badge variant="outline">Decisões no LD</Badge> : null}<span className="ml-auto flex items-center gap-3">{p.valor_encerramento != null ? <span className="text-base font-semibold text-foreground">{p.valor_encerramento.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span> : null}<EncerramentoDialog processo={p} descricao={descricaoEncerramento} mostrarDecisoesNoLd={mostrarDecisoesNoLd} /></span></div></li>)}</ol>;
+function ListaProcessos({
+  processos,
+  vazio,
+  descricaoEncerramento,
+  mostrarDecisoesNoLd = true,
+}: {
+  processos: Processo[];
+  vazio: string;
+  descricaoEncerramento?: string;
+  mostrarDecisoesNoLd?: boolean;
+}) {
+  if (processos.length === 0)
+    return (
+      <Card>
+        <CardContent className="py-10 text-center text-muted-foreground">{vazio}</CardContent>
+      </Card>
+    );
+  return (
+    <ol className="space-y-3">
+      {processos.map((p) => (
+        <li key={p.id} className="rounded-lg border border-border bg-card p-4">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <Link
+              to="/processos/$id"
+              params={{ id: p.id }}
+              className="font-mono text-xs underline-offset-4 hover:underline"
+            >
+              {formatarCNJ(p.numero_cnj)}
+            </Link>
+            <span className="font-medium">{exibir(p.cliente)}</span>
+            {p.comarca || p.uf ? (
+              <span className="text-muted-foreground">
+                {[p.comarca, p.uf].filter(Boolean).join(" / ")}
+              </span>
+            ) : null}
+            {p.responsavel ? <Badge variant="outline">{p.responsavel}</Badge> : null}
+            {p.socio ? <Badge variant="outline">sócio {p.socio}</Badge> : null}
+            {p.fase ? <Badge variant="secondary">{p.fase}</Badge> : null}
+            {mostrarDecisoesNoLd && p.decisoes_no_ld ? (
+              <Badge variant="outline">Decisões no LD</Badge>
+            ) : null}
+            <span className="ml-auto flex items-center gap-3">
+              {p.valor_encerramento != null ? (
+                <span className="text-base font-semibold text-foreground">
+                  {p.valor_encerramento.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </span>
+              ) : null}
+              <EncerramentoDialog
+                processo={p}
+                descricao={descricaoEncerramento}
+                mostrarDecisoesNoLd={mostrarDecisoesNoLd}
+              />
+            </span>
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
 }

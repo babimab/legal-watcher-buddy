@@ -61,7 +61,11 @@ export async function baixarPlanilha(workbook: ExcelJS.Workbook, nomeArquivo: st
   URL.revokeObjectURL(url);
 }
 
-export async function exportarProcessosExcel(processos: Processo[], nomeArquivo = "processos") {
+export async function exportarProcessosExcel(
+  processos: Processo[],
+  nomeArquivo = "processos",
+  destacarIds?: Set<string>,
+) {
   const workbook = new ExcelJS.Workbook();
   const planilha = workbook.addWorksheet("Processos");
 
@@ -98,7 +102,7 @@ export async function exportarProcessosExcel(processos: Processo[], nomeArquivo 
       )
       .join("\n");
 
-    planilha.addRow({
+    const linha = planilha.addRow({
       numero_cnj: formatarCNJ(p.numero_cnj),
       cliente: exibir(p.cliente) ?? "",
       parte_contraria: p.parte_contraria ?? "",
@@ -113,6 +117,12 @@ export async function exportarProcessosExcel(processos: Processo[], nomeArquivo 
       status: p.status,
       ultimos_andamentos: ultimosAndamentos,
     });
+
+    if (destacarIds?.has(p.id)) {
+      linha.eachCell((celula) => {
+        celula.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFF00" } };
+      });
+    }
   }
 
   estilizarCabecalho(planilha);
