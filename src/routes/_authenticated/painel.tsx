@@ -19,13 +19,8 @@ import { AtalhosPastasPainel } from "@/components/AtalhosPastasPainel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { listarCaixaEntrada } from "@/lib/caixa-entrada";
 import {
@@ -253,11 +248,21 @@ function PainelPage() {
 
   // Filtro de cliente pros relatórios compilados do grupo (Excel e Word) --
   // não mexe nos cards de pasta abaixo, só no que sai nesses dois exports.
-  const [clienteFiltroGrupo, setClienteFiltroGrupo] = useState("todos");
+  // Vazio = sem filtro (todos); permite marcar mais de um (ex.: FASC e
+  // Souza Cruz juntos).
+  const [clienteFiltroGrupo, setClienteFiltroGrupo] = useState<Set<string>>(new Set());
+  const alternarClienteFiltroGrupo = (categoria: string) => {
+    setClienteFiltroGrupo((atual) => {
+      const novo = new Set(atual);
+      if (novo.has(categoria)) novo.delete(categoria);
+      else novo.add(categoria);
+      return novo;
+    });
+  };
   const processosGrupoFiltrados = useMemo(() => {
-    if (clienteFiltroGrupo === "todos") return processos.data;
-    return processos.data.filter(
-      (p) => categoriaCliente(p.cliente, p.numero_cliente, p.carteira) === clienteFiltroGrupo,
+    if (clienteFiltroGrupo.size === 0) return processos.data;
+    return processos.data.filter((p) =>
+      clienteFiltroGrupo.has(categoriaCliente(p.cliente, p.numero_cliente, p.carteira)),
     );
   }, [processos.data, clienteFiltroGrupo]);
 
@@ -290,9 +295,9 @@ function PainelPage() {
     setExportandoRelatorioGrupo(true);
     try {
       const subtitulo =
-        clienteFiltroGrupo === "todos"
+        clienteFiltroGrupo.size === 0
           ? grupoAtual.nome
-          : `${grupoAtual.nome} — ${clienteFiltroGrupo}`;
+          : `${grupoAtual.nome} — ${[...clienteFiltroGrupo].join(", ")}`;
       await gerarRelatorioProcessosWord(processosGrupoFiltrados, {
         subtitulo,
         nomeArquivo: `relatorio-processos-${grupoAtual.nome}`,
@@ -502,22 +507,46 @@ function PainelPage() {
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-serif text-xl font-semibold">Pastas</h2>
             <div className="flex flex-wrap items-center gap-2">
-              <Select value={clienteFiltroGrupo} onValueChange={setClienteFiltroGrupo}>
-                <SelectTrigger
-                  className="h-9 w-40"
-                  title="Filtra os relatórios do grupo por cliente"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos os clientes</SelectItem>
-                  {CATEGORIAS_CLIENTE.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                    title="Filtra os relatórios do grupo por cliente (pode marcar mais de um)"
+                  >
+                    {clienteFiltroGrupo.size === 0
+                      ? "Todos os clientes"
+                      : [...clienteFiltroGrupo].join(", ")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56" align="start">
+                  <div className="flex items-center justify-between pb-2">
+                    <p className="text-sm font-medium">Cliente</p>
+                    {clienteFiltroGrupo.size > 0 ? (
+                      <button
+                        type="button"
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => setClienteFiltroGrupo(new Set())}
+                      >
+                        Limpar
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="space-y-2">
+                    {CATEGORIAS_CLIENTE.map((c) => (
+                      <label key={c} className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          checked={clienteFiltroGrupo.has(c)}
+                          onCheckedChange={() => alternarClienteFiltroGrupo(c)}
+                        />
+                        {c}
+                      </label>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
               <Button
                 type="button"
                 variant="outline"
