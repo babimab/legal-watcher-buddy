@@ -7,6 +7,7 @@ import {
   type Processo,
 } from "@/lib/processos";
 import type { GrupoParteAdversa } from "@/lib/saude";
+import { linkTribunalEfetivo } from "@/lib/tribunais";
 
 // Mesmo azul escuro usado no cabeçalho do site (--primary), pra planilha
 // exportada ficar com a cara do sistema.
@@ -48,11 +49,30 @@ export function ajustarLargurasAoConteudo(
     if (colunasTextoLivre.has(chave)) continue;
     let maiorTexto = String(coluna.header ?? "").length;
     coluna.eachCell?.({ includeEmpty: false }, (celula) => {
-      const texto = celula.value == null ? "" : String(celula.value);
+      const valor = celula.value;
+      // Célula com hyperlink guarda { text, hyperlink } em vez de string.
+      const texto =
+        valor == null
+          ? ""
+          : typeof valor === "object" && "text" in valor
+            ? String((valor as { text: unknown }).text)
+            : String(valor);
       if (texto.length > maiorTexto) maiorTexto = texto.length;
     });
     coluna.width = Math.min(Math.max(maiorTexto + 2, 10), 40);
   }
+}
+
+/** Estiliza como link (azul, sublinhado) as colunas indicadas, sem mexer no cabeçalho. */
+export function estilizarComoLink(planilha: ExcelJS.Worksheet, colunas: Set<string>) {
+  planilha.eachRow((linha, numeroLinha) => {
+    if (numeroLinha === 1) return;
+    linha.eachCell((celula, numeroColuna) => {
+      const chave = String(planilha.getColumn(numeroColuna).key);
+      if (!colunas.has(chave)) return;
+      celula.font = { color: { argb: "FF0563C1" }, underline: true };
+    });
+  });
 }
 
 /** Fecha cada linha de dados (menos o cabeçalho) com borda fina, pra ficar clara na impressão. */
@@ -136,7 +156,7 @@ export async function exportarProcessosExcel(
       .join("\n");
 
     const linha = planilha.addRow({
-      numero_cnj: formatarCNJ(p.numero_cnj),
+      numero_cnj: { text: formatarCNJ(p.numero_cnj), hyperlink: linkTribunalEfetivo(p) },
       cliente: exibir(p.cliente) ?? "",
       parte_contraria: p.parte_contraria ?? "",
       numero_cliente: p.numero_cliente ?? "",
@@ -162,6 +182,7 @@ export async function exportarProcessosExcel(
   centralizarLinhas(planilha, new Set(["ultimos_andamentos"]));
   ajustarLargurasAoConteudo(planilha, new Set(["ultimos_andamentos"]));
   fecharLinhasComBorda(planilha);
+  estilizarComoLink(planilha, new Set(["numero_cnj"]));
   planilha.pageSetup = { orientation: "landscape", fitToWidth: 1, fitToHeight: 0 };
   finalizarPlanilha(planilha);
 
@@ -208,7 +229,7 @@ export async function exportarGruposParteAdversaExcel(
     for (const p of grupo.processos) {
       const linha = planilha.addRow({
         parte_adversa: grupo.parteAdversa,
-        numero_cnj: formatarCNJ(p.numero_cnj),
+        numero_cnj: { text: formatarCNJ(p.numero_cnj), hyperlink: linkTribunalEfetivo(p) },
         cliente: exibir(p.cliente) ?? "",
         classe: p.classe ?? "",
         comarca: p.comarca ?? "",
@@ -231,6 +252,7 @@ export async function exportarGruposParteAdversaExcel(
 
   estilizarCabecalho(planilha);
   centralizarLinhas(planilha, new Set(["classe"]));
+  estilizarComoLink(planilha, new Set(["numero_cnj"]));
   finalizarPlanilha(planilha);
 
   await baixarPlanilha(workbook, nomeArquivo);

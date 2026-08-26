@@ -499,6 +499,7 @@ export type MovimentacaoComProcesso = Movimentacao & {
     | "numero_interno"
     | "numero_cliente"
     | "tribunal"
+    | "sistema"
     | "autor"
     | "reu"
     | "parte_contraria"
@@ -508,11 +509,12 @@ export type MovimentacaoComProcesso = Movimentacao & {
     | "comarca"
     | "uf"
     | "pasta_id"
+    | "link_tribunal_manual"
   > | null;
 };
 
 const CAMPOS_PROCESSO_RELATORIO =
-  "id, numero_cnj, cliente, numero_interno, numero_cliente, tribunal, autor, reu, parte_contraria, responsavel, socio, vara, comarca, uf, pasta_id";
+  "id, numero_cnj, cliente, numero_interno, numero_cliente, tribunal, sistema, autor, reu, parte_contraria, responsavel, socio, vara, comarca, uf, pasta_id, link_tribunal_manual";
 
 export async function listarMovimentacoesDesde(
   desde: string | null,

@@ -49,11 +49,13 @@ import {
   type Processo,
 } from "@/lib/processos";
 import { listarGrupos, listarPastas } from "@/lib/grupos";
+import { linkTribunalEfetivo } from "@/lib/tribunais";
 import {
   estilizarCabecalho,
   centralizarLinhas,
   ajustarLargurasAoConteudo,
   fecharLinhasComBorda,
+  estilizarComoLink,
   finalizarPlanilha,
   baixarPlanilha,
   exportarProcessosExcel,
@@ -174,7 +176,7 @@ async function exportarAndamentosExcel(itens: MovimentacaoComProcesso[], nomeArq
       .join("\n");
 
     planilha.addRow({
-      numero_cnj: p ? formatarCNJ(p.numero_cnj) : "",
+      numero_cnj: p ? { text: formatarCNJ(p.numero_cnj), hyperlink: linkTribunalEfetivo(p) } : "",
       cliente_caso: clienteCasoDoProcesso(p),
       cliente: exibir(p?.cliente) ?? "",
       parte_adversa: nomeParteAdversa(p),
@@ -205,6 +207,7 @@ async function exportarAndamentosExcel(itens: MovimentacaoComProcesso[], nomeArq
   // Quebra de página depois de cada processo, pra não cortar os
   // andamentos de um caso no meio quando imprime.
   fecharLinhasComBorda(planilha, true);
+  estilizarComoLink(planilha, new Set(["numero_cnj"]));
   planilha.pageSetup = { orientation: "landscape", fitToWidth: 1, fitToHeight: 0 };
   finalizarPlanilha(planilha);
 

@@ -404,6 +404,10 @@ export type GrupoParteAdversa = {
     | "fase"
     | "processo_pai_id"
     | "tipo_desdobramento"
+    | "sistema"
+    | "uf"
+    | "tribunal"
+    | "link_tribunal_manual"
   >[];
 };
 
@@ -434,6 +438,10 @@ export function gruposPorParteAdversa(processos: Processo[], pastaId: string): G
         fase: p.fase,
         processo_pai_id: p.processo_pai_id,
         tipo_desdobramento: p.tipo_desdobramento,
+        sistema: p.sistema,
+        uf: p.uf,
+        tribunal: p.tribunal,
+        link_tribunal_manual: p.link_tribunal_manual,
       })),
     }))
     .sort((a, b) => b.processos.length - a.processos.length);

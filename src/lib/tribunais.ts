@@ -163,3 +163,10 @@ export function linkTribunal(
 
   return generico();
 }
+
+/** Link manual quando existe, senão o automático -- mesma prioridade usada no botão "Abrir no tribunal" do processo. */
+export function linkTribunalEfetivo(
+  p: Pick<Processo, "numero_cnj" | "sistema" | "uf" | "tribunal" | "link_tribunal_manual">,
+): string {
+  return p.link_tribunal_manual || linkTribunal(p).url;
+}
