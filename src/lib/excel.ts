@@ -38,6 +38,39 @@ export function centralizarLinhas(planilha: ExcelJS.Worksheet, colunasTextoLivre
   });
 }
 
+/** Ajusta a largura de cada coluna ao maior texto realmente usado, exceto as de texto livre (que ficam com largura fixa e quebram linha). */
+export function ajustarLargurasAoConteudo(
+  planilha: ExcelJS.Worksheet,
+  colunasTextoLivre: Set<string>,
+) {
+  for (const coluna of planilha.columns) {
+    const chave = String(coluna.key);
+    if (colunasTextoLivre.has(chave)) continue;
+    let maiorTexto = String(coluna.header ?? "").length;
+    coluna.eachCell?.({ includeEmpty: false }, (celula) => {
+      const texto = celula.value == null ? "" : String(celula.value);
+      if (texto.length > maiorTexto) maiorTexto = texto.length;
+    });
+    coluna.width = Math.min(Math.max(maiorTexto + 2, 10), 40);
+  }
+}
+
+/** Fecha cada linha de dados (menos o cabeçalho) com borda fina, pra ficar clara na impressão. */
+export function fecharLinhasComBorda(planilha: ExcelJS.Worksheet, quebraDePaginaPorLinha = false) {
+  planilha.eachRow((linha, numeroLinha) => {
+    if (numeroLinha === 1) return;
+    linha.eachCell((celula) => {
+      celula.border = {
+        top: { style: "thin", color: { argb: "FFD0D0D0" } },
+        left: { style: "thin", color: { argb: "FFD0D0D0" } },
+        bottom: { style: "thin", color: { argb: "FFD0D0D0" } },
+        right: { style: "thin", color: { argb: "FFD0D0D0" } },
+      };
+    });
+    if (quebraDePaginaPorLinha) linha.addPageBreak();
+  });
+}
+
 export function finalizarPlanilha(planilha: ExcelJS.Worksheet) {
   planilha.autoFilter = {
     from: { row: 1, column: 1 },
@@ -127,6 +160,9 @@ export async function exportarProcessosExcel(
 
   estilizarCabecalho(planilha);
   centralizarLinhas(planilha, new Set(["ultimos_andamentos"]));
+  ajustarLargurasAoConteudo(planilha, new Set(["ultimos_andamentos"]));
+  fecharLinhasComBorda(planilha);
+  planilha.pageSetup = { orientation: "landscape", fitToWidth: 1, fitToHeight: 0 };
   finalizarPlanilha(planilha);
 
   await baixarPlanilha(workbook, nomeArquivo);

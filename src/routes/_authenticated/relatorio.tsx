@@ -52,6 +52,8 @@ import { listarGrupos, listarPastas } from "@/lib/grupos";
 import {
   estilizarCabecalho,
   centralizarLinhas,
+  ajustarLargurasAoConteudo,
+  fecharLinhasComBorda,
   finalizarPlanilha,
   baixarPlanilha,
   exportarProcessosExcel,
@@ -199,36 +201,10 @@ async function exportarAndamentosExcel(itens: MovimentacaoComProcesso[], nomeArq
     wrapText: true,
   };
 
-  // Colunas de texto livre ficam com largura fixa (o conteúdo varia
-  // demais e já quebra linha); as outras se ajustam ao maior valor usado
-  // de verdade, em vez de ficar com a largura genérica original.
-  for (const coluna of planilha.columns) {
-    const chave = String(coluna.key);
-    if (COLUNAS_TEXTO_LIVRE.has(chave)) continue;
-    let maiorTexto = String(coluna.header ?? "").length;
-    coluna.eachCell?.({ includeEmpty: false }, (celula) => {
-      const texto = celula.value == null ? "" : String(celula.value);
-      if (texto.length > maiorTexto) maiorTexto = texto.length;
-    });
-    coluna.width = Math.min(Math.max(maiorTexto + 2, 10), 40);
-  }
-
-  // Fecha cada linha com borda fina (fica claro onde um processo termina
-  // e o outro começa quando impresso) e força quebra de página depois de
-  // cada um, pra não cortar os andamentos de um caso no meio da página.
-  planilha.eachRow((linha, numeroLinha) => {
-    if (numeroLinha === 1) return;
-    linha.eachCell((celula) => {
-      celula.border = {
-        top: { style: "thin", color: { argb: "FFD0D0D0" } },
-        left: { style: "thin", color: { argb: "FFD0D0D0" } },
-        bottom: { style: "thin", color: { argb: "FFD0D0D0" } },
-        right: { style: "thin", color: { argb: "FFD0D0D0" } },
-      };
-    });
-    linha.addPageBreak();
-  });
-
+  ajustarLargurasAoConteudo(planilha, COLUNAS_TEXTO_LIVRE);
+  // Quebra de página depois de cada processo, pra não cortar os
+  // andamentos de um caso no meio quando imprime.
+  fecharLinhasComBorda(planilha, true);
   planilha.pageSetup = { orientation: "landscape", fitToWidth: 1, fitToHeight: 0 };
   finalizarPlanilha(planilha);
 
