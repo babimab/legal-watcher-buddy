@@ -210,6 +210,19 @@ export async function exportarProcessosExcel(
  * tudo numa aba só -- pedido da ELV, que preferia o formato antigo das
  * planilhas por assunto em vez de tudo misturado.
  */
+// Uma cor por assunto, pra aba ficar colorida igual às planilhas antigas
+// (não são as mesmas cores exatas -- aquelas eram do tema do Excel, sem
+// um código fixo pra copiar -- mas o efeito de diferenciar visualmente é
+// o mesmo).
+const COR_ABA_POR_CATEGORIA: Record<(typeof CATEGORIAS_CLIENTE)[number], string> = {
+  Astro: "FF4472C4",
+  "Souza Cruz": "FF70AD47",
+  Merck: "FFED7D31",
+  FASC: "FF7030A0",
+  PRC: "FF2E9B9B",
+  Outros: "FF9E9E9E",
+};
+
 export async function exportarProcessosPorAssuntoExcel(
   processos: Processo[],
   nomeArquivo = "processos-por-assunto",
@@ -225,7 +238,9 @@ export async function exportarProcessosPorAssuntoExcel(
   for (const categoria of CATEGORIAS_CLIENTE) {
     const doGrupo = processos.filter((p) => categoriaCliente(p.cliente) === categoria);
     if (doGrupo.length === 0) continue;
-    const planilha = workbook.addWorksheet(categoria);
+    const planilha = workbook.addWorksheet(categoria, {
+      properties: { tabColor: { argb: COR_ABA_POR_CATEGORIA[categoria] } },
+    });
     preencherPlanilhaProcessos(planilha, doGrupo, andamentosPorProcesso, destacarIds);
   }
 
