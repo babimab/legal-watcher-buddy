@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { AlertTriangle, CheckCircle2, Download, Wand2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, Trash2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import {
   cnjsDuplicados,
   corrigirAcento,
   desdobramentosNaoVinculados,
+  excluirDuplicatasSegurasAcento,
   gruposPorParteAdversa,
   listarProblemasAcento,
   listarProcessosParaSaude,
@@ -50,6 +51,7 @@ function QualidadeDadosPage() {
 
   const [corrigindo, setCorrigindo] = useState<Set<string>>(new Set());
   const [corrigindoTodos, setCorrigindoTodos] = useState(false);
+  const [excluindoDuplicatas, setExcluindoDuplicatas] = useState(false);
   const [exportandoParteAdversa, setExportandoParteAdversa] = useState(false);
 
   const semPasta = processos.data ? processosSemPasta(processos.data) : [];
@@ -123,6 +125,29 @@ function QualidadeDadosPage() {
         duration: 10000,
       });
     } else toast.success(`${ok} corrigido(s).`);
+  };
+
+  const excluirDuplicatas = async () => {
+    setExcluindoDuplicatas(true);
+    try {
+      const { excluidas, paraRevisao } = await excluirDuplicatasSegurasAcento(acentos);
+      await queryClient.invalidateQueries({ queryKey: ["problemas-acento"] });
+      if (excluidas === 0 && paraRevisao === 0) {
+        toast.success("Nenhuma duplicata encontrada nessa lista.");
+      } else {
+        toast.success(
+          `${excluidas} duplicata(s) excluída(s).` +
+            (paraRevisao > 0
+              ? ` ${paraRevisao} ficaram pra revisão manual (têm prazo, observação ou algo mais que a cópia certa não tem).`
+              : ""),
+          { duration: 8000 },
+        );
+      }
+    } catch {
+      toast.error("Não consegui excluir as duplicatas.");
+    } finally {
+      setExcluindoDuplicatas(false);
+    }
   };
 
   return (
@@ -317,15 +342,28 @@ function QualidadeDadosPage() {
                   sem risco pro que já está certo.
                 </CardDescription>
               </div>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => void corrigirTodos()}
-                disabled={corrigindoTodos}
-              >
-                <Wand2 className="size-4" />
-                {corrigindoTodos ? "Corrigindo..." : "Corrigir todos"}
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void excluirDuplicatas()}
+                  disabled={excluindoDuplicatas}
+                  title="Exclui só as cópias com texto quebrado que já têm uma gêmea certa e não têm prazo, observação ou destaque no e-mail"
+                >
+                  <Trash2 className="size-4" />
+                  {excluindoDuplicatas ? "Excluindo..." : "Excluir duplicatas seguras"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void corrigirTodos()}
+                  disabled={corrigindoTodos}
+                >
+                  <Wand2 className="size-4" />
+                  {corrigindoTodos ? "Corrigindo..." : "Corrigir todos"}
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>

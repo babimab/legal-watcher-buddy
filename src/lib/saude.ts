@@ -213,6 +213,75 @@ export async function corrigirAcento(problema: ProblemaAcento): Promise<void> {
   }
 }
 
+export type ResultadoDuplicatasAcento = {
+  excluidas: number;
+  paraRevisao: number;
+};
+
+// Resolve automaticamente só os casos de "acento corrompido" em que a
+// linha quebrada é uma duplicata inofensiva de um andamento que já existe
+// certo (mesmo processo, mesma data, mesma descrição depois de corrigida):
+// exclui a cópia quebrada quando ela não carrega nada que a cópia certa
+// já não tenha -- sem prazo, sem exigir ação, sem observação, sem estar
+// marcada pra destacar no e-mail. Quando a linha quebrada tem algo além
+// disso, não mexe -- fica pra revisão manual (ver corrigirAcento).
+export async function excluirDuplicatasSegurasAcento(
+  problemas: ProblemaAcento[],
+): Promise<ResultadoDuplicatasAcento> {
+  const candidatos = problemas.filter(
+    (p) => p.tabela === "movimentacoes" && p.campo === "descricao",
+  );
+  let excluidas = 0;
+  let paraRevisao = 0;
+
+  for (const problema of candidatos) {
+    const { data: linha, error: erroLinha } = await supabase
+      .from("movimentacoes")
+      .select(
+        "id, processo_id, data_movimentacao, exige_acao, prazo, concluida, observacao, destacar_email",
+      )
+      .eq("id", problema.id)
+      .maybeSingle();
+    if (erroLinha || !linha) continue;
+
+    const { data: gemea, error: erroGemea } = await supabase
+      .from("movimentacoes")
+      .select("id")
+      .eq("processo_id", linha.processo_id)
+      .eq("data_movimentacao", linha.data_movimentacao)
+      .eq("descricao", problema.valorCorrigido)
+      .neq("id", linha.id)
+      .limit(1)
+      .maybeSingle();
+    // Sem gêmea: não é caso de duplicata, o "Corrigir todos" normal resolve.
+    if (erroGemea || !gemea) continue;
+
+    const semNadaImportante =
+      !linha.exige_acao &&
+      !linha.prazo &&
+      !linha.concluida &&
+      !linha.observacao?.trim() &&
+      !linha.destacar_email;
+
+    if (!semNadaImportante) {
+      paraRevisao++;
+      continue;
+    }
+
+    const { error: erroExclusao } = await supabase
+      .from("movimentacoes")
+      .delete()
+      .eq("id", linha.id);
+    if (erroExclusao) {
+      paraRevisao++;
+      continue;
+    }
+    excluidas++;
+  }
+
+  return { excluidas, paraRevisao };
+}
+
 // --- Processos sem pasta ---
 export type ProcessoSemPasta = Pick<Processo, "id" | "numero_cnj" | "cliente" | "responsavel">;
 
