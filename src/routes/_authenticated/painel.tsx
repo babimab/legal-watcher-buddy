@@ -19,6 +19,13 @@ import { AtalhosPastasPainel } from "@/components/AtalhosPastasPainel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { listarCaixaEntrada } from "@/lib/caixa-entrada";
 import {
@@ -29,6 +36,8 @@ import {
   ehResponsavelDaSigla,
   useSiglaAtual,
   useCargoAtual,
+  categoriaCliente,
+  CATEGORIAS_CLIENTE,
   type MovimentacaoComProcesso,
   type Processo,
 } from "@/lib/processos";
@@ -242,6 +251,16 @@ function PainelPage() {
     });
   }, [grupoAtual, processos.data, pastaPorId, pastasQuery.data]);
 
+  // Filtro de cliente pros relatórios compilados do grupo (Excel e Word) --
+  // não mexe nos cards de pasta abaixo, só no que sai nesses dois exports.
+  const [clienteFiltroGrupo, setClienteFiltroGrupo] = useState("todos");
+  const processosGrupoFiltrados = useMemo(() => {
+    if (clienteFiltroGrupo === "todos") return processos.data;
+    return processos.data.filter(
+      (p) => categoriaCliente(p.cliente, p.numero_cliente, p.carteira) === clienteFiltroGrupo,
+    );
+  }, [processos.data, clienteFiltroGrupo]);
+
   const [exportandoPasta, setExportandoPasta] = useState<string | null>(null);
 
   const exportarPasta = async (
@@ -270,8 +289,12 @@ function PainelPage() {
     if (!grupoAtual) return;
     setExportandoRelatorioGrupo(true);
     try {
-      await gerarRelatorioProcessosWord(processos.data, {
-        subtitulo: grupoAtual.nome,
+      const subtitulo =
+        clienteFiltroGrupo === "todos"
+          ? grupoAtual.nome
+          : `${grupoAtual.nome} — ${clienteFiltroGrupo}`;
+      await gerarRelatorioProcessosWord(processosGrupoFiltrados, {
+        subtitulo,
         nomeArquivo: `relatorio-processos-${grupoAtual.nome}`,
       });
     } catch {
@@ -479,13 +502,30 @@ function PainelPage() {
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-serif text-xl font-semibold">Pastas</h2>
             <div className="flex flex-wrap items-center gap-2">
+              <Select value={clienteFiltroGrupo} onValueChange={setClienteFiltroGrupo}>
+                <SelectTrigger
+                  className="h-9 w-40"
+                  title="Filtra os relatórios do grupo por cliente"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os clientes</SelectItem>
+                  {CATEGORIAS_CLIENTE.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={exportandoPasta === "grupo-todo" || processos.data.length === 0}
+                disabled={exportandoPasta === "grupo-todo" || processosGrupoFiltrados.length === 0}
                 onClick={() =>
-                  grupoAtual && exportarPasta("grupo-todo", grupoAtual.nome, processos.data)
+                  grupoAtual &&
+                  exportarPasta("grupo-todo", grupoAtual.nome, processosGrupoFiltrados)
                 }
                 title="Exporta em Excel todos os processos do grupo (todas as pastas/advogados juntos), no mesmo formato dos exports individuais"
               >
@@ -495,9 +535,10 @@ function PainelPage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={exportandoPasta === "grupo-todo" || processos.data.length === 0}
+                disabled={exportandoPasta === "grupo-todo" || processosGrupoFiltrados.length === 0}
                 onClick={() =>
-                  grupoAtual && exportarPasta("grupo-todo", grupoAtual.nome, processos.data, true)
+                  grupoAtual &&
+                  exportarPasta("grupo-todo", grupoAtual.nome, processosGrupoFiltrados, true)
                 }
                 title="Exporta em Excel com uma aba separada por assunto/cliente, com todos os processos do grupo juntos"
               >
@@ -507,7 +548,7 @@ function PainelPage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={exportandoRelatorioGrupo || processos.data.length === 0}
+                disabled={exportandoRelatorioGrupo || processosGrupoFiltrados.length === 0}
                 onClick={() => void exportarRelatorioGrupoWord()}
                 title="Gera um relatório em Word, timbrado, com todos os processos do grupo (todas as pastas/advogados juntos)"
               >
