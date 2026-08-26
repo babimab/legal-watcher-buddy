@@ -40,6 +40,7 @@ import {
 } from "@/lib/processos";
 import { listarGrupos, listarPastas, type Pasta } from "@/lib/grupos";
 import { exportarProcessosExcel, exportarProcessosPorAssuntoExcel } from "@/lib/excel";
+import { gerarRelatorioProcessosWord } from "@/lib/relatorio-word";
 
 // Todos os filtros da listagem vivem na URL — assim, ao abrir um processo
 // e voltar pelo histórico do navegador, a lista reaparece exatamente com
@@ -359,6 +360,19 @@ function ProcessosPage() {
             title="Exporta com uma aba separada por assunto/cliente (Souza Cruz, Merck, PRC, Astro, Outros), em vez de tudo numa aba só"
           >
             <Download className="size-4" /> Exportar por assunto
+          </Button>
+          <Button
+            variant="outline"
+            disabled={lista.length === 0}
+            onClick={() => {
+              void gerarRelatorioProcessosWord(lista, {
+                subtitulo: cliente === "todos" ? "Carteira BCW" : cliente,
+                nomeArquivo: "relatorio-processos",
+              }).catch(() => toast.error("Não consegui gerar o Word."));
+            }}
+            title="Gera um relatório em Word, timbrado, com um bloco por processo (partes, juízo, assunto, último andamento, status e advogado responsável)"
+          >
+            <Download className="size-4" /> Exportar Word
           </Button>
           <ProcessoDialog
             trigger={
