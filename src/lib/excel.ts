@@ -217,6 +217,7 @@ export async function exportarProcessosExcel(
 const COR_ABA_POR_CATEGORIA: Record<(typeof CATEGORIAS_CLIENTE)[number], string> = {
   Astro: "FF4472C4",
   "Souza Cruz": "FF70AD47",
+  Consultoria: "FFC00000",
   Merck: "FFED7D31",
   FASC: "FF7030A0",
   PRC: "FF2E9B9B",
@@ -236,7 +237,9 @@ export async function exportarProcessosPorAssuntoExcel(
   );
 
   for (const categoria of CATEGORIAS_CLIENTE) {
-    const doGrupo = processos.filter((p) => categoriaCliente(p.cliente) === categoria);
+    const doGrupo = processos.filter(
+      (p) => categoriaCliente(p.cliente, p.numero_cliente) === categoria,
+    );
     if (doGrupo.length === 0) continue;
     const planilha = workbook.addWorksheet(categoria, {
       properties: { tabColor: { argb: COR_ABA_POR_CATEGORIA[categoria] } },

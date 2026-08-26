@@ -318,19 +318,29 @@ const CLIENTES_CONHECIDOS: { padrao: RegExp; nome: string }[] = [
 export const CATEGORIAS_CLIENTE = [
   "Astro",
   "Souza Cruz",
+  "Consultoria",
   "Merck",
   "FASC",
   "PRC",
   "Outros",
 ] as const;
 
+// Cliente 5939 (Souza Cruz S.A - Casos Específicos) é consultoria, não
+// contencioso -- entra na categoria própria em vez de cair em "Souza
+// Cruz" só porque o nome do cliente também menciona Souza Cruz.
+const NUMERO_CLIENTE_CONSULTORIA = "5939";
+
 // Agrupa o cliente do processo numa das categorias do filtro. Compara
 // normalizado (sem acento, minúsculo) pra não depender de como o nome
-// do cliente ficou salvo exatamente no banco.
+// do cliente ficou salvo exatamente no banco. numeroCliente é opcional
+// só pra não quebrar quem já chamava com um argumento só.
 export function categoriaCliente(
   cliente: string | null | undefined,
+  numeroCliente?: string | null,
 ): (typeof CATEGORIAS_CLIENTE)[number] {
   const c = normalizarNome(cliente ?? "");
+  if (numeroCliente === NUMERO_CLIENTE_CONSULTORIA || c.includes("casos especificos"))
+    return "Consultoria";
   if (c.includes("astro")) return "Astro";
   if (c.includes("souza cruz")) return "Souza Cruz";
   if (c.includes("merck")) return "Merck";
