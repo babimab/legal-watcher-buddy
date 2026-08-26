@@ -4,6 +4,9 @@ import {
   formatarCNJ,
   exibir,
   listarUltimosAndamentosPorProcessos,
+  categoriaCliente,
+  CATEGORIAS_CLIENTE,
+  type Movimentacao,
   type Processo,
 } from "@/lib/processos";
 import type { GrupoParteAdversa } from "@/lib/saude";
@@ -114,37 +117,30 @@ export async function baixarPlanilha(workbook: ExcelJS.Workbook, nomeArquivo: st
   URL.revokeObjectURL(url);
 }
 
-export async function exportarProcessosExcel(
+const COLUNAS_PROCESSOS: Partial<ExcelJS.Column>[] = [
+  { header: "Número CNJ", key: "numero_cnj", width: 22 },
+  { header: "Cliente", key: "cliente", width: 26 },
+  { header: "Parte adversa", key: "parte_contraria", width: 26 },
+  { header: "Nº do cliente", key: "numero_cliente", width: 14 },
+  { header: "Número do caso", key: "numero_interno", width: 16 },
+  { header: "Comarca", key: "comarca", width: 22 },
+  { header: "UF", key: "uf", width: 10 },
+  { header: "Juízo", key: "vara", width: 22 },
+  { header: "Responsável", key: "responsavel", width: 14 },
+  { header: "Sócio", key: "socio", width: 10 },
+  { header: "Fase", key: "fase", width: 16 },
+  { header: "Status", key: "status", width: 14 },
+  { header: "Últimos andamentos", key: "ultimos_andamentos", width: 50 },
+];
+
+/** Preenche uma aba com a lista padrão de colunas de processo, já com toda a formatação (cabeçalho, largura, borda, link, destaque). */
+function preencherPlanilhaProcessos(
+  planilha: ExcelJS.Worksheet,
   processos: Processo[],
-  nomeArquivo = "processos",
+  andamentosPorProcesso: Map<string, Movimentacao[]>,
   destacarIds?: Set<string>,
 ) {
-  const workbook = new ExcelJS.Workbook();
-  const planilha = workbook.addWorksheet("Processos");
-
-  planilha.columns = [
-    { header: "Número CNJ", key: "numero_cnj", width: 22 },
-    { header: "Cliente", key: "cliente", width: 26 },
-    { header: "Parte adversa", key: "parte_contraria", width: 26 },
-    { header: "Nº do cliente", key: "numero_cliente", width: 14 },
-    { header: "Número do caso", key: "numero_interno", width: 16 },
-    { header: "Comarca", key: "comarca", width: 22 },
-    { header: "UF", key: "uf", width: 10 },
-    { header: "Juízo", key: "vara", width: 22 },
-    { header: "Responsável", key: "responsavel", width: 14 },
-    { header: "Sócio", key: "socio", width: 10 },
-    { header: "Fase", key: "fase", width: 16 },
-    { header: "Status", key: "status", width: 14 },
-    { header: "Últimos andamentos", key: "ultimos_andamentos", width: 50 },
-  ];
-
-  // Só busca andamento dos processos que estão realmente sendo exportados
-  // (não da base inteira), pra não pesar quando a pasta é pequena mas o
-  // total de movimentações no sistema é grande.
-  const andamentosPorProcesso = await listarUltimosAndamentosPorProcessos(
-    processos.map((p) => p.id),
-    3,
-  );
+  planilha.columns = COLUNAS_PROCESSOS;
 
   for (const p of processos) {
     const ultimos = andamentosPorProcesso.get(p.id) ?? [];
@@ -185,6 +181,57 @@ export async function exportarProcessosExcel(
   estilizarComoLink(planilha, new Set(["numero_cnj"]));
   planilha.pageSetup = { orientation: "landscape", fitToWidth: 1, fitToHeight: 0 };
   finalizarPlanilha(planilha);
+}
+
+export async function exportarProcessosExcel(
+  processos: Processo[],
+  nomeArquivo = "processos",
+  destacarIds?: Set<string>,
+) {
+  const workbook = new ExcelJS.Workbook();
+  const planilha = workbook.addWorksheet("Processos");
+
+  // Só busca andamento dos processos que estão realmente sendo exportados
+  // (não da base inteira), pra não pesar quando a pasta é pequena mas o
+  // total de movimentações no sistema é grande.
+  const andamentosPorProcesso = await listarUltimosAndamentosPorProcessos(
+    processos.map((p) => p.id),
+    3,
+  );
+
+  preencherPlanilhaProcessos(planilha, processos, andamentosPorProcesso, destacarIds);
+
+  await baixarPlanilha(workbook, nomeArquivo);
+}
+
+/**
+ * Mesma planilha de processos, mas dividida numa aba por assunto/cliente
+ * (Souza Cruz, Merck, PRC, Astro, e uma aba "Outros" pro resto) em vez de
+ * tudo numa aba só -- pedido da ELV, que preferia o formato antigo das
+ * planilhas por assunto em vez de tudo misturado.
+ */
+export async function exportarProcessosPorAssuntoExcel(
+  processos: Processo[],
+  nomeArquivo = "processos-por-assunto",
+  destacarIds?: Set<string>,
+) {
+  const workbook = new ExcelJS.Workbook();
+
+  const andamentosPorProcesso = await listarUltimosAndamentosPorProcessos(
+    processos.map((p) => p.id),
+    3,
+  );
+
+  for (const categoria of CATEGORIAS_CLIENTE) {
+    const doGrupo = processos.filter((p) => categoriaCliente(p.cliente) === categoria);
+    if (doGrupo.length === 0) continue;
+    const planilha = workbook.addWorksheet(categoria);
+    preencherPlanilhaProcessos(planilha, doGrupo, andamentosPorProcesso, destacarIds);
+  }
+
+  if (workbook.worksheets.length === 0) {
+    workbook.addWorksheet("Processos");
+  }
 
   await baixarPlanilha(workbook, nomeArquivo);
 }

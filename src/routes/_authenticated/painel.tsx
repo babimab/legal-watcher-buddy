@@ -33,7 +33,7 @@ import {
   type Processo,
 } from "@/lib/processos";
 import { criarPasta, listarGrupos, listarPastas, removerPasta } from "@/lib/grupos";
-import { exportarProcessosExcel } from "@/lib/excel";
+import { exportarProcessosExcel, exportarProcessosPorAssuntoExcel } from "@/lib/excel";
 
 type PainelSearch = { grupo?: string };
 
@@ -123,16 +123,20 @@ function PainelPage() {
     [prazosProximos, minhaSigla],
   );
   const meusNaoValidados = useMemo(
-    () => (naoValidados.data ?? []).filter(
-      (m) =>
-        m.fonte !== "publicacoes" &&
-        m.fonte !== "citacoes" &&
-        ehResponsavelDaSigla(m.processos?.responsavel, minhaSigla),
-    ),
+    () =>
+      (naoValidados.data ?? []).filter(
+        (m) =>
+          m.fonte !== "publicacoes" &&
+          m.fonte !== "citacoes" &&
+          ehResponsavelDaSigla(m.processos?.responsavel, minhaSigla),
+      ),
     [naoValidados.data, minhaSigla],
   );
   const meusItensCaixa = useMemo(
-    () => (caixaEntradaQuery.data ?? []).filter((m) => ehResponsavelDaSigla(m.processos?.responsavel, minhaSigla)),
+    () =>
+      (caixaEntradaQuery.data ?? []).filter((m) =>
+        ehResponsavelDaSigla(m.processos?.responsavel, minhaSigla),
+      ),
     [caixaEntradaQuery.data, minhaSigla],
   );
 
@@ -149,7 +153,11 @@ function PainelPage() {
       itens.push({
         chave: `vencido-${m.id}`,
         tipo: "vencido",
-        titulo: m.processos?.parte_contraria || m.processos?.autor || exibir(m.processos?.cliente) || "Processo",
+        titulo:
+          m.processos?.parte_contraria ||
+          m.processos?.autor ||
+          exibir(m.processos?.cliente) ||
+          "Processo",
         detalhe: `${m.prazo ? new Date(`${m.prazo}T12:00:00`).toLocaleDateString("pt-BR") : "Prazo vencido"} — ${m.descricao}`,
         processoId: m.processos?.id,
       });
@@ -159,7 +167,11 @@ function PainelPage() {
       itens.push({
         chave: `prazo-${m.id}`,
         tipo: "prazo",
-        titulo: m.processos?.parte_contraria || m.processos?.autor || exibir(m.processos?.cliente) || "Processo",
+        titulo:
+          m.processos?.parte_contraria ||
+          m.processos?.autor ||
+          exibir(m.processos?.cliente) ||
+          "Processo",
         detalhe: `${m.prazo ? new Date(`${m.prazo}T12:00:00`).toLocaleDateString("pt-BR") : "Próximo prazo"} — ${m.descricao}`,
         processoId: m.processos?.id,
       });
@@ -169,7 +181,11 @@ function PainelPage() {
       itens.push({
         chave: `validar-${m.id}`,
         tipo: "validar",
-        titulo: m.processos?.parte_contraria || m.processos?.autor || exibir(m.processos?.cliente) || "Processo",
+        titulo:
+          m.processos?.parte_contraria ||
+          m.processos?.autor ||
+          exibir(m.processos?.cliente) ||
+          "Processo",
         detalhe: `Validar andamento — ${m.descricao}`,
         processoId: m.processos?.id,
       });
@@ -227,10 +243,19 @@ function PainelPage() {
 
   const [exportandoPasta, setExportandoPasta] = useState<string | null>(null);
 
-  const exportarPasta = async (chave: string, nome: string, itens: Processo[]) => {
+  const exportarPasta = async (
+    chave: string,
+    nome: string,
+    itens: Processo[],
+    porAssunto = false,
+  ) => {
     setExportandoPasta(chave);
     try {
-      await exportarProcessosExcel(itens, `processos-${nome}`);
+      if (porAssunto) {
+        await exportarProcessosPorAssuntoExcel(itens, `processos-${nome}-por-assunto`);
+      } else {
+        await exportarProcessosExcel(itens, `processos-${nome}`);
+      }
     } catch {
       toast.error("Não consegui gerar a planilha.");
     } finally {
@@ -297,10 +322,14 @@ function PainelPage() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button asChild variant="outline" size="sm">
-                  <Link to="/relatorio" search={{ aba: "pendencias", advogado: "eu" }}>Ver meus prazos</Link>
+                  <Link to="/relatorio" search={{ aba: "pendencias", advogado: "eu" }}>
+                    Ver meus prazos
+                  </Link>
                 </Button>
                 <Button asChild variant="outline" size="sm">
-                  <Link to="/processos" search={{ advogado: "eu" }}>Meus processos</Link>
+                  <Link to="/processos" search={{ advogado: "eu" }}>
+                    Meus processos
+                  </Link>
                 </Button>
               </div>
             </div>
@@ -311,8 +340,12 @@ function PainelPage() {
                 <div className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-muted/40">
                   <Inbox className="size-4 shrink-0 text-primary" />
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium">{meusItensCaixa.length} item(ns) na Caixa de entrada</p>
-                    <p className="text-sm text-muted-foreground">Publicações e citações aguardando sua triagem.</p>
+                    <p className="font-medium">
+                      {meusItensCaixa.length} item(ns) na Caixa de entrada
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Publicações e citações aguardando sua triagem.
+                    </p>
                   </div>
                   <Badge>{meusItensCaixa.length}</Badge>
                 </div>
@@ -339,16 +372,27 @@ function PainelPage() {
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-medium">{item.titulo}</p>
                           <Badge variant={item.tipo === "vencido" ? "destructive" : "outline"}>
-                            {item.tipo === "vencido" ? "Prazo vencido" : item.tipo === "prazo" ? "Próximo prazo" : "Validar andamento"}
+                            {item.tipo === "vencido"
+                              ? "Prazo vencido"
+                              : item.tipo === "prazo"
+                                ? "Próximo prazo"
+                                : "Validar andamento"}
                           </Badge>
                         </div>
-                        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{item.detalhe}</p>
+                        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                          {item.detalhe}
+                        </p>
                       </div>
                     </div>
                   );
 
                   return item.processoId ? (
-                    <Link key={item.chave} to="/processos/$id" params={{ id: item.processoId }} className="block">
+                    <Link
+                      key={item.chave}
+                      to="/processos/$id"
+                      params={{ id: item.processoId }}
+                      className="block"
+                    >
                       {conteudo}
                     </Link>
                   ) : (
@@ -364,7 +408,11 @@ function PainelPage() {
       {!titulo ? <AtalhosPastasPainel /> : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Link to="/relatorio" search={{ aba: "pendencias", urgencia: "vencidos" }} className="block">
+        <Link
+          to="/relatorio"
+          search={{ aba: "pendencias", urgencia: "vencidos" }}
+          className="block"
+        >
           <Card className="transition-colors hover:border-destructive/50">
             <CardContent className="flex items-center gap-3 py-5">
               <AlertTriangle className="size-8 text-destructive" />
@@ -419,7 +467,12 @@ function PainelPage() {
                 onChange={(e) => setNovaPastaNome(e.target.value)}
                 className="h-9 w-48"
               />
-              <Button type="submit" variant="outline" size="sm" disabled={criandoPasta || !novaPastaNome.trim()}>
+              <Button
+                type="submit"
+                variant="outline"
+                size="sm"
+                disabled={criandoPasta || !novaPastaNome.trim()}
+              >
                 <Plus className="size-4" /> Adicionar
               </Button>
             </form>
@@ -447,18 +500,38 @@ function PainelPage() {
                   <CardContent className="flex h-full flex-col justify-between gap-4 py-5">
                     <div>
                       <p className="pr-6 font-serif text-lg font-semibold">{nome}</p>
-                      <p className="text-sm text-muted-foreground">{itens.length} processo{itens.length === 1 ? "" : "s"}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {itens.length} processo{itens.length === 1 ? "" : "s"}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
                       {chave !== "sem-pasta" ? (
                         <Button asChild variant="outline" size="sm" className="flex-1">
-                          <Link to="/processos" search={{ pasta: chave }}>Ver processos</Link>
+                          <Link to="/processos" search={{ pasta: chave }}>
+                            Ver processos
+                          </Link>
                         </Button>
                       ) : (
                         <span className="flex-1" />
                       )}
-                      <Button type="button" variant="outline" size="sm" disabled={exportandoPasta === chave || itens.length === 0} onClick={() => exportarPasta(chave, nome, itens)}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={exportandoPasta === chave || itens.length === 0}
+                        onClick={() => exportarPasta(chave, nome, itens)}
+                      >
                         <Download className="size-4" /> Exportar
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={exportandoPasta === chave || itens.length === 0}
+                        onClick={() => exportarPasta(chave, nome, itens, true)}
+                        title="Exporta com uma aba separada por assunto/cliente, em vez de tudo numa aba só"
+                      >
+                        <Download className="size-4" /> Por assunto
                       </Button>
                     </div>
                   </CardContent>
@@ -481,7 +554,13 @@ function PainelPage() {
             ) : (
               porFase.map(([fase, qtd]) => (
                 <div key={fase} className="flex items-center justify-between text-sm">
-                  <Link to="/processos" search={{ fase }} className="underline-offset-4 hover:underline">{exibir(fase)}</Link>
+                  <Link
+                    to="/processos"
+                    search={{ fase }}
+                    className="underline-offset-4 hover:underline"
+                  >
+                    {exibir(fase)}
+                  </Link>
                   <Badge variant="outline">{qtd}</Badge>
                 </div>
               ))
@@ -492,7 +571,9 @@ function PainelPage() {
         <Card>
           <CardHeader>
             <CardTitle className="font-serif text-lg">Valor em causa por carteira</CardTitle>
-            <CardDescription>Soma do valor da causa dos processos com valor informado.</CardDescription>
+            <CardDescription>
+              Soma do valor da causa dos processos com valor informado.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {valorPorCarteira.length === 0 ? (
@@ -511,12 +592,16 @@ function PainelPage() {
 
       {naoValidados.data && naoValidados.data.length === 0 && prazosVencidos.length === 0 ? (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <CheckCircle2 className="size-4 text-primary" /> Tudo em dia: sem prazo vencido nem andamento pendente de validação.
+          <CheckCircle2 className="size-4 text-primary" /> Tudo em dia: sem prazo vencido nem
+          andamento pendente de validação.
         </p>
       ) : null}
 
       {ehEstagiaria ? null : (
-        <Link to="/qualidade-dados" className="flex items-center gap-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+        <Link
+          to="/qualidade-dados"
+          className="flex items-center gap-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        >
           <ShieldCheck className="size-4" /> Qualidade dos dados
         </Link>
       )}
