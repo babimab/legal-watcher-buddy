@@ -188,11 +188,29 @@ export async function corrigirAcento(problema: ProblemaAcento): Promise<void> {
     .from(problema.tabela)
     .update(atualizacao as never)
     .eq("id", problema.id);
-  // O erro do Supabase não é uma instância de Error do JS, então quem
-  // capturava com "e instanceof Error" caía sempre na mensagem genérica,
-  // escondendo o motivo real (ex.: bloqueio de permissão). Relança como
-  // Error de verdade, com a mensagem original.
-  if (error) throw new Error(error.message);
+
+  if (error) {
+    // O erro do Supabase não é uma instância de Error do JS, então quem
+    // capturava com "e instanceof Error" caía sempre na mensagem genérica,
+    // escondendo o motivo real. Relança como Error de verdade.
+    //
+    // Um caso específico: corrigir o texto pode fazer essa linha ficar
+    // idêntica a outro andamento que já existe certo -- o mesmo evento foi
+    // importado duas vezes, uma com o acento quebrado, outra depois já
+    // certa. Nesse caso o índice que evita andamento duplicado
+    // (movimentacoes_dedupe_idx) barra a correção, porque ela criaria uma
+    // duplicata de verdade. Não dá pra resolver sozinho com segurança
+    // (pode ser que a cópia quebrada tenha um prazo/validação que a outra
+    // não tem) -- melhor avisar e deixar a pessoa decidir qual excluir.
+    if (problema.tabela === "movimentacoes" && error.message.includes("movimentacoes_dedupe_idx")) {
+      throw new Error(
+        "Já existe outro andamento igual (mesma data e descrição) certo nesse processo -- " +
+          "provavelmente foi importado em duplicidade. Abra o processo, compare os dois " +
+          "andamentos dessa data e exclua o que tem o texto quebrado.",
+      );
+    }
+    throw new Error(error.message);
+  }
 }
 
 // --- Processos sem pasta ---
