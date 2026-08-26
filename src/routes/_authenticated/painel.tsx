@@ -34,6 +34,7 @@ import {
 } from "@/lib/processos";
 import { criarPasta, listarGrupos, listarPastas, removerPasta } from "@/lib/grupos";
 import { exportarProcessosExcel, exportarProcessosPorAssuntoExcel } from "@/lib/excel";
+import { gerarRelatorioProcessosWord } from "@/lib/relatorio-word";
 
 type PainelSearch = { grupo?: string };
 
@@ -263,6 +264,23 @@ function PainelPage() {
     }
   };
 
+  const [exportandoRelatorioGrupo, setExportandoRelatorioGrupo] = useState(false);
+
+  const exportarRelatorioGrupoWord = async () => {
+    if (!grupoAtual) return;
+    setExportandoRelatorioGrupo(true);
+    try {
+      await gerarRelatorioProcessosWord(processos.data, {
+        subtitulo: grupoAtual.nome,
+        nomeArquivo: `relatorio-processos-${grupoAtual.nome}`,
+      });
+    } catch {
+      toast.error("Não consegui gerar o Word.");
+    } finally {
+      setExportandoRelatorioGrupo(false);
+    }
+  };
+
   const [novaPastaNome, setNovaPastaNome] = useState("");
   const [criandoPasta, setCriandoPasta] = useState(false);
 
@@ -460,22 +478,34 @@ function PainelPage() {
         <div>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-serif text-xl font-semibold">Pastas</h2>
-            <form onSubmit={criarPastaNoGrupo} className="flex gap-2">
-              <Input
-                placeholder="Nova pasta (ex.: BDR)"
-                value={novaPastaNome}
-                onChange={(e) => setNovaPastaNome(e.target.value)}
-                className="h-9 w-48"
-              />
+            <div className="flex flex-wrap items-center gap-2">
               <Button
-                type="submit"
+                type="button"
                 variant="outline"
                 size="sm"
-                disabled={criandoPasta || !novaPastaNome.trim()}
+                disabled={exportandoRelatorioGrupo || processos.data.length === 0}
+                onClick={() => void exportarRelatorioGrupoWord()}
+                title="Gera um relatório em Word, timbrado, com todos os processos do grupo (todas as pastas/advogados juntos)"
               >
-                <Plus className="size-4" /> Adicionar
+                <Download className="size-4" /> Exportar Word (grupo)
               </Button>
-            </form>
+              <form onSubmit={criarPastaNoGrupo} className="flex gap-2">
+                <Input
+                  placeholder="Nova pasta (ex.: BDR)"
+                  value={novaPastaNome}
+                  onChange={(e) => setNovaPastaNome(e.target.value)}
+                  className="h-9 w-48"
+                />
+                <Button
+                  type="submit"
+                  variant="outline"
+                  size="sm"
+                  disabled={criandoPasta || !novaPastaNome.trim()}
+                >
+                  <Plus className="size-4" /> Adicionar
+                </Button>
+              </form>
+            </div>
           </div>
           {porPasta.length === 0 ? (
             <Card>
