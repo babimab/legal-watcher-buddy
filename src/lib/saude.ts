@@ -188,7 +188,11 @@ export async function corrigirAcento(problema: ProblemaAcento): Promise<void> {
     .from(problema.tabela)
     .update(atualizacao as never)
     .eq("id", problema.id);
-  if (error) throw error;
+  // O erro do Supabase não é uma instância de Error do JS, então quem
+  // capturava com "e instanceof Error" caía sempre na mensagem genérica,
+  // escondendo o motivo real (ex.: bloqueio de permissão). Relança como
+  // Error de verdade, com a mensagem original.
+  if (error) throw new Error(error.message);
 }
 
 // --- Processos sem pasta ---

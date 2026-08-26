@@ -106,18 +106,23 @@ function QualidadeDadosPage() {
     setCorrigindoTodos(true);
     let ok = 0;
     let falhas = 0;
+    let primeiroErro: string | null = null;
     for (const problema of acentos) {
       try {
         await corrigirAcento(problema);
         ok++;
-      } catch {
+      } catch (e) {
         falhas++;
+        if (!primeiroErro) primeiroErro = e instanceof Error ? e.message : "Erro desconhecido.";
       }
     }
     setCorrigindoTodos(false);
     await queryClient.invalidateQueries({ queryKey: ["problemas-acento"] });
-    if (falhas > 0) toast.warning(`${ok} corrigido(s), ${falhas} falharam.`);
-    else toast.success(`${ok} corrigido(s).`);
+    if (falhas > 0) {
+      toast.warning(`${ok} corrigido(s), ${falhas} falharam. Motivo: ${primeiroErro}`, {
+        duration: 10000,
+      });
+    } else toast.success(`${ok} corrigido(s).`);
   };
 
   return (
