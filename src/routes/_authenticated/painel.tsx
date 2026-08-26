@@ -483,6 +483,30 @@ function PainelPage() {
                 type="button"
                 variant="outline"
                 size="sm"
+                disabled={exportandoPasta === "grupo-todo" || processos.data.length === 0}
+                onClick={() =>
+                  grupoAtual && exportarPasta("grupo-todo", grupoAtual.nome, processos.data)
+                }
+                title="Exporta em Excel todos os processos do grupo (todas as pastas/advogados juntos), no mesmo formato dos exports individuais"
+              >
+                <Download className="size-4" /> Exportar Excel (grupo)
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={exportandoPasta === "grupo-todo" || processos.data.length === 0}
+                onClick={() =>
+                  grupoAtual && exportarPasta("grupo-todo", grupoAtual.nome, processos.data, true)
+                }
+                title="Exporta em Excel com uma aba separada por assunto/cliente, com todos os processos do grupo juntos"
+              >
+                <Download className="size-4" /> Por assunto (grupo)
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
                 disabled={exportandoRelatorioGrupo || processos.data.length === 0}
                 onClick={() => void exportarRelatorioGrupoWord()}
                 title="Gera um relatório em Word, timbrado, com todos os processos do grupo (todas as pastas/advogados juntos)"
