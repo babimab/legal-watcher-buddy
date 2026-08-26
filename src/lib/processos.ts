@@ -332,19 +332,24 @@ const NUMERO_CLIENTE_CONSULTORIA = "5939";
 
 // Agrupa o cliente do processo numa das categorias do filtro. Compara
 // normalizado (sem acento, minúsculo) pra não depender de como o nome
-// do cliente ficou salvo exatamente no banco. numeroCliente é opcional
-// só pra não quebrar quem já chamava com um argumento só.
+// do cliente ficou salvo exatamente no banco. numeroCliente e carteira
+// são opcionais só pra não quebrar quem já chamava com menos argumentos.
+//
+// FASC é carteira do cliente Souza Cruz, não um cliente separado (o
+// cliente continua "Souza Cruz Ltda") -- por isso a categoria FASC olha
+// pro campo carteira, não pro texto do cliente.
 export function categoriaCliente(
   cliente: string | null | undefined,
   numeroCliente?: string | null,
+  carteira?: string | null,
 ): (typeof CATEGORIAS_CLIENTE)[number] {
   const c = normalizarNome(cliente ?? "");
+  if (/\bfasc\b/.test(normalizarNome(carteira ?? ""))) return "FASC";
   if (numeroCliente === NUMERO_CLIENTE_CONSULTORIA || c.includes("casos especificos"))
     return "Consultoria";
   if (c.includes("astro")) return "Astro";
   if (c.includes("souza cruz")) return "Souza Cruz";
   if (c.includes("merck")) return "Merck";
-  if (/\bfasc\b/.test(c)) return "FASC";
   if (c === "prc") return "PRC";
   return "Outros";
 }

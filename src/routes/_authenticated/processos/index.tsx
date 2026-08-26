@@ -229,7 +229,8 @@ function ProcessosPage() {
       const casaDesdobramento = desdobramento === "todos" || !p.processo_pai_id;
       const casaFase = fase === "todas" || (fase === "nenhuma" ? !p.fase : p.fase === fase);
       const casaCliente =
-        cliente === "todos" || categoriaCliente(p.cliente, p.numero_cliente) === cliente;
+        cliente === "todos" ||
+        categoriaCliente(p.cliente, p.numero_cliente, p.carteira) === cliente;
       const casaCarteira = carteira === "todas" || p.carteira === carteira;
       const casaUf = uf === "todas" || p.uf === uf;
       const casaSistema = sistema === "todos" || p.sistema === sistema;
@@ -317,7 +318,7 @@ function ProcessosPage() {
     if (!somenteMeus || cliente !== "todos") return null;
     const porCategoria = new Map<string, typeof lista>(CATEGORIAS_CLIENTE.map((c) => [c, []]));
     for (const p of lista) {
-      porCategoria.get(categoriaCliente(p.cliente, p.numero_cliente))!.push(p);
+      porCategoria.get(categoriaCliente(p.cliente, p.numero_cliente, p.carteira))!.push(p);
     }
     return [...porCategoria.entries()];
   }, [somenteMeus, cliente, lista]);

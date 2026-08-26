@@ -238,7 +238,7 @@ export async function exportarProcessosPorAssuntoExcel(
 
   for (const categoria of CATEGORIAS_CLIENTE) {
     const doGrupo = processos.filter(
-      (p) => categoriaCliente(p.cliente, p.numero_cliente) === categoria,
+      (p) => categoriaCliente(p.cliente, p.numero_cliente, p.carteira) === categoria,
     );
     if (doGrupo.length === 0) continue;
     const planilha = workbook.addWorksheet(categoria, {
