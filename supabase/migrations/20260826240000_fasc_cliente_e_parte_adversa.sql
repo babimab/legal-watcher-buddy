@@ -1,12 +1,12 @@
--- Corrige de vez os 10 processos da carteira FASC: volta o cliente pra
--- "FASC" (a migracao anterior tinha corrigido errado pra "Souza Cruz
--- Ltda"), e ajusta a parte adversa e o reu pra cada processo -- a
--- planilha de origem tinha colocado o nome da parte adversa na coluna
--- "Cliente" por engano, entao esse nome precisa ir pro campo certo
--- (parte_contraria/reu), nao ficar perdido.
+-- Corrige de vez os 10 processos da carteira FASC: cliente = "FASC",
+-- carteira = "FASC", e ajusta a parte adversa e o reu pra cada
+-- processo -- a planilha de origem tinha colocado o nome da parte
+-- adversa na coluna "Cliente" por engano, entao esse nome precisa ir
+-- pro campo certo (parte_contraria/reu), nao ficar perdido.
 --
--- Carteira ja estava certa (FASC) desde a migracao anterior, essa aqui
--- nao mexe nela. Protegida contra rodar de novo (idempotente).
+-- Essa migracao nao depende de nenhuma migracao anterior ter rodado --
+-- seleciona os processos pelo numero do CNJ, nao pelo valor atual de
+-- cliente/carteira. Protegida contra rodar de novo (idempotente).
 --
 -- Texto acentuado escrito via E'...\u00XX...' de proposito, pro arquivo
 -- ficar puro ASCII (ver corrigir_mojibake).
@@ -29,6 +29,7 @@ insert into fasc_partes (cnj, parte_adversa) values
 
 update public.processos p
 set cliente = 'FASC',
+    carteira = 'FASC',
     reu = 'FASC',
     parte_contraria = fp.parte_adversa
 from fasc_partes fp
