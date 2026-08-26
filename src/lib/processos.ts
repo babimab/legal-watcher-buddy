@@ -315,7 +315,14 @@ const CLIENTES_CONHECIDOS: { padrao: RegExp; nome: string }[] = [
   { padrao: /ian\s+de\s+porto\s+alegre\s+muniz/i, nome: "Ian de Porto Alegre Muniz" },
 ];
 
-export const CATEGORIAS_CLIENTE = ["Astro", "Souza Cruz", "Merck", "PRC", "Outros"] as const;
+export const CATEGORIAS_CLIENTE = [
+  "Astro",
+  "Souza Cruz",
+  "Merck",
+  "FASC",
+  "PRC",
+  "Outros",
+] as const;
 
 // Agrupa o cliente do processo numa das categorias do filtro. Compara
 // normalizado (sem acento, minúsculo) pra não depender de como o nome
@@ -327,6 +334,7 @@ export function categoriaCliente(
   if (c.includes("astro")) return "Astro";
   if (c.includes("souza cruz")) return "Souza Cruz";
   if (c.includes("merck")) return "Merck";
+  if (/\bfasc\b/.test(c)) return "FASC";
   if (c === "prc") return "PRC";
   return "Outros";
 }
