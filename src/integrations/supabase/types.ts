@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -345,6 +345,8 @@ export type Database = {
           tipo: string | null
           updated_at: string
           validado: boolean
+          validado_em: string | null
+          validado_por: string | null
         }
         Insert: {
           concluida?: boolean
@@ -365,6 +367,8 @@ export type Database = {
           tipo?: string | null
           updated_at?: string
           validado?: boolean
+          validado_em?: string | null
+          validado_por?: string | null
         }
         Update: {
           concluida?: boolean
@@ -385,6 +389,8 @@ export type Database = {
           tipo?: string | null
           updated_at?: string
           validado?: boolean
+          validado_em?: string | null
+          validado_por?: string | null
         }
         Relationships: [
           {
@@ -913,6 +919,14 @@ export type Database = {
       compartilhar_processo: {
         Args: { _email: string; _processo_id: string }
         Returns: string
+      }
+      concluir_triagem_movimentacoes: {
+        Args: { _ids: string[]; _validado_por?: string }
+        Returns: number
+      }
+      corrigir_acento_qualidade: {
+        Args: { _campo: string; _id: string; _tabela: string; _valor: string }
+        Returns: boolean
       }
       e_dono_grupo: { Args: { _grupo_id: string }; Returns: boolean }
       e_dono_pasta: { Args: { _pasta_id: string }; Returns: boolean }
