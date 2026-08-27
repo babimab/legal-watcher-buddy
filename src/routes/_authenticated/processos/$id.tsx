@@ -247,13 +247,18 @@ function ProcessoDetalhe() {
       {resultadoJudit ? (
         <Card>
           <CardHeader>
-            <CardTitle className="font-serif text-lg">
-              Resultado da Judit (teste, nada foi gravado no FaroLex)
-            </CardTitle>
+            <CardTitle className="font-serif text-lg">Resultado da Judit</CardTitle>
           </CardHeader>
           <CardContent>
             {resultadoJudit.aviso ? (
               <p className="mb-3 text-sm text-muted-foreground">{resultadoJudit.aviso}</p>
+            ) : null}
+            {resultadoJudit.status === "completed" && !resultadoJudit.aviso ? (
+              <p className="mb-3 text-sm text-muted-foreground">
+                {resultadoJudit.processados} andamento(s) processado(s) —{" "}
+                <strong>{resultadoJudit.inseridas} novo(s)</strong> gravado(s) nas movimentações,{" "}
+                {resultadoJudit.duplicadas} já existente(s).
+              </p>
             ) : null}
             <pre className="max-h-96 overflow-auto rounded-md bg-muted p-3 text-xs">
               {JSON.stringify(resultadoJudit, null, 2)}
