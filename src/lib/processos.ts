@@ -357,10 +357,22 @@ export function categoriaCliente(
 export function identificarCliente(
   autor: string | null,
   reu: string | null,
+  textoClienteColuna?: string | null,
 ): { cliente: string; parteContraria: string | null } {
   for (const { padrao, nome } of CLIENTES_CONHECIDOS) {
     if (autor && padrao.test(autor)) return { cliente: nome, parteContraria: reu };
     if (reu && padrao.test(reu)) return { cliente: nome, parteContraria: autor };
+  }
+  // Nem autor nem réu bateram com um cliente conhecido -- confere o texto
+  // livre da coluna "Cliente" da planilha (formatos tipo "4608 - Souza
+  // Cruz S.A. - Resp. Civil", que só trazem a parte adversa numa coluna
+  // separada, o outro lado sendo sempre o cliente do contrato).
+  if (textoClienteColuna) {
+    for (const { padrao, nome } of CLIENTES_CONHECIDOS) {
+      if (padrao.test(textoClienteColuna)) {
+        return { cliente: nome, parteContraria: autor ?? reu };
+      }
+    }
   }
   return { cliente: autor ?? reu ?? "—", parteContraria: autor ? reu : null };
 }

@@ -114,8 +114,15 @@ const SINONIMOS: Record<string, Campo> = {
   "numero do processo": "numero_cnj",
   processo: "numero_cnj",
   "processo cnj": "numero_cnj",
+  // Planilha exportada do LD usa "Nª Única" (número único CNJ) -- "ª"/"º"
+  // somem na normalização, sobra "n unica".
+  "n unica": "numero_cnj",
+  "numero unica": "numero_cnj",
+  "numero unico": "numero_cnj",
   "numero antigo": "numero_antigo",
   "processo antigo": "numero_antigo",
+  "polo ativo": "autor",
+  "polo passivo": "reu",
   uf: "uf",
   estado: "uf",
   comarca: "comarca",
@@ -290,7 +297,7 @@ function montar(
 
       const autor = texto(l.autor);
       const reu = texto(l.reu);
-      const { cliente, parteContraria } = identificarCliente(autor, reu);
+      const { cliente, parteContraria } = identificarCliente(autor, reu, texto(l.numero_cliente));
 
       let p = mapa.get(chave);
       if (!p) {
@@ -354,7 +361,10 @@ async function comTimeout<T>(rotulo: string, promessa: PromiseLike<T>): Promise<
       Promise.resolve(promessa),
       new Promise<never>((_, reject) => {
         timer = setTimeout(
-          () => reject(new Error(`${rotulo}: a operação demorou demais (mais de 30s). Tente novamente.`)),
+          () =>
+            reject(
+              new Error(`${rotulo}: a operação demorou demais (mais de 30s). Tente novamente.`),
+            ),
           TIMEOUT_MS,
         );
       }),
@@ -389,7 +399,8 @@ function ImportarPage() {
 
   const { processos, erros } = useMemo(() => montar(abas, mapas), [abas, mapas]);
   const existentesPorCnj = useMemo(
-    () => new Map((processosExistentes.data ?? []).map((p) => [p.numero_cnj.replace(/\D/g, ""), p])),
+    () =>
+      new Map((processosExistentes.data ?? []).map((p) => [p.numero_cnj.replace(/\D/g, ""), p])),
     [processosExistentes.data],
   );
   const processosJaCadastrados = useMemo(
@@ -513,7 +524,9 @@ function ImportarPage() {
     let movsOk = 0;
     for (let i = 0; i < novas.length; i += 100) {
       const lote = novas.slice(i, i + 100);
-      setProgresso(`Importando andamentos... ${Math.min(i + lote.length, novas.length)}/${novas.length}`);
+      setProgresso(
+        `Importando andamentos... ${Math.min(i + lote.length, novas.length)}/${novas.length}`,
+      );
       const { error } = await comTimeout(
         `Importação de andamentos (${i + 1}–${i + lote.length})`,
         supabase.from("movimentacoes").insert(lote),
@@ -530,7 +543,12 @@ function ImportarPage() {
       const existente = existentesPorCnj.get(p.numero_cnj.replace(/\D/g, ""));
       if (existente) idPorNumero.set(p.numero_cnj, existente.id);
     }
-    const movsOk = await inserirAndamentosNovos(processosJaCadastrados, idPorNumero, criador, falhas);
+    const movsOk = await inserirAndamentosNovos(
+      processosJaCadastrados,
+      idPorNumero,
+      criador,
+      falhas,
+    );
     return { processosOk: processosJaCadastrados.length, movsOk };
   };
 
@@ -646,7 +664,8 @@ function ImportarPage() {
       <div>
         <h1 className="font-serif text-3xl font-semibold">Importar planilha</h1>
         <p className="text-muted-foreground">
-          Escolha se a planilha deve apenas atualizar andamentos de processos já cadastrados ou criar novos casos.
+          Escolha se a planilha deve apenas atualizar andamentos de processos já cadastrados ou
+          criar novos casos.
         </p>
       </div>
 
@@ -655,7 +674,9 @@ function ImportarPage() {
           type="button"
           onClick={() => setModo("atualizar")}
           className={`rounded-xl border p-4 text-left transition-colors ${
-            modo === "atualizar" ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "hover:border-primary/40"
+            modo === "atualizar"
+              ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+              : "hover:border-primary/40"
           }`}
         >
           <div className="flex items-start gap-3">
@@ -663,7 +684,8 @@ function ImportarPage() {
             <div>
               <p className="font-semibold">Atualizar carteira</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Adiciona apenas andamentos novos aos processos que já existem. Não cria casos e não altera dados cadastrais.
+                Adiciona apenas andamentos novos aos processos que já existem. Não cria casos e não
+                altera dados cadastrais.
               </p>
             </div>
           </div>
@@ -672,7 +694,9 @@ function ImportarPage() {
           type="button"
           onClick={() => setModo("criar")}
           className={`rounded-xl border p-4 text-left transition-colors ${
-            modo === "criar" ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "hover:border-primary/40"
+            modo === "criar"
+              ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+              : "hover:border-primary/40"
           }`}
         >
           <div className="flex items-start gap-3">
@@ -680,7 +704,8 @@ function ImportarPage() {
             <div>
               <p className="font-semibold">Criar processos</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Cadastra somente CNJs ainda inexistentes no FaroLex. Processos já cadastrados são preservados sem alteração.
+                Cadastra somente CNJs ainda inexistentes no FaroLex. Processos já cadastrados são
+                preservados sem alteração.
               </p>
             </div>
           </div>
@@ -691,7 +716,8 @@ function ImportarPage() {
         <CardHeader>
           <CardTitle className="font-serif text-lg">Arquivo</CardTitle>
           <CardDescription>
-            Formatos aceitos: .xlsx, .xls e .csv (até 15 MB). Selecione o arquivo e confirme antes da leitura.
+            Formatos aceitos: .xlsx, .xls e .csv (até 15 MB). Selecione o arquivo e confirme antes
+            da leitura.
             {modo === "atualizar"
               ? " Neste modo, o CNJ é usado apenas para localizar processos já existentes."
               : " Neste modo, o sistema separa os casos novos dos que já estão cadastrados antes de criar qualquer registro."}
@@ -712,7 +738,8 @@ function ImportarPage() {
           {arquivoSelecionado ? (
             <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-muted/30 p-3">
               <p className="min-w-0 flex-1 text-sm">
-                Arquivo selecionado: <strong className="break-all">{arquivoSelecionado.name}</strong>
+                Arquivo selecionado:{" "}
+                <strong className="break-all">{arquivoSelecionado.name}</strong>
               </p>
               <Button
                 type="button"
@@ -732,7 +759,8 @@ function ImportarPage() {
           <CardHeader>
             <CardTitle className="font-serif text-lg">Organização dos novos processos</CardTitle>
             <CardDescription>
-              Opcional: aplique pasta, advogado responsável e sócio somente aos processos que serão criados nesta importação.
+              Opcional: aplique pasta, advogado responsável e sócio somente aos processos que serão
+              criados nesta importação.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -816,11 +844,13 @@ function ImportarPage() {
           <CardHeader>
             <CardTitle className="font-serif text-lg">Aba “{aba.nome}”</CardTitle>
             <CardDescription>
-              {aba.linhas.length} linha(s) com conteúdo. Associe cada coluna da planilha ao campo do sistema.
+              {aba.linhas.length} linha(s) com conteúdo. Associe cada coluna da planilha ao campo do
+              sistema.
             </CardDescription>
             {poucoMapeadas.has(aba.nome) ? (
               <p className="flex items-center gap-2 text-sm text-amber-600">
-                <AlertTriangle className="size-4" /> A maioria das colunas dessa aba não foi reconhecida automaticamente — confira o mapeamento antes de importar.
+                <AlertTriangle className="size-4" /> A maioria das colunas dessa aba não foi
+                reconhecida automaticamente — confira o mapeamento antes de importar.
               </p>
             ) : null}
           </CardHeader>
@@ -884,16 +914,18 @@ function ImportarPage() {
                 "Conferindo os CNJs com a carteira atual..."
               ) : modo === "atualizar" ? (
                 <>
-                  <strong>{processosJaCadastrados.length}</strong> processo(s) encontrado(s) · {" "}
-                  <strong>{processosNovos.length}</strong> não cadastrado(s) e serão ignorados · {" "}
-                  <strong>{totalMovsAlvo}</strong> andamento(s) no arquivo para os processos encontrados
+                  <strong>{processosJaCadastrados.length}</strong> processo(s) encontrado(s) ·{" "}
+                  <strong>{processosNovos.length}</strong> não cadastrado(s) e serão ignorados ·{" "}
+                  <strong>{totalMovsAlvo}</strong> andamento(s) no arquivo para os processos
+                  encontrados
                   {erros.length > 0 ? ` · ${erros.length} linha(s) com problema` : ""}.
                 </>
               ) : (
                 <>
-                  <strong>{processosNovos.length}</strong> novo(s) processo(s) · {" "}
-                  <strong>{processosJaCadastrados.length}</strong> já cadastrado(s) e serão preservados · {" "}
-                  <strong>{totalMovsAlvo}</strong> andamento(s) vinculados aos novos processos
+                  <strong>{processosNovos.length}</strong> novo(s) processo(s) ·{" "}
+                  <strong>{processosJaCadastrados.length}</strong> já cadastrado(s) e serão
+                  preservados · <strong>{totalMovsAlvo}</strong> andamento(s) vinculados aos novos
+                  processos
                   {erros.length > 0 ? ` · ${erros.length} linha(s) com problema` : ""}.
                 </>
               )}
@@ -916,9 +948,10 @@ function ImportarPage() {
                   <tbody>
                     {processos.slice(0, 15).map((p) => {
                       const jaExiste = existentesPorCnj.has(p.numero_cnj.replace(/\D/g, ""));
-                      const clienteCaso = p.numero_cliente && p.numero_interno
-                        ? `${p.numero_cliente}/${p.numero_interno}`
-                        : p.numero_interno || p.numero_cliente || "—";
+                      const clienteCaso =
+                        p.numero_cliente && p.numero_interno
+                          ? `${p.numero_cliente}/${p.numero_interno}`
+                          : p.numero_interno || p.numero_cliente || "—";
                       return (
                         <tr key={p.numero_cnj} className="border-t border-border">
                           <td className="p-2">
@@ -940,7 +973,9 @@ function ImportarPage() {
             ) : null}
 
             {processos.length > 15 ? (
-              <p className="text-xs text-muted-foreground">Mostrando os primeiros 15 de {processos.length} processos lidos.</p>
+              <p className="text-xs text-muted-foreground">
+                Mostrando os primeiros 15 de {processos.length} processos lidos.
+              </p>
             ) : null}
 
             {erros.length > 0 ? (
@@ -958,13 +993,15 @@ function ImportarPage() {
 
             {modo === "atualizar" && processosNovos.length > 0 ? (
               <p className="flex items-center gap-2 text-sm text-amber-600">
-                <AlertTriangle className="size-4" /> {processosNovos.length} CNJ(s) não existem no FaroLex. Eles não serão criados neste modo.
+                <AlertTriangle className="size-4" /> {processosNovos.length} CNJ(s) não existem no
+                FaroLex. Eles não serão criados neste modo.
               </p>
             ) : null}
 
             {modo === "criar" && processosJaCadastrados.length > 0 ? (
               <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                {processosJaCadastrados.length} CNJ(s) já existem no FaroLex e serão ignorados para evitar qualquer sobrescrita.
+                {processosJaCadastrados.length} CNJ(s) já existem no FaroLex e serão ignorados para
+                evitar qualquer sobrescrita.
               </p>
             ) : null}
 
