@@ -1007,6 +1007,7 @@ export type Database = {
           _observacao?: string
           _provedor?: string
           _tipo?: string
+          _validado?: boolean
         }
         Returns: {
           id_processo: string
