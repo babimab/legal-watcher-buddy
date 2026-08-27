@@ -1,8 +1,11 @@
 // Integração com a API da Judit (https://docs.judit.io): consulta um
 // processo por CNJ e grava os andamentos encontrados nas movimentações do
-// FaroLex, reaproveitando a mesma função registrar_movimentacao_externa que
-// o webhook receber-andamento já usa (então a deduplicação por
-// processo+data+descrição é automática).
+// FaroLex como pendentes de revisão (validado = false, mesmo padrão de
+// citações/publicações) -- alguém da equipe confere e dá o "ok" antes deles
+// contarem como conferidos, em vez de entrarem direto como validados.
+// Reaproveita a mesma função registrar_movimentacao_externa que o webhook
+// receber-andamento já usa, então a deduplicação por processo+data+descrição
+// é automática.
 //
 // Formato real da resposta da Judit (conferido numa consulta de teste):
 //   { page_data: [ { response_data: { steps: [ { step_id, step_date,
@@ -182,6 +185,9 @@ Deno.serve(async (req: Request) => {
         _observacao: null,
         _provedor: "judit",
         _id_externo: step.step_id ?? null,
+        // Entra na fila de revisão (mesmo padrão de citações/publicações) em
+        // vez de já contar como conferido -- alguém precisa dar o "ok" antes.
+        _validado: false,
       });
       if (error) {
         resumo.erros.push({ step_id: step.step_id ?? "?", erro: error.message });
