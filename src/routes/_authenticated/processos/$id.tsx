@@ -9,6 +9,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -128,6 +129,54 @@ function ProcessoDetalhe() {
       return;
     }
     await queryClient.invalidateQueries();
+  };
+
+  const [validandoTodos, setValidandoTodos] = useState(false);
+  const [excluindoTodos, setExcluindoTodos] = useState(false);
+
+  const validarTodasPendentes = async () => {
+    setValidandoTodos(true);
+    try {
+      const quem = await siglaOuEmailAtual();
+      const { error } = await supabaseSolto
+        .from("movimentacoes")
+        .update({ validado: true, validado_por: quem, validado_em: new Date().toISOString() })
+        .eq("processo_id", id)
+        .eq("validado", false);
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success("Movimentações sugeridas marcadas como validadas.");
+      await queryClient.invalidateQueries({ queryKey: ["movimentacoes", id] });
+    } finally {
+      setValidandoTodos(false);
+    }
+  };
+
+  const excluirTodasPendentes = async () => {
+    if (
+      !window.confirm(
+        "Excluir todas as movimentações sugeridas (ainda não validadas) deste processo? Essa ação não poderá ser desfeita.",
+      )
+    )
+      return;
+    setExcluindoTodos(true);
+    try {
+      const { error } = await supabaseSolto
+        .from("movimentacoes")
+        .delete()
+        .eq("processo_id", id)
+        .eq("validado", false);
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success("Movimentações sugeridas excluídas.");
+      await queryClient.invalidateQueries({ queryKey: ["movimentacoes", id] });
+    } finally {
+      setExcluindoTodos(false);
+    }
   };
 
   if (processo.isLoading) return <p className="text-muted-foreground">Carregando...</p>;
@@ -373,7 +422,34 @@ function ProcessoDetalhe() {
       </div>
 
       <div>
-        <h2 className="mb-3 font-serif text-xl font-semibold">Movimentações</h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-serif text-xl font-semibold">Movimentações</h2>
+          {(movs.data ?? []).some((m) => !m.validado) ? (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={validandoTodos || excluindoTodos}
+                onClick={() => void validarTodasPendentes()}
+              >
+                <CheckCircle2 className="size-3.5" />
+                {validandoTodos ? "Validando..." : "Marcar todas como validadas"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="text-destructive hover:text-destructive"
+                disabled={validandoTodos || excluindoTodos}
+                onClick={() => void excluirTodasPendentes()}
+              >
+                <Trash2 className="size-3.5" />
+                {excluindoTodos ? "Excluindo..." : "Excluir todas as sugeridas"}
+              </Button>
+            </div>
+          ) : null}
+        </div>
         {movs.isLoading ? (
           <p className="text-muted-foreground">Carregando...</p>
         ) : (movs.data ?? []).length === 0 ? (
