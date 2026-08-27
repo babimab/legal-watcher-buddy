@@ -286,7 +286,10 @@ function montar(
         continue;
       }
       const chave = cnjBruto.replace(/\D/g, "");
-      if (chave.length < 15) {
+      // Nem todo processo tem CNJ de 20 dígitos -- processos administrativos
+      // (Procon, por exemplo) usam numeração própria, bem mais curta. Só
+      // barra o que claramente não é número de processo nenhum.
+      if (chave.length < 5) {
         erros.push({
           aba: aba.nome,
           linha: linha.numero,
