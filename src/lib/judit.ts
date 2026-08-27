@@ -1,18 +1,22 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export type ResultadoConsultaJudit = {
+  processados?: number;
+  inseridas?: number;
+  duplicadas?: number;
+  erros?: { step_id: string; erro: string }[];
+  status?: string;
   requestId?: string;
   numeroCnj?: string;
-  resultado?: unknown;
   aviso?: string;
+  respostaCriacao?: unknown;
   error?: string;
 };
 
 /**
- * Chama a edge function consultar-processo-judit -- teste da integração com
- * a API da Judit, só leitura (não grava nada no FaroLex ainda). Retorna o
- * JSON bruto que a Judit devolveu, pra a gente ver o formato real antes de
- * mapear os campos.
+ * Chama a edge function consultar-processo-judit: consulta o processo na
+ * Judit e já grava os andamentos novos nas movimentações do FaroLex
+ * (deduplicado pela mesma função que o webhook receber-andamento usa).
  */
 export async function consultarProcessoJudit(processoId: string): Promise<ResultadoConsultaJudit> {
   const { data, error } = await supabase.functions.invoke<ResultadoConsultaJudit>(

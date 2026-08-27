@@ -1,14 +1,20 @@
-// Teste de integração com a API da Judit (https://docs.judit.io): consulta
-// um processo por CNJ e devolve o resultado bruto pra tela, sem gravar nada
-// no FaroLex ainda.
+// Integração com a API da Judit (https://docs.judit.io): consulta um
+// processo por CNJ e grava os andamentos encontrados nas movimentações do
+// FaroLex, reaproveitando a mesma função registrar_movimentacao_externa que
+// o webhook receber-andamento já usa (então a deduplicação por
+// processo+data+descrição é automática).
 //
-// Por quê só ler e não já gravar: a Judit não documenta publicamente o
-// formato exato do JSON de resposta (só os tipos de resposta possíveis --
-// capa, parties, attachments, step). Preferimos ver o retorno real de um
-// processo de verdade antes de mapear os campos e escrever direto nas
-// movimentações -- assim que soubermos o formato certo, isso vira uma
-// segunda etapa chamando a mesma função registrar_movimentacao_externa que
-// o webhook receber-andamento já usa.
+// Formato real da resposta da Judit (conferido numa consulta de teste):
+//   { page_data: [ { response_data: { steps: [ { step_id, step_date,
+//   content, lawsuit_cnj, ... }, ... ], attachments: [...], ... } }, ... ] }
+// Pode vir mais de um item em page_data quando o processo tem mais de uma
+// "instance" (1ª instância, 2ª instância etc.) -- juntamos os steps de
+// todos.
+//
+// Só grava os andamentos (movimentações). Dados de capa (vara, comarca,
+// fase, status etc.) não são tocados de propósito -- esses campos hoje são
+// curados manualmente pela equipe, e sobrescrever com o valor bruto da
+// Judit sem confirmar antes seria arriscado.
 //
 // Autenticação: exige um usuário logado válido (mesmo padrão da
 // gerar-comunicacao-decisao) -- sem isso, qualquer chamador anônimo
@@ -23,6 +29,13 @@ const corsHeaders = {
 const JUDIT_BASE_URL = "https://requests.production.judit.io";
 const TENTATIVAS_MAXIMAS = 15;
 const INTERVALO_MS = 3000;
+
+type StepJudit = {
+  lawsuit_cnj?: string;
+  step_id?: string;
+  step_date?: string;
+  content?: string;
+};
 
 function dormir(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -95,10 +108,8 @@ Deno.serve(async (req: Request) => {
       throw new Error(`A Judit recusou a requisição: ${detalhe}`);
     }
     const criada = await respostaCriar.json();
-    const requestId = criada.request_id ?? criada.id;
+    const requestId = criada.request_id;
     if (!requestId) {
-      // Não sabemos o nome exato do campo -- devolve o JSON cru pra
-      // ajustarmos o mapeamento.
       return new Response(
         JSON.stringify({
           aviso: "Não encontrei o request_id na resposta de criação. Corpo bruto abaixo.",
@@ -109,6 +120,10 @@ Deno.serve(async (req: Request) => {
     }
 
     // 2) Acompanha o status até completar (ou até estourar as tentativas).
+    // O status geral pode continuar "pending" mesmo já tendo resultado
+    // parcial disponível (processo com mais de uma instância, por
+    // exemplo) -- por isso sempre buscamos os resultados no passo 3,
+    // completou ou não.
     let status = criada.status ?? "pending";
     let tentativas = 0;
     while (status !== "completed" && tentativas < TENTATIVAS_MAXIMAS) {
@@ -122,17 +137,6 @@ Deno.serve(async (req: Request) => {
       status = statusJson.status ?? status;
     }
 
-    if (status !== "completed") {
-      return new Response(
-        JSON.stringify({
-          aviso: `Ainda processando depois de ${tentativas} tentativas (status: ${status}). Tenta de novo em instantes.`,
-          requestId,
-          numeroCnj: processo.numero_cnj,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
     // 3) Busca o resultado.
     const respostaResultado = await fetch(
       `${JUDIT_BASE_URL}/responses?page=1&request_id=${requestId}`,
@@ -144,10 +148,53 @@ Deno.serve(async (req: Request) => {
     }
     const resultado = await respostaResultado.json();
 
-    return new Response(
-      JSON.stringify({ requestId, numeroCnj: processo.numero_cnj, resultado }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    const pageData: Array<{ response_data?: { steps?: StepJudit[] } }> = Array.isArray(
+      resultado?.page_data,
+    )
+      ? resultado.page_data
+      : [];
+
+    const stepsPorId = new Map<string, StepJudit>();
+    for (const item of pageData) {
+      for (const step of item.response_data?.steps ?? []) {
+        if (step.step_id) stepsPorId.set(step.step_id, step);
+      }
+    }
+
+    const resumo = {
+      processados: 0,
+      inseridas: 0,
+      duplicadas: 0,
+      erros: [] as { step_id: string; erro: string }[],
+      status,
+      requestId,
+      numeroCnj: processo.numero_cnj,
+    };
+
+    for (const step of stepsPorId.values()) {
+      if (!step.step_date || !step.content) continue;
+      resumo.processados++;
+      const { data, error } = await supabaseServico.rpc("registrar_movimentacao_externa", {
+        _numero_cnj: step.lawsuit_cnj ?? processo.numero_cnj,
+        _data_movimentacao: step.step_date.slice(0, 10),
+        _descricao: step.content,
+        _tipo: null,
+        _observacao: null,
+        _provedor: "judit",
+        _id_externo: step.step_id ?? null,
+      });
+      if (error) {
+        resumo.erros.push({ step_id: step.step_id ?? "?", erro: error.message });
+        continue;
+      }
+      const linha = Array.isArray(data) ? data[0] : data;
+      if (linha?.inserida) resumo.inseridas++;
+      else resumo.duplicadas++;
+    }
+
+    return new Response(JSON.stringify(resumo), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (erro) {
     const mensagem = erro instanceof Error ? erro.message : "Falha ao consultar a Judit.";
     return new Response(JSON.stringify({ error: mensagem }), {

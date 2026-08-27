@@ -158,6 +158,10 @@ function ProcessoDetalhe() {
     try {
       const resultado = await consultarProcessoJudit(p.id);
       setResultadoJudit(resultado);
+      if ((resultado.inseridas ?? 0) > 0) {
+        toast.success(`${resultado.inseridas} andamento(s) novo(s) importado(s) da Judit.`);
+        await queryClient.invalidateQueries({ queryKey: ["movimentacoes", id] });
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não consegui consultar a Judit.");
     } finally {
