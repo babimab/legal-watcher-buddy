@@ -193,6 +193,16 @@ function texto(valor: unknown): string | null {
   return s === "" || s.toLowerCase() === "nan" ? null : s;
 }
 
+// Planilhas do LD trazem número do cliente/caso junto com uma descrição
+// solta na mesma célula (ex.: "4608 - Souza Cruz S.A. - Resp. Civil" ou
+// "4446 - Fulano x Souza Cruz S.A. / ..."). Pega só o número do início;
+// se a célula já for só o número, devolve ela como está.
+function numeroInicial(valor: string | null): string | null {
+  if (!valor) return null;
+  const m = valor.match(/^\s*(\d+)/);
+  return m ? m[1]! : valor;
+}
+
 function numero(valor: unknown): number | null {
   if (valor == null || valor === "") return null;
   if (typeof valor === "number") return Number.isFinite(valor) ? valor : null;
@@ -298,16 +308,21 @@ function montar(
         continue;
       }
 
+      const clienteColunaBruta = texto(l.numero_cliente);
+      const casoColunaBruta = texto(l.numero_interno);
       const autor = texto(l.autor);
-      const reu = texto(l.reu);
-      const { cliente, parteContraria } = identificarCliente(autor, reu, texto(l.numero_cliente));
+      const reuBruto = texto(l.reu);
+      const { cliente, parteContraria } = identificarCliente(autor, reuBruto, clienteColunaBruta);
+      // Quando só um lado vem numa coluna própria (ex.: só "Polo Ativo",
+      // sem "Polo Passivo"), o outro lado é o próprio cliente identificado.
+      const reu = reuBruto ?? (autor && cliente !== autor ? cliente : null);
 
       let p = mapa.get(chave);
       if (!p) {
         p = {
           numero_cnj: formatarCNJ(chave),
-          numero_cliente: texto(l.numero_cliente),
-          numero_interno: texto(l.numero_interno),
+          numero_cliente: numeroInicial(clienteColunaBruta),
+          numero_interno: numeroInicial(casoColunaBruta),
           numero_antigo: texto(l.numero_antigo),
           cliente,
           parte_contraria: parteContraria,
