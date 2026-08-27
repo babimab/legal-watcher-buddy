@@ -1,6 +1,15 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CalendarClock, CheckCircle2, ExternalLink, Pencil, Plus } from "lucide-react";
+import { useState } from "react";
+import {
+  ArrowLeft,
+  CalendarClock,
+  CheckCircle2,
+  ExternalLink,
+  Pencil,
+  Plus,
+  Search,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -23,6 +32,7 @@ import {
   usePodeExcluirProcesso,
 } from "@/lib/processos";
 import { linkTribunal } from "@/lib/tribunais";
+import { consultarProcessoJudit, type ResultadoConsultaJudit } from "@/lib/judit";
 import { AcessosProcesso } from "@/components/AcessosProcesso";
 import { DocumentosProcesso } from "@/components/DocumentosProcesso";
 import { ComunicacoesDecisao } from "@/components/ComunicacoesDecisao";
@@ -82,6 +92,8 @@ function ProcessoDetalhe() {
 
   const processo = useQuery({ queryKey: ["processo", id], queryFn: () => buscarProcesso(id) });
   const souPodeExcluir = usePodeExcluirProcesso(processo.data?.responsavel ?? null);
+  const [consultandoJudit, setConsultandoJudit] = useState(false);
+  const [resultadoJudit, setResultadoJudit] = useState<ResultadoConsultaJudit | null>(null);
   const movs = useQuery({
     queryKey: ["movimentacoes", id],
     queryFn: () => listarMovimentacoes(id),
@@ -140,6 +152,19 @@ function ProcessoDetalhe() {
     ? { url: p.link_tribunal_manual, rotulo: "Abrir processo (link manual)" }
     : linkAuto;
 
+  const testarJudit = async () => {
+    setConsultandoJudit(true);
+    setResultadoJudit(null);
+    try {
+      const resultado = await consultarProcessoJudit(p.id);
+      setResultadoJudit(resultado);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não consegui consultar a Judit.");
+    } finally {
+      setConsultandoJudit(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <button
@@ -153,7 +178,9 @@ function ProcessoDetalhe() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="font-mono text-sm text-muted-foreground">{formatarCNJ(p.numero_cnj)}</p>
-          <h1 className="font-serif text-2xl font-semibold">{formatarNomeParte(exibir(nomePrincipal) ?? nomePrincipal)}</h1>
+          <h1 className="font-serif text-2xl font-semibold">
+            {formatarNomeParte(exibir(nomePrincipal) ?? nomePrincipal)}
+          </h1>
           <div className="mt-2 flex flex-wrap gap-2">
             <Badge>{p.status}</Badge>
             {p.tribunal ? <Badge variant="outline">{p.tribunal}</Badge> : null}
@@ -199,11 +226,37 @@ function ProcessoDetalhe() {
               </Button>
             }
           />
+          <Button
+            variant="outline"
+            disabled={consultandoJudit}
+            onClick={() => void testarJudit()}
+            title="Teste da integração com a API da Judit -- só consulta e mostra o resultado, não grava nada ainda"
+          >
+            <Search className="size-4" /> {consultandoJudit ? "Consultando..." : "Testar Judit"}
+          </Button>
           {souPodeExcluir ? (
             <ExcluirProcessoDialog processoId={p.id} numeroCnj={p.numero_cnj} cliente={p.cliente} />
           ) : null}
         </div>
       </div>
+
+      {resultadoJudit ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif text-lg">
+              Resultado da Judit (teste, nada foi gravado no FaroLex)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {resultadoJudit.aviso ? (
+              <p className="mb-3 text-sm text-muted-foreground">{resultadoJudit.aviso}</p>
+            ) : null}
+            <pre className="max-h-96 overflow-auto rounded-md bg-muted p-3 text-xs">
+              {JSON.stringify(resultadoJudit, null, 2)}
+            </pre>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>
