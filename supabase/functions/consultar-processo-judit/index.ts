@@ -50,8 +50,6 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // Exige um usuário autenticado de verdade, mesmo padrão da
-    // gerar-comunicacao-decisao.
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
     if (!supabaseUrl || !anonKey) {
@@ -97,7 +95,6 @@ Deno.serve(async (req: Request) => {
       throw new Error("JUDIT_API_KEY não configurado nos secrets do projeto.");
     }
 
-    // 1) Cria a requisição.
     const respostaCriar = await fetch(`${JUDIT_BASE_URL}/requests`, {
       method: "POST",
       headers: { "api-key": apiKey, "Content-Type": "application/json" },
@@ -122,11 +119,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // 2) Acompanha o status até completar (ou até estourar as tentativas).
-    // O status geral pode continuar "pending" mesmo já tendo resultado
-    // parcial disponível (processo com mais de uma instância, por
-    // exemplo) -- por isso sempre buscamos os resultados no passo 3,
-    // completou ou não.
     let status = criada.status ?? "pending";
     let tentativas = 0;
     while (status !== "completed" && tentativas < TENTATIVAS_MAXIMAS) {
@@ -140,7 +132,6 @@ Deno.serve(async (req: Request) => {
       status = statusJson.status ?? status;
     }
 
-    // 3) Busca o resultado.
     const respostaResultado = await fetch(
       `${JUDIT_BASE_URL}/responses?page=1&request_id=${requestId}`,
       { headers: { "api-key": apiKey } },
@@ -185,8 +176,6 @@ Deno.serve(async (req: Request) => {
         _observacao: null,
         _provedor: "judit",
         _id_externo: step.step_id ?? null,
-        // Entra na fila de revisão (mesmo padrão de citações/publicações) em
-        // vez de já contar como conferido -- alguém precisa dar o "ok" antes.
         _validado: false,
       });
       if (error) {
