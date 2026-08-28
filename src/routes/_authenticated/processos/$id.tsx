@@ -320,6 +320,14 @@ function ProcessoDetalhe() {
                 <strong>{resultadoJudit.inseridas} novo(s)</strong> gravado(s) nas movimentações,{" "}
                 {resultadoJudit.duplicadas} já existente(s).
               </p>
+            ) : resultadoJudit.status &&
+              resultadoJudit.status !== "completed" &&
+              !resultadoJudit.aviso ? (
+              <p className="mb-3 text-sm text-muted-foreground">
+                A Judit ainda não terminou de processar esse processo (às vezes demora mais em
+                tribunais menos comuns). Nada foi gravado ainda — espere alguns minutos e clique em
+                "Judit" de novo pra tentar buscar o resultado.
+              </p>
             ) : null}
             {resultadoJudit.resumoIa ? (
               <div className="mb-3 rounded-md border border-border bg-secondary/40 p-3">
@@ -329,9 +337,14 @@ function ProcessoDetalhe() {
                 <p className="whitespace-pre-wrap text-sm">{resultadoJudit.resumoIa}</p>
               </div>
             ) : null}
-            <pre className="max-h-96 overflow-auto rounded-md bg-muted p-3 text-xs">
-              {JSON.stringify(resultadoJudit, null, 2)}
-            </pre>
+            <details>
+              <summary className="cursor-pointer text-xs text-muted-foreground">
+                Ver detalhes técnicos
+              </summary>
+              <pre className="mt-2 max-h-96 overflow-auto rounded-md bg-muted p-3 text-xs">
+                {JSON.stringify(resultadoJudit, null, 2)}
+              </pre>
+            </details>
           </CardContent>
         </Card>
       ) : null}
