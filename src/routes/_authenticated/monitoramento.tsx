@@ -167,9 +167,41 @@ function MonitoramentoPage() {
             <PlayCircle className="size-4" /> {rodando ? "Rodando..." : "Rodar agora"}
           </Button>
           {resultado ? (
-            <pre className="max-h-72 overflow-auto rounded-md bg-muted p-3 text-xs">
-              {JSON.stringify(resultado, null, 2)}
-            </pre>
+            <div className="space-y-2 text-sm">
+              {(resultado.colhidos ?? []).length === 0 && (resultado.criados ?? []).length === 0 ? (
+                <p className="text-muted-foreground">
+                  Nada pra fazer agora: nenhum processo marcado tinha consulta pendente pra colher,
+                  e nenhum já passou uma semana desde a última checagem.
+                </p>
+              ) : (
+                <ul className="space-y-1">
+                  {(resultado.colhidos ?? []).map((item) => (
+                    <li key={`colhido-${item.processoId}`}>
+                      <span className="font-mono">{formatarCNJ(item.numeroCnj)}</span>:{" "}
+                      {item.erro
+                        ? item.erro
+                        : `${item.inseridas ?? 0} andamento(s) novo(s) importado(s), ${item.duplicadas ?? 0} já existente(s).`}
+                    </li>
+                  ))}
+                  {(resultado.criados ?? []).map((item) => (
+                    <li key={`criado-${item.processoId}`}>
+                      <span className="font-mono">{formatarCNJ(item.numeroCnj)}</span>:{" "}
+                      {item.erro
+                        ? `não consegui criar a consulta na Judit (${item.erro}).`
+                        : "consulta criada na Judit, aguardando resultado (deve aparecer numa próxima rodada)."}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <details>
+                <summary className="cursor-pointer text-xs text-muted-foreground">
+                  Ver detalhes técnicos
+                </summary>
+                <pre className="mt-2 max-h-72 overflow-auto rounded-md bg-muted p-3 text-xs">
+                  {JSON.stringify(resultado, null, 2)}
+                </pre>
+              </details>
+            </div>
           ) : null}
         </CardContent>
       </Card>
