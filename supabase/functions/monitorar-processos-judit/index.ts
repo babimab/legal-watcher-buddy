@@ -21,10 +21,10 @@
 //
 // Pra isso rodar sozinha (ex.: 1x por dia), agende uma chamada HTTP POST
 // pra essa função com o header "x-webhook-secret" batendo com o secret
-// WEBHOOK_MOVIMENTACOES_SECRET (o mesmo já usado pelo webhook
-// receber-andamento) -- ver instruções à parte de como configurar isso no
-// Lovable Cloud. Também aceita chamada de um usuário logado (o botão
-// "Rodar agora" da tela de Monitoramento).
+// MONITORAMENTO_JUDIT_SECRET (dedicado só pra isso -- não é o mesmo do
+// webhook receber-andamento) -- ver instruções à parte de como configurar
+// isso no Lovable Cloud. Também aceita chamada de um usuário logado (o
+// botão "Rodar agora" da tela de Monitoramento).
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   buscarResultadoJudit,
@@ -63,7 +63,7 @@ Deno.serve(async (req: Request) => {
       throw new Error("Configuração do Supabase ausente no ambiente da função.");
     }
 
-    const segredoEsperado = Deno.env.get("WEBHOOK_MOVIMENTACOES_SECRET");
+    const segredoEsperado = Deno.env.get("MONITORAMENTO_JUDIT_SECRET");
     const segredoRecebido = req.headers.get("x-webhook-secret");
     let autorizado = !!segredoEsperado && segredoRecebido === segredoEsperado;
 
