@@ -19,6 +19,11 @@
 // curados manualmente pela equipe, e sobrescrever com o valor bruto da
 // Judit sem confirmar antes seria arriscado.
 //
+// Também pede um resumo em linguagem natural do processo via
+// judit_ia: ["summary"] (recurso de IA da própria Judit) -- não baixa peças,
+// só o texto resumido que a Judit devolve junto do resultado. Isso não é
+// gravado em lugar nenhum, só retornado pra tela mostrar.
+//
 // Autenticação: exige um usuário logado válido (mesmo padrão da
 // gerar-comunicacao-decisao) -- sem isso, qualquer chamador anônimo
 // consumiria a chave paga da Judit à toa.
@@ -40,8 +45,38 @@ type StepJudit = {
   content?: string;
 };
 
+type PageItem = {
+  response_type?: string;
+  response_data?: unknown;
+};
+
 function dormir(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// A Judit não documenta um formato único pro resumo de IA, então procura em
+// alguns formatos plausíveis em vez de travar se não encontrar nada.
+function extrairResumoIA(resultado: unknown, pageData: PageItem[]): string | null {
+  const bruto = resultado as { summary?: unknown } | null;
+  if (typeof bruto?.summary === "string" && bruto.summary.trim()) {
+    return bruto.summary.trim();
+  }
+  for (const item of pageData) {
+    const dados = item.response_data;
+    const ehResumo = (item.response_type ?? "").toLowerCase().includes("summary");
+    if (typeof dados === "string" && ehResumo && dados.trim()) {
+      return dados.trim();
+    }
+    if (dados && typeof dados === "object") {
+      const obj = dados as Record<string, unknown>;
+      if (typeof obj.summary === "string" && obj.summary.trim()) return obj.summary.trim();
+      if (ehResumo) {
+        if (typeof obj.text === "string" && obj.text.trim()) return obj.text.trim();
+        if (typeof obj.content === "string" && obj.content.trim()) return obj.content.trim();
+      }
+    }
+  }
+  return null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -101,6 +136,7 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         search: { search_type: "lawsuit_cnj", search_key: processo.numero_cnj },
         cache_ttl_in_days: 7,
+        judit_ia: ["summary"],
       }),
     });
     if (!respostaCriar.ok) {
@@ -142,15 +178,12 @@ Deno.serve(async (req: Request) => {
     }
     const resultado = await respostaResultado.json();
 
-    const pageData: Array<{ response_data?: { steps?: StepJudit[] } }> = Array.isArray(
-      resultado?.page_data,
-    )
-      ? resultado.page_data
-      : [];
+    const pageData: PageItem[] = Array.isArray(resultado?.page_data) ? resultado.page_data : [];
 
     const stepsPorId = new Map<string, StepJudit>();
     for (const item of pageData) {
-      for (const step of item.response_data?.steps ?? []) {
+      const dados = item.response_data as { steps?: StepJudit[] } | undefined;
+      for (const step of dados?.steps ?? []) {
         if (step.step_id) stepsPorId.set(step.step_id, step);
       }
     }
@@ -163,6 +196,7 @@ Deno.serve(async (req: Request) => {
       status,
       requestId,
       numeroCnj: processo.numero_cnj,
+      resumoIa: extrairResumoIA(resultado, pageData),
     };
 
     for (const step of stepsPorId.values()) {

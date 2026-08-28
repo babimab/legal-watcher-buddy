@@ -8,6 +8,7 @@ export type ResultadoConsultaJudit = {
   status?: string;
   requestId?: string;
   numeroCnj?: string;
+  resumoIa?: string | null;
   aviso?: string;
   respostaCriacao?: unknown;
   error?: string;

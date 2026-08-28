@@ -321,6 +321,14 @@ function ProcessoDetalhe() {
                 {resultadoJudit.duplicadas} já existente(s).
               </p>
             ) : null}
+            {resultadoJudit.resumoIa ? (
+              <div className="mb-3 rounded-md border border-border bg-secondary/40 p-3">
+                <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Resumo da Judit
+                </p>
+                <p className="whitespace-pre-wrap text-sm">{resultadoJudit.resumoIa}</p>
+              </div>
+            ) : null}
             <pre className="max-h-96 overflow-auto rounded-md bg-muted p-3 text-xs">
               {JSON.stringify(resultadoJudit, null, 2)}
             </pre>
