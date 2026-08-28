@@ -62,7 +62,9 @@ function MonitoramentoPage() {
   );
   const clientes = useMemo(
     () =>
-      [...new Set((processos.data ?? []).map((p) => p.cliente).filter(Boolean))].sort() as string[],
+      [
+        ...new Set((processos.data ?? []).map((p) => p.numero_cliente).filter(Boolean)),
+      ].sort() as string[],
     [processos.data],
   );
   const socios = useMemo(
@@ -89,7 +91,7 @@ function MonitoramentoPage() {
             : p.responsavel === advogado;
       const casaSocio =
         socio === "todos" ? true : socio === "nenhum" ? !p.socio : p.socio === socio;
-      const casaCliente = clienteFiltro === "todos" || p.cliente === clienteFiltro;
+      const casaCliente = clienteFiltro === "todos" || p.numero_cliente === clienteFiltro;
       return casaBusca && casaPasta && casaAdvogado && casaSocio && casaCliente;
     });
   }, [processos.data, busca, pastaId, advogado, socio, clienteFiltro]);
@@ -228,10 +230,10 @@ function MonitoramentoPage() {
             </Select>
             <Select value={clienteFiltro} onValueChange={setClienteFiltro}>
               <SelectTrigger className="w-48">
-                <SelectValue placeholder="Cliente" />
+                <SelectValue placeholder="Número do cliente" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="todos">Todos os clientes</SelectItem>
+                <SelectItem value="todos">Todos os números de cliente</SelectItem>
                 {clientes.map((c) => (
                   <SelectItem key={c} value={c}>
                     {c}
