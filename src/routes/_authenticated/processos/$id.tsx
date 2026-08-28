@@ -131,6 +131,16 @@ function ProcessoDetalhe() {
     await queryClient.invalidateQueries();
   };
 
+  const excluirMovimentacao = async (movId: string) => {
+    if (!window.confirm("Excluir esta movimentação? Essa ação não poderá ser desfeita.")) return;
+    const { error } = await supabaseSolto.from("movimentacoes").delete().eq("id", movId);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ["movimentacoes", id] });
+  };
+
   const [validandoTodos, setValidandoTodos] = useState(false);
   const [excluindoTodos, setExcluindoTodos] = useState(false);
 
@@ -283,9 +293,9 @@ function ProcessoDetalhe() {
             variant="outline"
             disabled={consultandoJudit}
             onClick={() => void testarJudit()}
-            title="Teste da integração com a API da Judit -- só consulta e mostra o resultado, não grava nada ainda"
+            title="Consulta a Judit e importa andamentos novos como pendentes de revisão"
           >
-            <Search className="size-4" /> {consultandoJudit ? "Consultando..." : "Testar Judit"}
+            <Search className="size-4" /> {consultandoJudit ? "Consultando..." : "Judit"}
           </Button>
           {souPodeExcluir ? (
             <ExcluirProcessoDialog processoId={p.id} numeroCnj={p.numero_cnj} cliente={p.cliente} />
@@ -514,23 +524,34 @@ function ProcessoDetalhe() {
                   ) : (
                     <span />
                   )}
-                  {!m.validado ? (
+                  <div className="flex items-center gap-2">
                     <Button
                       type="button"
                       size="sm"
-                      variant="outline"
-                      onClick={() => validarMovimentacao(m.id)}
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => void excluirMovimentacao(m.id)}
                     >
-                      <CheckCircle2 className="size-3.5" /> Marcar como validado
+                      <Trash2 className="size-3.5" /> Excluir
                     </Button>
-                  ) : m.validado_por ? (
-                    <p className="text-xs text-muted-foreground">
-                      Validado por {m.validado_por}
-                      {m.validado_em
-                        ? ` em ${new Date(m.validado_em).toLocaleDateString("pt-BR")}`
-                        : ""}
-                    </p>
-                  ) : null}
+                    {!m.validado ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => validarMovimentacao(m.id)}
+                      >
+                        <CheckCircle2 className="size-3.5" /> Marcar como validado
+                      </Button>
+                    ) : m.validado_por ? (
+                      <p className="text-xs text-muted-foreground">
+                        Validado por {m.validado_por}
+                        {m.validado_em
+                          ? ` em ${new Date(m.validado_em).toLocaleDateString("pt-BR")}`
+                          : ""}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
               </li>
             ))}
