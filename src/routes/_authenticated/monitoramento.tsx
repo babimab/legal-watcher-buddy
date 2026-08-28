@@ -9,7 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatarCNJ, listarProcessos, normalizarNome } from "@/lib/processos";
+import { listarPastas } from "@/lib/grupos";
 import {
   alternarMonitoramentoJudit,
   rodarMonitoramentoJudit,
@@ -33,22 +41,50 @@ export const Route = createFileRoute("/_authenticated/monitoramento")({
 function MonitoramentoPage() {
   const queryClient = useQueryClient();
   const processos = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
+  const pastas = useQuery({ queryKey: ["pastas"], queryFn: listarPastas });
   const [busca, setBusca] = useState("");
+  const [pastaId, setPastaId] = useState("todas");
+  const [advogado, setAdvogado] = useState("todos");
+  const [clienteFiltro, setClienteFiltro] = useState("todos");
   const [rodando, setRodando] = useState(false);
   const [alternando, setAlternando] = useState<Set<string>>(new Set());
   const [resultado, setResultado] = useState<ResultadoMonitoramentoJudit | null>(null);
 
   const monitorados = (processos.data ?? []).filter((p) => p.judit_monitoramento);
 
+  const advogados = useMemo(
+    () =>
+      [
+        ...new Set((processos.data ?? []).map((p) => p.responsavel).filter(Boolean)),
+      ].sort() as string[],
+    [processos.data],
+  );
+  const clientes = useMemo(
+    () =>
+      [...new Set((processos.data ?? []).map((p) => p.cliente).filter(Boolean))].sort() as string[],
+    [processos.data],
+  );
+
   const filtrados = useMemo(() => {
     const termo = normalizarNome(busca.trim());
     const lista = processos.data ?? [];
-    if (!termo) return lista;
-    return lista.filter(
-      (p) =>
-        normalizarNome(p.numero_cnj).includes(termo) || normalizarNome(p.cliente).includes(termo),
-    );
-  }, [processos.data, busca]);
+    return lista.filter((p) => {
+      const casaBusca =
+        !termo ||
+        normalizarNome(p.numero_cnj).includes(termo) ||
+        normalizarNome(p.cliente).includes(termo);
+      const casaPasta =
+        pastaId === "todas" || (pastaId === "nenhuma" ? !p.pasta_id : p.pasta_id === pastaId);
+      const casaAdvogado =
+        advogado === "todos"
+          ? true
+          : advogado === "nenhum"
+            ? !p.responsavel
+            : p.responsavel === advogado;
+      const casaCliente = clienteFiltro === "todos" || p.cliente === clienteFiltro;
+      return casaBusca && casaPasta && casaAdvogado && casaCliente;
+    });
+  }, [processos.data, busca, pastaId, advogado, clienteFiltro]);
 
   const alternar = async (processoId: string, ativo: boolean) => {
     setAlternando((atual) => new Set(atual).add(processoId));
@@ -131,7 +167,7 @@ function MonitoramentoPage() {
       <Card>
         <CardHeader>
           <CardTitle className="font-serif text-lg">Processos</CardTitle>
-          <CardDescription>Busque por número CNJ ou cliente.</CardDescription>
+          <CardDescription>Busque por número CNJ ou cliente, ou filtre abaixo.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <Input
@@ -139,6 +175,49 @@ function MonitoramentoPage() {
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />
+          <div className="flex flex-wrap gap-2">
+            <Select value={pastaId} onValueChange={setPastaId}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Pasta" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">Todas as pastas</SelectItem>
+                <SelectItem value="nenhuma">Sem pasta</SelectItem>
+                {(pastas.data ?? []).map((pa) => (
+                  <SelectItem key={pa.id} value={pa.id}>
+                    {pa.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={advogado} onValueChange={setAdvogado}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Advogado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os advogados</SelectItem>
+                <SelectItem value="nenhum">Sem responsável</SelectItem>
+                {advogados.map((a) => (
+                  <SelectItem key={a} value={a}>
+                    {a}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={clienteFiltro} onValueChange={setClienteFiltro}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Cliente" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os clientes</SelectItem>
+                {clientes.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           {processos.isLoading ? (
             <p className="text-muted-foreground">Carregando...</p>
           ) : filtrados.length === 0 ? (
