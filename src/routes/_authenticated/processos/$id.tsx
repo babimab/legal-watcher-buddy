@@ -9,6 +9,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Star,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -27,6 +28,7 @@ import {
   listarMovimentacoes,
   formatarCNJ,
   exibir,
+  movimentacaoRelevante,
   normalizarNome,
   variantCriticidade,
   siglaOuEmailAtual,
@@ -481,6 +483,11 @@ function ProcessoDetalhe() {
                   </span>
                   {m.tipo ? <Badge variant="outline">{m.tipo}</Badge> : null}
                   {!m.validado ? <Badge variant="secondary">Sugerido — não validado</Badge> : null}
+                  {movimentacaoRelevante(m.descricao) ? (
+                    <Badge className="gap-1">
+                      <Star className="size-3" /> Importante
+                    </Badge>
+                  ) : null}
                   {m.exige_acao ? (
                     <Badge variant={m.concluida ? "secondary" : "destructive"}>
                       <CalendarClock className="size-3" />

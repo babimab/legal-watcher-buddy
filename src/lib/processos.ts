@@ -421,6 +421,46 @@ export function exibir(texto: string | null | undefined): string | null {
   return TEXTOS_PARA_EXIBICAO[texto] ?? texto;
 }
 
+// Termos que marcam um andamento como referência importante na trilha de
+// revisão (lista definida pela BDR) -- comparação sem acento/caixa contra a
+// descrição, então cobre variações como "decisão saneadora" dentro de
+// "decisão".
+const TERMOS_MOVIMENTACAO_RELEVANTE = [
+  "distribuicao da inicial",
+  "contestacao",
+  "defesa previa",
+  "peticao",
+  "replica",
+  "decisao saneadora",
+  "decisao",
+  "despacho",
+  "laudo pericial",
+  "audiencia de conciliacao",
+  "audiencia de instrucao e julgamento",
+  "aij",
+  "ata de audiencia",
+  "sentenca",
+  "procedente",
+  "improcedente",
+  "extinto",
+  "apelacao",
+  "julgamento",
+  "recurso inominado",
+  "contrarrazoes",
+  "acordao",
+  "embargos de declaracao",
+  "recurso especial",
+  "agravo em recurso especial",
+  "agravo de instrumento",
+  "transito em julgado",
+  "conclusao",
+] as const;
+
+export function movimentacaoRelevante(descricao: string | null | undefined): boolean {
+  const normalizada = normalizarNome(descricao ?? "");
+  return TERMOS_MOVIMENTACAO_RELEVANTE.some((termo) => normalizada.includes(termo));
+}
+
 export const TIPOS_MOVIMENTACAO = [
   "Prazo",
   "Despacho",
