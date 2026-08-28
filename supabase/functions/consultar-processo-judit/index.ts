@@ -3,80 +3,39 @@
 // FaroLex como pendentes de revisão (validado = false, mesmo padrão de
 // citações/publicações) -- alguém da equipe confere e dá o "ok" antes deles
 // contarem como conferidos, em vez de entrarem direto como validados.
-// Reaproveita a mesma função registrar_movimentacao_externa que o webhook
-// receber-andamento já usa, então a deduplicação por processo+data+descrição
-// é automática.
-//
-// Formato real da resposta da Judit (conferido numa consulta de teste):
-//   { page_data: [ { response_data: { steps: [ { step_id, step_date,
-//   content, lawsuit_cnj, ... }, ... ], attachments: [...], ... } }, ... ] }
-// Pode vir mais de um item em page_data quando o processo tem mais de uma
-// "instance" (1ª instância, 2ª instância etc.) -- juntamos os steps de
-// todos.
-//
-// Só grava os andamentos (movimentações). Dados de capa (vara, comarca,
-// fase, status etc.) não são tocados de propósito -- esses campos hoje são
-// curados manualmente pela equipe, e sobrescrever com o valor bruto da
-// Judit sem confirmar antes seria arriscado.
 //
 // Também pede um resumo em linguagem natural do processo via
 // judit_ia: ["summary"] (recurso de IA da própria Judit) -- não baixa peças,
 // só o texto resumido que a Judit devolve junto do resultado. Isso não é
 // gravado em lugar nenhum, só retornado pra tela mostrar.
 //
+// Essa função é a consulta manual (clique "Judit" na tela do processo) --
+// espera o resultado ficar pronto (até ~45s) e devolve na hora. A consulta
+// automática em lote (tela de Monitoramento) é a função
+// monitorar-processos-judit, que não espera -- as duas reaproveitam o
+// mesmo código de _shared/judit.ts.
+//
 // Autenticação: exige um usuário logado válido (mesmo padrão da
 // gerar-comunicacao-decisao) -- sem isso, qualquer chamador anônimo
 // consumiria a chave paga da Judit à toa.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  buscarResultadoJudit,
+  consultarStatusJudit,
+  criarConsultaJudit,
+  gravarAndamentos,
+} from "../_shared/judit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const JUDIT_BASE_URL = "https://requests.production.judit.io";
 const TENTATIVAS_MAXIMAS = 15;
 const INTERVALO_MS = 3000;
 
-type StepJudit = {
-  lawsuit_cnj?: string;
-  step_id?: string;
-  step_date?: string;
-  content?: string;
-};
-
-type PageItem = {
-  response_type?: string;
-  response_data?: unknown;
-};
-
 function dormir(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-// A Judit não documenta um formato único pro resumo de IA, então procura em
-// alguns formatos plausíveis em vez de travar se não encontrar nada.
-function extrairResumoIA(resultado: unknown, pageData: PageItem[]): string | null {
-  const bruto = resultado as { summary?: unknown } | null;
-  if (typeof bruto?.summary === "string" && bruto.summary.trim()) {
-    return bruto.summary.trim();
-  }
-  for (const item of pageData) {
-    const dados = item.response_data;
-    const ehResumo = (item.response_type ?? "").toLowerCase().includes("summary");
-    if (typeof dados === "string" && ehResumo && dados.trim()) {
-      return dados.trim();
-    }
-    if (dados && typeof dados === "object") {
-      const obj = dados as Record<string, unknown>;
-      if (typeof obj.summary === "string" && obj.summary.trim()) return obj.summary.trim();
-      if (ehResumo) {
-        if (typeof obj.text === "string" && obj.text.trim()) return obj.text.trim();
-        if (typeof obj.content === "string" && obj.content.trim()) return obj.content.trim();
-      }
-    }
-  }
-  return null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -130,96 +89,36 @@ Deno.serve(async (req: Request) => {
       throw new Error("JUDIT_API_KEY não configurado nos secrets do projeto.");
     }
 
-    const respostaCriar = await fetch(`${JUDIT_BASE_URL}/requests`, {
-      method: "POST",
-      headers: { "api-key": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        search: { search_type: "lawsuit_cnj", search_key: processo.numero_cnj },
-        cache_ttl_in_days: 7,
-        judit_ia: ["summary"],
-      }),
-    });
-    if (!respostaCriar.ok) {
-      const detalhe = await respostaCriar.text();
-      throw new Error(`A Judit recusou a requisição: ${detalhe}`);
-    }
-    const criada = await respostaCriar.json();
-    const requestId = criada.request_id;
+    const criada = await criarConsultaJudit(apiKey, processo.numero_cnj);
+    const requestId = criada.requestId;
     if (!requestId) {
       return new Response(
         JSON.stringify({
           aviso: "Não encontrei o request_id na resposta de criação. Corpo bruto abaixo.",
-          respostaCriacao: criada,
+          respostaCriacao: criada.bruto,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    let status = criada.status ?? "pending";
+    let status = criada.status;
     let tentativas = 0;
     while (status !== "completed" && tentativas < TENTATIVAS_MAXIMAS) {
       await dormir(INTERVALO_MS);
       tentativas++;
-      const respostaStatus = await fetch(`${JUDIT_BASE_URL}/requests/${requestId}`, {
-        headers: { "api-key": apiKey },
-      });
-      if (!respostaStatus.ok) break;
-      const statusJson = await respostaStatus.json();
-      status = statusJson.status ?? status;
+      status = await consultarStatusJudit(apiKey, requestId);
     }
 
-    const respostaResultado = await fetch(
-      `${JUDIT_BASE_URL}/responses?page=1&request_id=${requestId}`,
-      { headers: { "api-key": apiKey } },
-    );
-    if (!respostaResultado.ok) {
-      const detalhe = await respostaResultado.text();
-      throw new Error(`A Judit recusou a busca do resultado: ${detalhe}`);
-    }
-    const resultado = await respostaResultado.json();
-
-    const pageData: PageItem[] = Array.isArray(resultado?.page_data) ? resultado.page_data : [];
-
-    const stepsPorId = new Map<string, StepJudit>();
-    for (const item of pageData) {
-      const dados = item.response_data as { steps?: StepJudit[] } | undefined;
-      for (const step of dados?.steps ?? []) {
-        if (step.step_id) stepsPorId.set(step.step_id, step);
-      }
-    }
+    const { pageData, resumoIa } = await buscarResultadoJudit(apiKey, requestId);
+    const gravado = await gravarAndamentos(supabaseServico, processo, pageData);
 
     const resumo = {
-      processados: 0,
-      inseridas: 0,
-      duplicadas: 0,
-      erros: [] as { step_id: string; erro: string }[],
+      ...gravado,
       status,
       requestId,
       numeroCnj: processo.numero_cnj,
-      resumoIa: extrairResumoIA(resultado, pageData),
+      resumoIa,
     };
-
-    for (const step of stepsPorId.values()) {
-      if (!step.step_date || !step.content) continue;
-      resumo.processados++;
-      const { data, error } = await supabaseServico.rpc("registrar_movimentacao_externa", {
-        _numero_cnj: step.lawsuit_cnj ?? processo.numero_cnj,
-        _data_movimentacao: step.step_date.slice(0, 10),
-        _descricao: step.content,
-        _tipo: null,
-        _observacao: null,
-        _provedor: "judit",
-        _id_externo: step.step_id ?? null,
-        _validado: false,
-      });
-      if (error) {
-        resumo.erros.push({ step_id: step.step_id ?? "?", erro: error.message });
-        continue;
-      }
-      const linha = Array.isArray(data) ? data[0] : data;
-      if (linha?.inserida) resumo.inseridas++;
-      else resumo.duplicadas++;
-    }
 
     return new Response(JSON.stringify(resumo), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

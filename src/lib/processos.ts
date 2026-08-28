@@ -38,6 +38,10 @@ export type Processo = {
   ultima_verificacao_em: string | null;
   fonte: string;
   monitorar: boolean;
+  judit_monitoramento: boolean;
+  judit_request_pendente: string | null;
+  judit_request_criado_em: string | null;
+  judit_monitorado_em: string | null;
   cor: string | null;
   link_tribunal_manual: string | null;
   created_at: string;

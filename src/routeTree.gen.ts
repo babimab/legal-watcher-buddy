@@ -18,6 +18,7 @@ import { Route as AuthenticatedCalculosRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedCitacoesRouteImport } from './routes/_authenticated/citacoes'
 import { Route as AuthenticatedGruposRouteImport } from './routes/_authenticated/grupos'
 import { Route as AuthenticatedImportarRouteImport } from './routes/_authenticated/importar'
+import { Route as AuthenticatedMonitoramentoRouteImport } from './routes/_authenticated/monitoramento'
 import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
 import { Route as AuthenticatedPerfilRouteImport } from './routes/_authenticated/perfil'
 import { Route as AuthenticatedPublicacoesRouteImport } from './routes/_authenticated/publicacoes'
@@ -72,6 +73,12 @@ const AuthenticatedImportarRoute = AuthenticatedImportarRouteImport.update({
   path: '/importar',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedMonitoramentoRoute =
+  AuthenticatedMonitoramentoRouteImport.update({
+    id: '/monitoramento',
+    path: '/monitoramento',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedPainelRoute = AuthenticatedPainelRouteImport.update({
   id: '/painel',
   path: '/painel',
@@ -121,6 +128,7 @@ export interface FileRoutesByFullPath {
   '/citacoes': typeof AuthenticatedCitacoesRoute
   '/grupos': typeof AuthenticatedGruposRoute
   '/importar': typeof AuthenticatedImportarRoute
+  '/monitoramento': typeof AuthenticatedMonitoramentoRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/publicacoes': typeof AuthenticatedPublicacoesRoute
@@ -138,6 +146,7 @@ export interface FileRoutesByTo {
   '/citacoes': typeof AuthenticatedCitacoesRoute
   '/grupos': typeof AuthenticatedGruposRoute
   '/importar': typeof AuthenticatedImportarRoute
+  '/monitoramento': typeof AuthenticatedMonitoramentoRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/publicacoes': typeof AuthenticatedPublicacoesRoute
@@ -157,6 +166,7 @@ export interface FileRoutesById {
   '/_authenticated/citacoes': typeof AuthenticatedCitacoesRoute
   '/_authenticated/grupos': typeof AuthenticatedGruposRoute
   '/_authenticated/importar': typeof AuthenticatedImportarRoute
+  '/_authenticated/monitoramento': typeof AuthenticatedMonitoramentoRoute
   '/_authenticated/painel': typeof AuthenticatedPainelRoute
   '/_authenticated/perfil': typeof AuthenticatedPerfilRoute
   '/_authenticated/publicacoes': typeof AuthenticatedPublicacoesRoute
@@ -176,6 +186,7 @@ export interface FileRouteTypes {
     | '/citacoes'
     | '/grupos'
     | '/importar'
+    | '/monitoramento'
     | '/painel'
     | '/perfil'
     | '/publicacoes'
@@ -193,6 +204,7 @@ export interface FileRouteTypes {
     | '/citacoes'
     | '/grupos'
     | '/importar'
+    | '/monitoramento'
     | '/painel'
     | '/perfil'
     | '/publicacoes'
@@ -211,6 +223,7 @@ export interface FileRouteTypes {
     | '/_authenticated/citacoes'
     | '/_authenticated/grupos'
     | '/_authenticated/importar'
+    | '/_authenticated/monitoramento'
     | '/_authenticated/painel'
     | '/_authenticated/perfil'
     | '/_authenticated/publicacoes'
@@ -291,6 +304,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedImportarRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/monitoramento': {
+      id: '/_authenticated/monitoramento'
+      path: '/monitoramento'
+      fullPath: '/monitoramento'
+      preLoaderRoute: typeof AuthenticatedMonitoramentoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/painel': {
       id: '/_authenticated/painel'
       path: '/painel'
@@ -350,6 +370,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCitacoesRoute: typeof AuthenticatedCitacoesRoute
   AuthenticatedGruposRoute: typeof AuthenticatedGruposRoute
   AuthenticatedImportarRoute: typeof AuthenticatedImportarRoute
+  AuthenticatedMonitoramentoRoute: typeof AuthenticatedMonitoramentoRoute
   AuthenticatedPainelRoute: typeof AuthenticatedPainelRoute
   AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRoute
   AuthenticatedPublicacoesRoute: typeof AuthenticatedPublicacoesRoute
@@ -366,6 +387,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCitacoesRoute: AuthenticatedCitacoesRoute,
   AuthenticatedGruposRoute: AuthenticatedGruposRoute,
   AuthenticatedImportarRoute: AuthenticatedImportarRoute,
+  AuthenticatedMonitoramentoRoute: AuthenticatedMonitoramentoRoute,
   AuthenticatedPainelRoute: AuthenticatedPainelRoute,
   AuthenticatedPerfilRoute: AuthenticatedPerfilRoute,
   AuthenticatedPublicacoesRoute: AuthenticatedPublicacoesRoute,

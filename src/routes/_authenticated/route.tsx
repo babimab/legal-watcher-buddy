@@ -12,6 +12,7 @@ import {
   LineChart,
   LogOut,
   Newspaper,
+  RadioTower,
   ShieldCheck,
   Upload,
   User,
@@ -72,21 +73,117 @@ function AppLayout() {
 
   const navegacao = (
     <>
-      <NavItem to="/painel" icon={<LayoutDashboard className="size-4" />} label="Painel" tourId="nav-painel" />
-      <NavItem to="/painel" icon={<LayoutDashboard className="size-4" />} label="Equipe Souza Cruz" search={{ grupo: "Equipe Souza Cruz" }} tourId="nav-clientes" />
-      <NavItem to="/painel" icon={<LayoutDashboard className="size-4" />} label="Equipe Astro" search={{ grupo: "Equipe Astro" }} />
-      <NavItem to="/processos" icon={<FolderKanban className="size-4" />} label="Meus processos" search={{ advogado: "eu" }} tourId="nav-meus-processos" />
-      <NavItem to="/processos" icon={<List className="size-4" />} label="Todos os processos" tourId="nav-todos-processos" />
-      <NavItem to="/caixa-entrada" icon={<Inbox className="size-4" />} label="Caixa de entrada" contador={itensCaixaEntrada} tourId="nav-caixa-entrada" />
-      <NavItem to="/relatorio" icon={<AlertTriangle className="size-4" />} label="Meus prazos" search={{ aba: "pendencias", advogado: "eu" }} contador={meusPrazosUrgentes} />
-      <NavItem to="/calculos" icon={<Calculator className="size-4" />} label="Cálculos" tourId="nav-calculos" />
-      <NavItem to="/relatorio" icon={<LineChart className="size-4" />} label="Relatórios" contador={prazosUrgentes} tourId="nav-relatorios" />
-      {ehEstagiaria ? null : <NavItem to="/grupos" icon={<Users className="size-4" />} label="Grupos" tourId="nav-grupos" />}
-      {ehEstagiaria ? null : <NavItem to="/relatorio" icon={<Archive className="size-4" />} label="Encerramentos" search={{ aba: "encerramento" }} contador={baixasAbertas} tourId="nav-encerramento" />}
-      <NavItem to="/publicacoes" icon={<Newspaper className="size-4" />} label="Publicações" tourId="nav-publicacoes" />
-      <NavItem to="/citacoes" icon={<Gavel className="size-4" />} label="Citações" tourId="nav-citacoes" />
-      {ehEstagiaria ? null : <NavItem to="/importar" icon={<Upload className="size-4" />} label="Importar" tourId="nav-importar" />}
-      {ehEstagiaria ? null : <NavItem to="/qualidade-dados" icon={<ShieldCheck className="size-4" />} label="Qualidade dos dados" tourId="nav-qualidade" />}
+      <NavItem
+        to="/painel"
+        icon={<LayoutDashboard className="size-4" />}
+        label="Painel"
+        tourId="nav-painel"
+      />
+      <NavItem
+        to="/painel"
+        icon={<LayoutDashboard className="size-4" />}
+        label="Equipe Souza Cruz"
+        search={{ grupo: "Equipe Souza Cruz" }}
+        tourId="nav-clientes"
+      />
+      <NavItem
+        to="/painel"
+        icon={<LayoutDashboard className="size-4" />}
+        label="Equipe Astro"
+        search={{ grupo: "Equipe Astro" }}
+      />
+      <NavItem
+        to="/processos"
+        icon={<FolderKanban className="size-4" />}
+        label="Meus processos"
+        search={{ advogado: "eu" }}
+        tourId="nav-meus-processos"
+      />
+      <NavItem
+        to="/processos"
+        icon={<List className="size-4" />}
+        label="Todos os processos"
+        tourId="nav-todos-processos"
+      />
+      <NavItem
+        to="/caixa-entrada"
+        icon={<Inbox className="size-4" />}
+        label="Caixa de entrada"
+        contador={itensCaixaEntrada}
+        tourId="nav-caixa-entrada"
+      />
+      <NavItem
+        to="/relatorio"
+        icon={<AlertTriangle className="size-4" />}
+        label="Meus prazos"
+        search={{ aba: "pendencias", advogado: "eu" }}
+        contador={meusPrazosUrgentes}
+      />
+      <NavItem
+        to="/calculos"
+        icon={<Calculator className="size-4" />}
+        label="Cálculos"
+        tourId="nav-calculos"
+      />
+      <NavItem
+        to="/relatorio"
+        icon={<LineChart className="size-4" />}
+        label="Relatórios"
+        contador={prazosUrgentes}
+        tourId="nav-relatorios"
+      />
+      {ehEstagiaria ? null : (
+        <NavItem
+          to="/grupos"
+          icon={<Users className="size-4" />}
+          label="Grupos"
+          tourId="nav-grupos"
+        />
+      )}
+      {ehEstagiaria ? null : (
+        <NavItem
+          to="/relatorio"
+          icon={<Archive className="size-4" />}
+          label="Encerramentos"
+          search={{ aba: "encerramento" }}
+          contador={baixasAbertas}
+          tourId="nav-encerramento"
+        />
+      )}
+      <NavItem
+        to="/publicacoes"
+        icon={<Newspaper className="size-4" />}
+        label="Publicações"
+        tourId="nav-publicacoes"
+      />
+      <NavItem
+        to="/citacoes"
+        icon={<Gavel className="size-4" />}
+        label="Citações"
+        tourId="nav-citacoes"
+      />
+      <NavItem
+        to="/monitoramento"
+        icon={<RadioTower className="size-4" />}
+        label="Monitoramento"
+        tourId="nav-monitoramento"
+      />
+      {ehEstagiaria ? null : (
+        <NavItem
+          to="/importar"
+          icon={<Upload className="size-4" />}
+          label="Importar"
+          tourId="nav-importar"
+        />
+      )}
+      {ehEstagiaria ? null : (
+        <NavItem
+          to="/qualidade-dados"
+          icon={<ShieldCheck className="size-4" />}
+          label="Qualidade dos dados"
+          tourId="nav-qualidade"
+        />
+      )}
     </>
   );
 
@@ -101,7 +198,12 @@ function AppLayout() {
       >
         <User className="size-4" /> Perfil
       </Link>
-      <Button variant="ghost" size="sm" onClick={sair} className="text-slate-700 hover:bg-white/60 hover:text-slate-900">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={sair}
+        className="text-slate-700 hover:bg-white/60 hover:text-slate-900"
+      >
         <LogOut className="size-4" /> Sair
       </Button>
     </div>
@@ -144,7 +246,12 @@ function AppLayout() {
             <Link to="/perfil" aria-label="Meu perfil" className="rounded-md p-2 hover:bg-white/60">
               <User className="size-4" />
             </Link>
-            <Button variant="ghost" size="icon" onClick={sair} className="text-slate-700 hover:bg-white/60 hover:text-slate-900">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={sair}
+              className="text-slate-700 hover:bg-white/60 hover:text-slate-900"
+            >
               <LogOut className="size-4" />
             </Button>
           </div>
@@ -203,7 +310,11 @@ function NavItem({
     >
       <span className="shrink-0">{icon}</span>
       <span className="whitespace-nowrap">{label}</span>
-      {contador ? <Badge variant="destructive" className="ml-auto px-1.5 py-0 text-xs">{contador}</Badge> : null}
+      {contador ? (
+        <Badge variant="destructive" className="ml-auto px-1.5 py-0 text-xs">
+          {contador}
+        </Badge>
+      ) : null}
     </Link>
   );
 }
