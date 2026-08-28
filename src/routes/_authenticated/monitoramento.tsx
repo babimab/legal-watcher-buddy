@@ -45,6 +45,7 @@ function MonitoramentoPage() {
   const [busca, setBusca] = useState("");
   const [pastaId, setPastaId] = useState("todas");
   const [advogado, setAdvogado] = useState("todos");
+  const [socio, setSocio] = useState("todos");
   const [clienteFiltro, setClienteFiltro] = useState("todos");
   const [rodando, setRodando] = useState(false);
   const [alternando, setAlternando] = useState<Set<string>>(new Set());
@@ -64,6 +65,11 @@ function MonitoramentoPage() {
       [...new Set((processos.data ?? []).map((p) => p.cliente).filter(Boolean))].sort() as string[],
     [processos.data],
   );
+  const socios = useMemo(
+    () =>
+      [...new Set((processos.data ?? []).map((p) => p.socio).filter(Boolean))].sort() as string[],
+    [processos.data],
+  );
 
   const filtrados = useMemo(() => {
     const termo = normalizarNome(busca.trim());
@@ -81,10 +87,12 @@ function MonitoramentoPage() {
           : advogado === "nenhum"
             ? !p.responsavel
             : p.responsavel === advogado;
+      const casaSocio =
+        socio === "todos" ? true : socio === "nenhum" ? !p.socio : p.socio === socio;
       const casaCliente = clienteFiltro === "todos" || p.cliente === clienteFiltro;
-      return casaBusca && casaPasta && casaAdvogado && casaCliente;
+      return casaBusca && casaPasta && casaAdvogado && casaSocio && casaCliente;
     });
-  }, [processos.data, busca, pastaId, advogado, clienteFiltro]);
+  }, [processos.data, busca, pastaId, advogado, socio, clienteFiltro]);
 
   const alternar = async (processoId: string, ativo: boolean) => {
     setAlternando((atual) => new Set(atual).add(processoId));
@@ -200,6 +208,20 @@ function MonitoramentoPage() {
                 {advogados.map((a) => (
                   <SelectItem key={a} value={a}>
                     {a}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={socio} onValueChange={setSocio}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Sócio" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os sócios</SelectItem>
+                <SelectItem value="nenhum">Sem sócio</SelectItem>
+                {socios.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
                   </SelectItem>
                 ))}
               </SelectContent>
