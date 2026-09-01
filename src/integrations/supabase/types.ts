@@ -334,6 +334,7 @@ export type Database = {
           id: string;
           id_externo: string | null;
           observacao: string | null;
+          ordem: number | null;
           prazo: string | null;
           processo_id: string;
           tipo: string | null;
@@ -356,6 +357,7 @@ export type Database = {
           id?: string;
           id_externo?: string | null;
           observacao?: string | null;
+          ordem?: number | null;
           prazo?: string | null;
           processo_id: string;
           tipo?: string | null;
@@ -378,6 +380,7 @@ export type Database = {
           id?: string;
           id_externo?: string | null;
           observacao?: string | null;
+          ordem?: number | null;
           prazo?: string | null;
           processo_id?: string;
           tipo?: string | null;

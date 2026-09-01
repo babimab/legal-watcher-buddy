@@ -6,6 +6,7 @@ import {
   CalendarClock,
   CheckCircle2,
   ExternalLink,
+  GripVertical,
   Pencil,
   Plus,
   Search,
@@ -138,6 +139,39 @@ function ProcessoDetalhe() {
     const { error } = await supabaseSolto.from("movimentacoes").delete().eq("id", movId);
     if (error) {
       toast.error(error.message);
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ["movimentacoes", id] });
+  };
+
+  // Reordenação manual dos andamentos com a mesma data (a Judit às vezes
+  // importa vários do mesmo dia fora da ordem cronológica real). Ao soltar,
+  // grava a nova ordem em todos os andamentos daquele dia.
+  const [idArrastado, setIdArrastado] = useState<string | null>(null);
+
+  const reordenarMovimentacoes = async (
+    dataMovimentacao: string,
+    idOrigem: string,
+    idDestino: string,
+  ) => {
+    const doMesmoDia = (movs.data ?? []).filter((mv) => mv.data_movimentacao === dataMovimentacao);
+    const ids = doMesmoDia.map((mv) => mv.id);
+    const origem = ids.indexOf(idOrigem);
+    const destino = ids.indexOf(idDestino);
+    if (origem === -1 || destino === -1 || origem === destino) return;
+
+    const reordenado = [...ids];
+    reordenado.splice(origem, 1);
+    reordenado.splice(destino, 0, idOrigem);
+
+    const resultados = await Promise.all(
+      reordenado.map((movId, indice) =>
+        supabase.from("movimentacoes").update({ ordem: indice }).eq("id", movId),
+      ),
+    );
+    const erro = resultados.find((r) => r.error)?.error;
+    if (erro) {
+      toast.error(erro.message);
       return;
     }
     await queryClient.invalidateQueries({ queryKey: ["movimentacoes", id] });
@@ -495,96 +529,122 @@ function ProcessoDetalhe() {
           </Card>
         ) : (
           <ol className="space-y-3">
-            {(movs.data ?? []).map((m) => (
-              <li
-                key={m.id}
-                className={`rounded-lg border p-4 ${m.validado ? "border-border bg-card" : "border-amber-500/50 bg-amber-50/50"}`}
-              >
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="font-medium">
-                    {new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR")}
-                  </span>
-                  {m.tipo ? <Badge variant="outline">{m.tipo}</Badge> : null}
-                  {!m.validado ? <Badge variant="secondary">Sugerido — não validado</Badge> : null}
-                  {movimentacaoRelevante(m.descricao) ? (
-                    <Badge className="gap-1">
-                      <Star className="size-3" /> Importante
-                    </Badge>
-                  ) : null}
-                  {m.exige_acao ? (
-                    <Badge variant={m.concluida ? "secondary" : "destructive"}>
-                      <CalendarClock className="size-3" />
-                      {m.prazo
-                        ? `Prazo ${new Date(`${m.prazo}T12:00:00`).toLocaleDateString("pt-BR")}`
-                        : "Exige providência"}
-                    </Badge>
-                  ) : null}
-                  <MovimentacaoDialog
-                    processoId={p.id}
-                    movimentacao={m}
-                    trigger={
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Editar movimentação"
-                        className="ml-auto size-7"
-                      >
-                        <Pencil className="size-3.5" />
-                      </Button>
+            {(movs.data ?? []).map((m) => {
+              const podeArrastar =
+                (movs.data ?? []).filter((mv) => mv.data_movimentacao === m.data_movimentacao)
+                  .length > 1;
+              return (
+                <li
+                  key={m.id}
+                  draggable={podeArrastar}
+                  onDragStart={() => setIdArrastado(m.id)}
+                  onDragOver={(e) => {
+                    if (podeArrastar && idArrastado && idArrastado !== m.id) e.preventDefault();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (idArrastado && idArrastado !== m.id) {
+                      void reordenarMovimentacoes(m.data_movimentacao, idArrastado, m.id);
                     }
-                  />
-                </div>
-                <p className="mt-2 whitespace-pre-wrap text-sm">{m.descricao}</p>
-                {m.observacao ? (
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
-                    Obs.: {m.observacao}
-                  </p>
-                ) : null}
-
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                  {m.exige_acao ? (
-                    <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Checkbox
-                        checked={m.concluida}
-                        onCheckedChange={(v) => alternarConcluida(m.id, v === true)}
+                    setIdArrastado(null);
+                  }}
+                  onDragEnd={() => setIdArrastado(null)}
+                  className={`rounded-lg border p-4 ${m.validado ? "border-border bg-card" : "border-amber-500/50 bg-amber-50/50"} ${podeArrastar ? "cursor-grab active:cursor-grabbing" : ""}`}
+                >
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    {podeArrastar ? (
+                      <GripVertical
+                        className="size-4 text-muted-foreground"
+                        aria-label="Arrastar para reordenar andamentos da mesma data"
                       />
-                      Providência concluída
-                    </label>
-                  ) : (
-                    <span />
-                  )}
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => void excluirMovimentacao(m.id)}
-                    >
-                      <Trash2 className="size-3.5" /> Excluir
-                    </Button>
+                    ) : null}
+                    <span className="font-medium">
+                      {new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR")}
+                    </span>
+                    {m.tipo ? <Badge variant="outline">{m.tipo}</Badge> : null}
                     {!m.validado ? (
+                      <Badge variant="secondary">Sugerido — não validado</Badge>
+                    ) : null}
+                    {movimentacaoRelevante(m.descricao) ? (
+                      <Badge className="gap-1">
+                        <Star className="size-3" /> Importante
+                      </Badge>
+                    ) : null}
+                    {m.exige_acao ? (
+                      <Badge variant={m.concluida ? "secondary" : "destructive"}>
+                        <CalendarClock className="size-3" />
+                        {m.prazo
+                          ? `Prazo ${new Date(`${m.prazo}T12:00:00`).toLocaleDateString("pt-BR")}`
+                          : "Exige providência"}
+                      </Badge>
+                    ) : null}
+                    <MovimentacaoDialog
+                      processoId={p.id}
+                      movimentacao={m}
+                      trigger={
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Editar movimentação"
+                          className="ml-auto size-7"
+                        >
+                          <Pencil className="size-3.5" />
+                        </Button>
+                      }
+                    />
+                  </div>
+                  <p className="mt-2 whitespace-pre-wrap text-sm">{m.descricao}</p>
+                  {m.observacao ? (
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                      Obs.: {m.observacao}
+                    </p>
+                  ) : null}
+
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                    {m.exige_acao ? (
+                      <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Checkbox
+                          checked={m.concluida}
+                          onCheckedChange={(v) => alternarConcluida(m.id, v === true)}
+                        />
+                        Providência concluída
+                      </label>
+                    ) : (
+                      <span />
+                    )}
+                    <div className="flex items-center gap-2">
                       <Button
                         type="button"
                         size="sm"
-                        variant="outline"
-                        onClick={() => validarMovimentacao(m.id)}
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => void excluirMovimentacao(m.id)}
                       >
-                        <CheckCircle2 className="size-3.5" /> Marcar como validado
+                        <Trash2 className="size-3.5" /> Excluir
                       </Button>
-                    ) : m.validado_por ? (
-                      <p className="text-xs text-muted-foreground">
-                        Validado por {m.validado_por}
-                        {m.validado_em
-                          ? ` em ${new Date(m.validado_em).toLocaleDateString("pt-BR")}`
-                          : ""}
-                      </p>
-                    ) : null}
+                      {!m.validado ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => validarMovimentacao(m.id)}
+                        >
+                          <CheckCircle2 className="size-3.5" /> Marcar como validado
+                        </Button>
+                      ) : m.validado_por ? (
+                        <p className="text-xs text-muted-foreground">
+                          Validado por {m.validado_por}
+                          {m.validado_em
+                            ? ` em ${new Date(m.validado_em).toLocaleDateString("pt-BR")}`
+                            : ""}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ol>
         )}
       </div>

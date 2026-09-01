@@ -67,6 +67,7 @@ export type Movimentacao = {
   validado_por: string | null;
   validado_em: string | null;
   created_at: string;
+  ordem: number | null;
 };
 
 // Sigla ou e-mail de quem está logado agora, pra registrar em
@@ -567,6 +568,7 @@ export async function listarMovimentacoes(processoId: string): Promise<Movimenta
     .select("*")
     .eq("processo_id", processoId)
     .order("data_movimentacao", { ascending: false })
+    .order("ordem", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as unknown as Movimentacao[];
