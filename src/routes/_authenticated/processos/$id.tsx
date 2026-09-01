@@ -364,6 +364,8 @@ function ProcessoDetalhe() {
           <Dado rotulo="Vara" valor={p.vara} />
           <Dado rotulo="Comarca" valor={[p.comarca, p.uf].filter(Boolean).join(" / ") || null} />
           <Dado rotulo="Classe / Assunto" valor={p.classe} />
+          <Dado rotulo="Área do direito" valor={p.area_direito} />
+          <Dado rotulo="Instância" valor={p.instancia} />
           <Dado rotulo="Responsável" valor={p.responsavel} />
           <Dado rotulo="Sócio" valor={p.socio} />
           <Dado rotulo="Coordenador" valor={p.coordenador} />

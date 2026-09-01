@@ -579,6 +579,7 @@ export type Database = {
       };
       processos: {
         Row: {
+          area_direito: string | null;
           autor: string | null;
           carteira: string | null;
           classe: string | null;
@@ -595,6 +596,7 @@ export type Database = {
           fonte: string;
           id: string;
           id_externo: string | null;
+          instancia: string | null;
           judit_monitorado_em: string | null;
           judit_monitoramento: boolean;
           judit_request_criado_em: string | null;
@@ -629,6 +631,7 @@ export type Database = {
           vara: string | null;
         };
         Insert: {
+          area_direito?: string | null;
           autor?: string | null;
           carteira?: string | null;
           classe?: string | null;
@@ -645,6 +648,7 @@ export type Database = {
           fonte?: string;
           id?: string;
           id_externo?: string | null;
+          instancia?: string | null;
           judit_monitorado_em?: string | null;
           judit_monitoramento?: boolean;
           judit_request_criado_em?: string | null;
@@ -679,6 +683,7 @@ export type Database = {
           vara?: string | null;
         };
         Update: {
+          area_direito?: string | null;
           autor?: string | null;
           carteira?: string | null;
           classe?: string | null;
@@ -695,6 +700,7 @@ export type Database = {
           fonte?: string;
           id?: string;
           id_externo?: string | null;
+          instancia?: string | null;
           judit_monitorado_em?: string | null;
           judit_monitoramento?: boolean;
           judit_request_criado_em?: string | null;
