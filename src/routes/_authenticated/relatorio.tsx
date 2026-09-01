@@ -59,6 +59,7 @@ import {
   finalizarPlanilha,
   baixarPlanilha,
   exportarProcessosExcel,
+  exportarProcessosPorAssuntoExcel,
 } from "@/lib/excel";
 
 type RelatorioSearch = {
@@ -912,6 +913,25 @@ function RelatorioPage() {
     }
   };
 
+  // Igual a exportarBaseCompleta, mas com uma aba separada por assunto/cliente
+  // (formato que a Eliane gosta de ver), mantendo os processos com item na
+  // aba atual destacados em amarelo.
+  const exportarBaseCompletaPorAssunto = async () => {
+    const idsComItemNaAba = new Set(itensDaAba.map((m) => m.processo_id));
+    try {
+      await exportarProcessosPorAssuntoExcel(
+        processosDaBaseFiltrados,
+        `${nomeArquivoComSigla}-base-completa-por-assunto`,
+        idsComItemNaAba,
+      );
+      toast.success(
+        "Base completa por assunto exportada, com os processos com item na aba destacados em amarelo.",
+      );
+    } catch {
+      toast.error("Não consegui gerar o Excel.");
+    }
+  };
+
   const rodar = async () => {
     setRodando(true);
     const { data: userData } = await supabase.auth.getUser();
@@ -1079,6 +1099,16 @@ function RelatorioPage() {
               title="Planilha com todos os processos do advogado, com os que têm item nesta aba destacados em amarelo"
             >
               <Download className="size-4" /> Exportar base completa
+            </Button>
+          ) : null}
+          {!ehAbaEncerramento ? (
+            <Button
+              variant="outline"
+              disabled={processosDaBaseFiltrados.length === 0}
+              onClick={() => void exportarBaseCompletaPorAssunto()}
+              title="Planilha com todos os processos do advogado, separados por aba de assunto/cliente, com os que têm item nesta aba destacados em amarelo"
+            >
+              <Download className="size-4" /> Exportar base completa por assunto
             </Button>
           ) : null}
           <Button onClick={rodar} disabled={rodando}>
