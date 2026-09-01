@@ -19,6 +19,7 @@ export type Processo = {
   vara: string | null;
   comarca: string | null;
   classe: string | null;
+  detalhamento_objeto: string | null;
   fase: string | null;
   criticidade: string | null;
   pasta_id: string | null;
