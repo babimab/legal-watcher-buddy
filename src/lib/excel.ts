@@ -129,6 +129,7 @@ const COLUNAS_PROCESSOS: Partial<ExcelJS.Column>[] = [
   { header: "Responsável", key: "responsavel", width: 14 },
   { header: "Sócio", key: "socio", width: 10 },
   { header: "Objeto", key: "objeto", width: 30 },
+  { header: "Detalhamento do objeto", key: "detalhamento_objeto", width: 34 },
   {
     header: "Valor da causa",
     key: "valor_causa",
@@ -171,6 +172,7 @@ function preencherPlanilhaProcessos(
       responsavel: p.responsavel ?? "",
       socio: p.socio ?? "",
       objeto: exibir(p.classe) ?? "",
+      detalhamento_objeto: exibir(p.detalhamento_objeto) ?? "",
       valor_causa: p.valor_causa ?? null,
       criticidade: exibir(p.criticidade) ?? "",
       fase: p.fase ?? "",
