@@ -81,7 +81,7 @@ function tituloRelatorioXml(titulo: string, subtitulo: string, totalProcessos: n
   ].join("");
 }
 
-function blocoProcessoXml(p: Processo, ultimo: Movimentacao | undefined): string {
+function blocoProcessoXml(p: Processo, ultimos: Movimentacao[]): string {
   const partes = `${exibir(p.cliente) ?? "Não informado"} x ${exibir(p.parte_contraria) ?? "Não informado"}`;
 
   const localJuizo = [
@@ -93,9 +93,16 @@ function blocoProcessoXml(p: Processo, ultimo: Movimentacao | undefined): string
   const assunto = exibir(p.carteira) ?? exibir(p.classe) ?? "Não informado";
   const objeto = exibir(p.classe) ?? "Não informado";
 
-  const ultimoAndamento = ultimo
-    ? `${new Date(`${ultimo.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR")} — ${ultimo.descricao}`
-    : "Sem andamentos registrados";
+  const formatarAndamento = (m: Movimentacao) =>
+    `${new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR")} — ${m.descricao}`;
+
+  const [primeiroAndamento, ...demaisAndamentos] = ultimos;
+  const andamentosXml = primeiroAndamento
+    ? [
+        linhaRotulo("Últimos andamentos", formatarAndamento(primeiroAndamento)),
+        ...demaisAndamentos.map((m) => paragrafo(run(formatarAndamento(m)))),
+      ].join("")
+    : linhaRotulo("Últimos andamentos", "Sem andamentos registrados");
 
   const statusAtual = p.fase ? `${p.status} (${p.fase})` : p.status;
   const responsavel = exibir(p.responsavel) ?? "Não informado";
@@ -112,7 +119,7 @@ function blocoProcessoXml(p: Processo, ultimo: Movimentacao | undefined): string
     linhaRotulo("Juízo", juizo),
     linhaRotulo("Assunto", assunto),
     linhaRotulo("Objeto", objeto),
-    linhaRotulo("Último andamento", ultimoAndamento),
+    andamentosXml,
     linhaRotulo("Status atual", statusAtual),
     linhaRotulo("Advogado responsável", responsavel, { depois: 120 }),
     paragrafo("", { linhaSeparadora: true, depois: 240 }),
@@ -136,11 +143,11 @@ export function montarCorpoRelatorioXml(
   titulo: string,
   subtitulo: string,
   processos: Processo[],
-  ultimoAndamentoPorProcesso: Map<string, Movimentacao | undefined>,
+  ultimosAndamentosPorProcesso: Map<string, Movimentacao[]>,
 ): string {
   return (
     tituloRelatorioXml(titulo, subtitulo, processos.length) +
-    processos.map((p) => blocoProcessoXml(p, ultimoAndamentoPorProcesso.get(p.id))).join("")
+    processos.map((p) => blocoProcessoXml(p, ultimosAndamentosPorProcesso.get(p.id) ?? [])).join("")
   );
 }
 
@@ -152,7 +159,7 @@ export async function gerarRelatorioProcessosWord(
     fetch(CAMINHO_MODELO),
     listarUltimosAndamentosPorProcessos(
       processos.map((p) => p.id),
-      1,
+      3,
     ),
   ]);
   if (!respostaModelo.ok) {
@@ -167,14 +174,14 @@ export async function gerarRelatorioProcessosWord(
   }
   const xmlOriginal = await arquivoDocumentXml.async("text");
 
-  const ultimoAndamentoPorProcesso = new Map(
-    processos.map((p) => [p.id, andamentosPorProcesso.get(p.id)?.[0]]),
+  const ultimosAndamentosPorProcesso = new Map(
+    processos.map((p) => [p.id, andamentosPorProcesso.get(p.id) ?? []]),
   );
   const corpo = montarCorpoRelatorioXml(
     opts.titulo ?? "Relatório Geral de Processos",
     opts.subtitulo,
     processos,
-    ultimoAndamentoPorProcesso,
+    ultimosAndamentosPorProcesso,
   );
   zip.file(CAMINHO_DOCUMENT_XML, injetarCorpoNoTemplate(xmlOriginal, corpo));
 
