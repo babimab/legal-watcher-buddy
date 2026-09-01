@@ -1,7 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { CalendarPlus, CheckCircle2, ExternalLink, Inbox, MailCheck, MailX } from "lucide-react";
+import {
+  CalendarPlus,
+  CheckCircle2,
+  ExternalLink,
+  Inbox,
+  MailCheck,
+  MailX,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +30,7 @@ import {
   concluirTriagem,
   criarPrazoNaTriagem,
   definirDestaqueCaixa,
+  excluirItensCaixaEntrada,
   listarCaixaEntrada,
   type ItemCaixaEntrada,
 } from "@/lib/caixa-entrada";
@@ -96,7 +105,8 @@ function CaixaEntradaPage() {
   }, [todos, origem, busca]);
 
   const idsVisiveis = filtrados.map((i) => i.id);
-  const todosVisiveisSelecionados = idsVisiveis.length > 0 && idsVisiveis.every((id) => selecionados.has(id));
+  const todosVisiveisSelecionados =
+    idsVisiveis.length > 0 && idsVisiveis.every((id) => selecionados.has(id));
 
   const alternar = (id: string) => {
     setSelecionados((atual) => {
@@ -155,6 +165,27 @@ function CaixaEntradaPage() {
     }
   };
 
+  const excluirSelecionados = async () => {
+    const ids = [...selecionados];
+    if (!ids.length) return;
+    if (
+      !window.confirm(
+        `Excluir ${ids.length} item(ns) selecionado(s)? Essa ação não poderá ser desfeita.`,
+      )
+    )
+      return;
+    setProcessando(true);
+    try {
+      await excluirItensCaixaEntrada(ids);
+      toast.success(`${ids.length} item(ns) excluído(s).`);
+      await atualizar();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não consegui excluir os itens.");
+    } finally {
+      setProcessando(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -165,9 +196,27 @@ function CaixaEntradaPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant={origem === "todas" ? "default" : "outline"} size="sm" onClick={() => setOrigem("todas")}>Todas ({contadores.todas})</Button>
-        <Button variant={origem === "publicacoes" ? "default" : "outline"} size="sm" onClick={() => setOrigem("publicacoes")}>Publicações ({contadores.publicacoes})</Button>
-        <Button variant={origem === "citacoes" ? "default" : "outline"} size="sm" onClick={() => setOrigem("citacoes")}>Citações ({contadores.citacoes})</Button>
+        <Button
+          variant={origem === "todas" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setOrigem("todas")}
+        >
+          Todas ({contadores.todas})
+        </Button>
+        <Button
+          variant={origem === "publicacoes" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setOrigem("publicacoes")}
+        >
+          Publicações ({contadores.publicacoes})
+        </Button>
+        <Button
+          variant={origem === "citacoes" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setOrigem("citacoes")}
+        >
+          Citações ({contadores.citacoes})
+        </Button>
         <Input
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
@@ -184,11 +233,29 @@ function CaixaEntradaPage() {
           />
           <span>{selecionados.size} selecionado(s)</span>
           <div className="ml-auto flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" disabled={!selecionados.size || processando} onClick={() => void destacarSelecionados()}>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!selecionados.size || processando}
+              onClick={() => void destacarSelecionados()}
+            >
               <MailCheck className="size-4" /> Destacar selecionadas
             </Button>
-            <Button size="sm" disabled={!selecionados.size || processando} onClick={() => void concluirSelecionados()}>
+            <Button
+              size="sm"
+              disabled={!selecionados.size || processando}
+              onClick={() => void concluirSelecionados()}
+            >
               <CheckCircle2 className="size-4" /> Concluir selecionadas
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-destructive hover:text-destructive"
+              disabled={!selecionados.size || processando}
+              onClick={() => void excluirSelecionados()}
+            >
+              <Trash2 className="size-4" /> Excluir selecionadas
             </Button>
           </div>
         </div>
@@ -233,9 +300,10 @@ function ItemTriagem({
 }) {
   const p = item.processos;
   const [salvando, setSalvando] = useState(false);
-  const clienteCaso = p?.numero_cliente && p?.numero_interno
-    ? `${p.numero_cliente}/${p.numero_interno}`
-    : p?.numero_interno || p?.numero_cliente || null;
+  const clienteCaso =
+    p?.numero_cliente && p?.numero_interno
+      ? `${p.numero_cliente}/${p.numero_interno}`
+      : p?.numero_interno || p?.numero_cliente || null;
 
   const concluir = async () => {
     setSalvando(true);
@@ -263,6 +331,23 @@ function ItemTriagem({
     }
   };
 
+  const excluir = async () => {
+    if (
+      !window.confirm("Excluir este item da caixa de entrada? Essa ação não poderá ser desfeita.")
+    )
+      return;
+    setSalvando(true);
+    try {
+      await excluirItensCaixaEntrada([item.id]);
+      toast.success("Item excluído.");
+      await onAtualizar();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não consegui excluir o item.");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
   return (
     <Card>
       <CardContent className="p-4 sm:p-5">
@@ -272,8 +357,12 @@ function ItemTriagem({
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={item.fonte === "citacoes" ? "default" : "secondary"}>{rotuloOrigem(item.fonte)}</Badge>
-                  {item.destacar_email ? <Badge variant="outline">Destacado para cliente</Badge> : null}
+                  <Badge variant={item.fonte === "citacoes" ? "default" : "secondary"}>
+                    {rotuloOrigem(item.fonte)}
+                  </Badge>
+                  {item.destacar_email ? (
+                    <Badge variant="outline">Destacado para cliente</Badge>
+                  ) : null}
                   <span className="text-xs text-muted-foreground">
                     {new Date(`${item.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR")}
                   </span>
@@ -288,7 +377,9 @@ function ItemTriagem({
               </div>
             </div>
 
-            <p className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm leading-relaxed">{item.descricao}</p>
+            <p className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm leading-relaxed">
+              {item.descricao}
+            </p>
 
             <div className="flex flex-wrap gap-2">
               {p ? (
@@ -299,12 +390,30 @@ function ItemTriagem({
                 </Button>
               ) : null}
               <PrazoTriagemDialog item={item} onAtualizar={onAtualizar} />
-              <Button size="sm" variant="outline" disabled={salvando} onClick={() => void alternarDestaque()}>
-                {item.destacar_email ? <MailX className="size-4" /> : <MailCheck className="size-4" />}
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={salvando}
+                onClick={() => void alternarDestaque()}
+              >
+                {item.destacar_email ? (
+                  <MailX className="size-4" />
+                ) : (
+                  <MailCheck className="size-4" />
+                )}
                 {item.destacar_email ? "Remover destaque" : "Destacar para cliente"}
               </Button>
               <Button size="sm" disabled={salvando} onClick={() => void concluir()}>
                 <CheckCircle2 className="size-4" /> Concluir triagem
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-destructive hover:text-destructive"
+                disabled={salvando}
+                onClick={() => void excluir()}
+              >
+                <Trash2 className="size-4" /> Excluir
               </Button>
             </div>
           </div>
@@ -314,7 +423,13 @@ function ItemTriagem({
   );
 }
 
-function PrazoTriagemDialog({ item, onAtualizar }: { item: ItemCaixaEntrada; onAtualizar: () => Promise<void> }) {
+function PrazoTriagemDialog({
+  item,
+  onAtualizar,
+}: {
+  item: ItemCaixaEntrada;
+  onAtualizar: () => Promise<void>;
+}) {
   const [aberto, setAberto] = useState(false);
   const [prazo, setPrazo] = useState("");
   const [salvando, setSalvando] = useState(false);
@@ -348,16 +463,26 @@ function PrazoTriagemDialog({ item, onAtualizar }: { item: ItemCaixaEntrada; onA
           <DialogHeader>
             <DialogTitle>Criar prazo</DialogTitle>
             <DialogDescription>
-              O prazo será vinculado a esta {rotuloOrigem(item.fonte).toLowerCase()} e a triagem será concluída.
+              O prazo será vinculado a esta {rotuloOrigem(item.fonte).toLowerCase()} e a triagem
+              será concluída.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor={`prazo-${item.id}`}>Data do prazo</Label>
-            <Input id={`prazo-${item.id}`} type="date" value={prazo} onChange={(e) => setPrazo(e.target.value)} />
+            <Input
+              id={`prazo-${item.id}`}
+              type="date"
+              value={prazo}
+              onChange={(e) => setPrazo(e.target.value)}
+            />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAberto(false)}>Cancelar</Button>
-            <Button disabled={salvando || !prazo} onClick={() => void salvar()}>Salvar prazo</Button>
+            <Button variant="outline" onClick={() => setAberto(false)}>
+              Cancelar
+            </Button>
+            <Button disabled={salvando || !prazo} onClick={() => void salvar()}>
+              Salvar prazo
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
