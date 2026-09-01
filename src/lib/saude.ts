@@ -447,6 +447,37 @@ export function gruposPorParteAdversa(processos: Processo[], pastaId: string): G
     .sort((a, b) => b.processos.length - a.processos.length);
 }
 
+// --- Objeto (classe) fora do padrão ---
+// Sinaliza processos cujo objeto ainda tem cara de rótulo bruto de
+// planilha, sem revisão -- código numérico residual da importação ("6461 -
+// Outros", "5318 - Moral") ou o genérico "Outros". Não valida contra uma
+// lista fechada de objetos "certos" (a carteira tem tipo de caso demais
+// pra isso) -- só pega os padrões que já apareceram em importações.
+export type ObjetoForaDoPadrao = Pick<
+  Processo,
+  "id" | "numero_cnj" | "cliente" | "classe" | "detalhamento_objeto" | "pasta_id"
+>;
+
+const PADRAO_CODIGO_NUMERICO_OBJETO = /^\d+\s*-/;
+
+export function objetosForaDoPadrao(processos: Processo[]): ObjetoForaDoPadrao[] {
+  return processos
+    .filter((p) => {
+      const classe = p.classe?.trim() ?? "";
+      if (!classe) return false;
+      if (PADRAO_CODIGO_NUMERICO_OBJETO.test(classe)) return true;
+      return classe.toLocaleLowerCase("pt-BR") === "outros";
+    })
+    .map((p) => ({
+      id: p.id,
+      numero_cnj: p.numero_cnj,
+      cliente: p.cliente,
+      classe: p.classe,
+      detalhamento_objeto: p.detalhamento_objeto,
+      pasta_id: p.pasta_id,
+    }));
+}
+
 export async function listarProcessosParaSaude(): Promise<Processo[]> {
   return listarProcessos();
 }

@@ -18,6 +18,7 @@ import {
   gruposPorParteAdversa,
   listarProblemasAcento,
   listarProcessosParaSaude,
+  objetosForaDoPadrao,
   processosSemPasta,
   type ProblemaAcento,
 } from "@/lib/saude";
@@ -57,6 +58,7 @@ function QualidadeDadosPage() {
   const semPasta = processos.data ? processosSemPasta(processos.data) : [];
   const duplicados = processos.data ? cnjsDuplicados(processos.data) : [];
   const desdobramentos = processos.data ? desdobramentosNaoVinculados(processos.data) : [];
+  const objetoForaDoPadrao = processos.data ? objetosForaDoPadrao(processos.data) : [];
   const acentos = problemasAcento.data ?? [];
 
   // Pasta BDR (Equipe Souza Cruz) — planilha de possíveis desdobramentos
@@ -85,6 +87,7 @@ function QualidadeDadosPage() {
     semPasta.length === 0 &&
     duplicados.length === 0 &&
     desdobramentos.length === 0 &&
+    objetoForaDoPadrao.length === 0 &&
     acentos.length === 0;
 
   const corrigir = async (problema: ProblemaAcento) => {
@@ -294,6 +297,57 @@ function QualidadeDadosPage() {
                 </div>
               </div>
             ))}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {objetoForaDoPadrao.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 font-serif text-lg">
+              <AlertTriangle className="size-5 text-amber-500" />
+              {objetoForaDoPadrao.length} objeto(s) fora do padrão
+            </CardTitle>
+            <CardDescription>
+              Objeto ainda com código numérico bruto da planilha (ex.: "6461 - Outros") ou marcado
+              como "Outros" — provavelmente dá pra ler o detalhamento e classificar certo.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto rounded-md border border-border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="p-2 text-left">Processo</th>
+                    <th className="p-2 text-left">Cliente</th>
+                    <th className="p-2 text-left">Objeto atual</th>
+                    <th className="p-2 text-left">Detalhamento do objeto</th>
+                    <th className="w-24 p-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {objetoForaDoPadrao.map((p) => (
+                    <tr key={p.id} className="border-t border-border">
+                      <td className="p-2 font-mono text-xs">{formatarCNJ(p.numero_cnj)}</td>
+                      <td className="p-2">{exibir(p.cliente)}</td>
+                      <td className="p-2">
+                        <Badge variant="outline">{p.classe}</Badge>
+                      </td>
+                      <td className="max-w-96 truncate p-2 text-xs text-muted-foreground">
+                        {exibir(p.detalhamento_objeto) ?? "—"}
+                      </td>
+                      <td className="p-2 text-right">
+                        <Button asChild size="sm" variant="outline">
+                          <Link to="/processos/$id" params={{ id: p.id }}>
+                            Editar
+                          </Link>
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </CardContent>
         </Card>
       ) : null}
