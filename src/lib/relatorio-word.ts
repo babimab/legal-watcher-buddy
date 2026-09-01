@@ -92,6 +92,11 @@ function blocoProcessoXml(p: Processo, ultimos: Movimentacao[]): string {
 
   const assunto = exibir(p.carteira) ?? exibir(p.classe) ?? "Não informado";
   const objeto = exibir(p.classe) ?? "Não informado";
+  const valorCausa =
+    p.valor_causa != null
+      ? p.valor_causa.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+      : "Não informado";
+  const criticidade = exibir(p.criticidade) ?? "Não informada";
 
   const formatarAndamento = (m: Movimentacao) =>
     `${new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR")} — ${m.descricao}`;
@@ -119,6 +124,8 @@ function blocoProcessoXml(p: Processo, ultimos: Movimentacao[]): string {
     linhaRotulo("Juízo", juizo),
     linhaRotulo("Assunto", assunto),
     linhaRotulo("Objeto", objeto),
+    linhaRotulo("Valor da causa", valorCausa),
+    linhaRotulo("Criticidade", criticidade),
     andamentosXml,
     linhaRotulo("Status atual", statusAtual),
     linhaRotulo("Advogado responsável", responsavel, { depois: 120 }),
