@@ -91,6 +91,7 @@ function blocoProcessoXml(p: Processo, ultimo: Movimentacao | undefined): string
   const juizo = localJuizo.length ? localJuizo.join(" — ") : "Não informado";
 
   const assunto = exibir(p.carteira) ?? exibir(p.classe) ?? "Não informado";
+  const objeto = exibir(p.classe) ?? "Não informado";
 
   const ultimoAndamento = ultimo
     ? `${new Date(`${ultimo.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR")} — ${ultimo.descricao}`
@@ -110,6 +111,7 @@ function blocoProcessoXml(p: Processo, ultimo: Movimentacao | undefined): string
     linhaRotulo("Partes", partes),
     linhaRotulo("Juízo", juizo),
     linhaRotulo("Assunto", assunto),
+    linhaRotulo("Objeto", objeto),
     linhaRotulo("Último andamento", ultimoAndamento),
     linhaRotulo("Status atual", statusAtual),
     linhaRotulo("Advogado responsável", responsavel, { depois: 120 }),
