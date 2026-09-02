@@ -109,6 +109,7 @@ async function buscarCandidatosAcento<T extends Record<string, unknown>>(
         .from(tabela)
         .select(select)
         .or(orExpr)
+        .order("id", { ascending: true })
         .range(offset, offset + limite - 1) as unknown as PromiseLike<{
         data: T[] | null;
         error: { message: string } | null;

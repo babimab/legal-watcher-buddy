@@ -654,6 +654,7 @@ export async function listarUltimasMovimentacoes(): Promise<Map<string, Moviment
         .select("*")
         .order("data_movimentacao", { ascending: false })
         .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
         .range(offset, offset + limite - 1) as unknown as PromiseLike<{
         data: Movimentacao[] | null;
         error: { message: string } | null;
@@ -706,6 +707,7 @@ export async function listarPendencias(): Promise<MovimentacaoComProcesso[]> {
         .eq("exige_acao", true)
         .eq("concluida", false)
         .order("prazo", { ascending: true, nullsFirst: false })
+        .order("id", { ascending: true })
         .range(offset, offset + limite - 1) as unknown as PromiseLike<{
         data: MovimentacaoComProcesso[] | null;
         error: { message: string } | null;
@@ -721,6 +723,7 @@ export async function listarNaoValidados(): Promise<MovimentacaoComProcesso[]> {
         .select(`*, processos(${CAMPOS_PROCESSO_RELATORIO})`)
         .eq("validado", false)
         .order("data_movimentacao", { ascending: false })
+        .order("id", { ascending: true })
         .range(offset, offset + limite - 1) as unknown as PromiseLike<{
         data: MovimentacaoComProcesso[] | null;
         error: { message: string } | null;

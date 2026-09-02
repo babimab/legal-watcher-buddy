@@ -21,6 +21,7 @@ export async function listarCaixaEntrada(): Promise<ItemCaixaEntrada[]> {
         .in("fonte", ["publicacoes", "citacoes"])
         .order("data_movimentacao", { ascending: false })
         .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
         .range(offset, offset + limite - 1) as unknown as PromiseLike<{
         data: ItemCaixaEntrada[] | null;
         error: { message: string } | null;
