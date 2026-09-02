@@ -89,7 +89,10 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
     const payload = {
       numero_cnj: String(form.get("numero_cnj") ?? "").trim(),
       cliente: String(form.get("cliente") ?? "").trim(),
+      autor: String(form.get("autor") ?? "").trim() || null,
+      reu: String(form.get("reu") ?? "").trim() || null,
       numero_cliente: String(form.get("numero_cliente") ?? "").trim() || null,
+      numero_interno: String(form.get("numero_interno") ?? "").trim() || null,
       parte_contraria: String(form.get("parte_contraria") ?? "").trim() || null,
       tribunal: String(form.get("tribunal") ?? "").trim() || null,
       vara: String(form.get("vara") ?? "").trim() || null,
@@ -187,9 +190,20 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
             defaultValue={processo?.cliente ?? iniciais?.cliente ?? ""}
           />
           <Campo
+            label="Autor"
+            name="autor"
+            defaultValue={processo?.autor ?? iniciais?.autor ?? ""}
+          />
+          <Campo label="Réu" name="reu" defaultValue={processo?.reu ?? iniciais?.reu ?? ""} />
+          <Campo
             label="Número do cliente"
             name="numero_cliente"
             defaultValue={processo?.numero_cliente ?? iniciais?.numero_cliente ?? ""}
+          />
+          <Campo
+            label="Número do caso"
+            name="numero_interno"
+            defaultValue={processo?.numero_interno ?? iniciais?.numero_interno ?? ""}
           />
           <Campo
             label="Parte contrária"
