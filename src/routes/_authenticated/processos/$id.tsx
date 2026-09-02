@@ -12,6 +12,7 @@ import {
   Search,
   Star,
   Trash2,
+  Unlink2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -25,6 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { supabaseSolto } from "@/lib/supabase-solto";
 import {
   buscarProcesso,
+  desvincularDesdobramento,
   listarDesdobramentos,
   listarMovimentacoes,
   formatarCNJ,
@@ -132,6 +134,22 @@ function ProcessoDetalhe() {
       return;
     }
     await queryClient.invalidateQueries();
+  };
+
+  const tornarPrincipal = async () => {
+    if (
+      !window.confirm(
+        "Tornar este processo principal de novo? Ele deixa de aparecer como desdobramento do processo pai.",
+      )
+    )
+      return;
+    try {
+      await desvincularDesdobramento(id);
+      toast.success("Processo desvinculado — agora é principal.");
+      await queryClient.invalidateQueries();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não consegui desvincular.");
+    }
   };
 
   const excluirMovimentacao = async (movId: string) => {
@@ -292,13 +310,25 @@ function ProcessoDetalhe() {
             ) : null}
           </div>
           {p.processo_pai_id && processoPai.data ? (
-            <Link
-              to="/processos/$id"
-              params={{ id: p.processo_pai_id }}
-              className="mt-2 inline-block text-sm text-muted-foreground underline-offset-4 hover:underline"
-            >
-              Desdobramento do processo {formatarCNJ(processoPai.data.numero_cnj)}
-            </Link>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Link
+                to="/processos/$id"
+                params={{ id: p.processo_pai_id }}
+                className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+              >
+                Desdobramento do processo {formatarCNJ(processoPai.data.numero_cnj)}
+              </Link>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-6 gap-1 px-2 text-xs text-muted-foreground"
+                onClick={() => void tornarPrincipal()}
+                title="Desvincula este processo, tornando-o principal de novo -- uso excepcional"
+              >
+                <Unlink2 className="size-3" /> Tornar principal
+              </Button>
+            </div>
           ) : null}
         </div>
         <div className="flex flex-wrap gap-2">

@@ -562,6 +562,17 @@ export async function listarDesdobramentos(processoId: string): Promise<Processo
   return (data ?? []) as Processo[];
 }
 
+// Desvincula um desdobramento do processo principal, tornando-o um
+// processo principal por conta própria de novo -- uso excepcional, quando
+// um recurso/desdobramento passa a merecer acompanhamento independente.
+export async function desvincularDesdobramento(processoId: string): Promise<void> {
+  const { error } = await supabase
+    .from("processos")
+    .update({ processo_pai_id: null, tipo_desdobramento: null })
+    .eq("id", processoId);
+  if (error) throw error;
+}
+
 export async function listarMovimentacoes(processoId: string): Promise<Movimentacao[]> {
   const { data, error } = await supabase
     .from("movimentacoes")
@@ -672,6 +683,11 @@ export async function listarUltimasMovimentacoes(): Promise<Map<string, Moviment
 // usado na exportação de planilha, pra não pesar quando é uma pasta
 // pequena mas a base geral é grande. Busca em lotes (o "in" do Supabase
 // não aguenta uma lista enorme de ids numa chamada só).
+//
+// Inclui também os andamentos registrados nos desdobramentos vinculados
+// (recurso, cumprimento de sentença etc. cadastrados como processo à
+// parte) -- senão o progresso deles fica invisível no relatório do
+// processo principal, mesmo estando certinho no processo do desdobramento.
 export async function listarUltimosAndamentosPorProcessos(
   processoIds: string[],
   limitePorProcesso = 3,
@@ -680,20 +696,60 @@ export async function listarUltimosAndamentosPorProcessos(
   if (processoIds.length === 0) return resultado;
 
   const TAMANHO_LOTE = 200;
+
+  const desdobramentosPorPai = new Map<string, string[]>();
   for (let i = 0; i < processoIds.length; i += TAMANHO_LOTE) {
     const lote = processoIds.slice(i, i + TAMANHO_LOTE);
+    const { data, error } = await supabase
+      .from("processos")
+      .select("id, processo_pai_id")
+      .in("processo_pai_id", lote);
+    if (error) throw error;
+    for (const d of (data ?? []) as { id: string; processo_pai_id: string | null }[]) {
+      if (!d.processo_pai_id) continue;
+      const atual = desdobramentosPorPai.get(d.processo_pai_id);
+      if (atual) atual.push(d.id);
+      else desdobramentosPorPai.set(d.processo_pai_id, [d.id]);
+    }
+  }
+
+  const idsParaBuscar = [
+    ...new Set([...processoIds, ...[...desdobramentosPorPai.values()].flat()]),
+  ];
+
+  const porProcessoId = new Map<string, Movimentacao[]>();
+  for (let i = 0; i < idsParaBuscar.length; i += TAMANHO_LOTE) {
+    const lote = idsParaBuscar.slice(i, i + TAMANHO_LOTE);
     const { data, error } = await supabase
       .from("movimentacoes")
       .select("*")
       .in("processo_id", lote)
       .order("data_movimentacao", { ascending: false })
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true });
     if (error) throw error;
     for (const m of (data ?? []) as unknown as Movimentacao[]) {
-      const atual = resultado.get(m.processo_id);
-      if (!atual) resultado.set(m.processo_id, [m]);
+      const atual = porProcessoId.get(m.processo_id);
+      if (!atual) porProcessoId.set(m.processo_id, [m]);
       else if (atual.length < limitePorProcesso) atual.push(m);
     }
+  }
+
+  for (const processoId of processoIds) {
+    const idsRelacionados = [processoId, ...(desdobramentosPorPai.get(processoId) ?? [])];
+    const combinados = idsRelacionados
+      .flatMap((relId) => porProcessoId.get(relId) ?? [])
+      .sort((a, b) => {
+        if (a.data_movimentacao !== b.data_movimentacao) {
+          return a.data_movimentacao < b.data_movimentacao ? 1 : -1;
+        }
+        if (a.created_at !== b.created_at) {
+          return a.created_at < b.created_at ? 1 : -1;
+        }
+        return a.id < b.id ? -1 : 1;
+      })
+      .slice(0, limitePorProcesso);
+    if (combinados.length > 0) resultado.set(processoId, combinados);
   }
   return resultado;
 }
