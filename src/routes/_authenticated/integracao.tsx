@@ -1,8 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, ClientOnly } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import SwaggerUI from "swagger-ui-react";
-import "swagger-ui-react/swagger-ui.css";
+import { lazy, Suspense, useState } from "react";
 import { Copy, KeyRound, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -12,7 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCargoAtual } from "@/lib/processos";
 import { gerarChaveApi, listarChavesApi, revogarChaveApi } from "@/lib/chaves-api";
-import { openapiIntegracao } from "@/lib/openapi-integracao";
+
+// Lazy + ClientOnly: o swagger-ui-react não é seguro pra SSR (Cloudflare
+// Worker), então nem o import pode acontecer no servidor -- só no
+// navegador, depois de hidratado.
+const SwaggerDocs = lazy(() => import("@/components/SwaggerDocs"));
 
 export const Route = createFileRoute("/_authenticated/integracao")({
   head: () => ({
@@ -60,7 +62,15 @@ function IntegracaoPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <SwaggerUI spec={openapiIntegracao} />
+          <ClientOnly
+            fallback={<p className="text-sm text-muted-foreground">Carregando documentação...</p>}
+          >
+            <Suspense
+              fallback={<p className="text-sm text-muted-foreground">Carregando documentação...</p>}
+            >
+              <SwaggerDocs />
+            </Suspense>
+          </ClientOnly>
         </CardContent>
       </Card>
     </div>
