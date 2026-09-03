@@ -12,6 +12,7 @@ import {
   LineChart,
   LogOut,
   Newspaper,
+  Plug,
   RadioTower,
   ShieldCheck,
   Upload,
@@ -183,6 +184,9 @@ function AppLayout() {
           label="Qualidade dos dados"
           tourId="nav-qualidade"
         />
+      )}
+      {ehEstagiaria ? null : (
+        <NavItem to="/integracao" icon={<Plug className="size-4" />} label="Integração" />
       )}
     </>
   );

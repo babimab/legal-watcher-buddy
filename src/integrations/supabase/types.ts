@@ -234,6 +234,39 @@ export type Database = {
           },
         ];
       };
+      chaves_api: {
+        Row: {
+          ativo: boolean;
+          chave_hash: string;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          nome: string;
+          prefixo: string;
+          revogada_em: string | null;
+        };
+        Insert: {
+          ativo?: boolean;
+          chave_hash: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          nome: string;
+          prefixo: string;
+          revogada_em?: string | null;
+        };
+        Update: {
+          ativo?: boolean;
+          chave_hash?: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          nome?: string;
+          prefixo?: string;
+          revogada_em?: string | null;
+        };
+        Relationships: [];
+      };
       convites_grupo: {
         Row: {
           created_at: string;
@@ -616,6 +649,7 @@ export type Database = {
           pasta_id: string | null;
           processo_pai_id: string | null;
           pronto_para_encerrar: boolean;
+          pronto_para_encerrar_em: string | null;
           provedor_externo: string | null;
           responsavel: string | null;
           resultado_encerramento: string | null;
@@ -668,6 +702,7 @@ export type Database = {
           pasta_id?: string | null;
           processo_pai_id?: string | null;
           pronto_para_encerrar?: boolean;
+          pronto_para_encerrar_em?: string | null;
           provedor_externo?: string | null;
           responsavel?: string | null;
           resultado_encerramento?: string | null;
@@ -720,6 +755,7 @@ export type Database = {
           pasta_id?: string | null;
           processo_pai_id?: string | null;
           pronto_para_encerrar?: boolean;
+          pronto_para_encerrar_em?: string | null;
           provedor_externo?: string | null;
           responsavel?: string | null;
           resultado_encerramento?: string | null;

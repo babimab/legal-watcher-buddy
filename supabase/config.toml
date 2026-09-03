@@ -1,1 +1,10 @@
 project_id = "yditjzzqxqgmbxrlxkgk"
+
+# Chamadas externas de verdade (sistema do cliente), sem sessao de
+# usuario do FaroLex -- autenticacao propria via header x-api-key
+# (ver supabase/functions/_shared/chave-api.ts).
+[functions.integracao-andamentos]
+verify_jwt = false
+
+[functions.integracao-encerramentos]
+verify_jwt = false

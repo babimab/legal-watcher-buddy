@@ -34,6 +34,7 @@ export type Processo = {
   coordenador: string | null;
   observacoes: string | null;
   pronto_para_encerrar: boolean;
+  pronto_para_encerrar_em: string | null;
   valor_encerramento: number | null;
   resultado_encerramento: string | null;
   observacao_encerramento: string | null;
