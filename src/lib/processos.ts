@@ -657,24 +657,31 @@ export async function listarMovimentacoesPorPeriodo(
   return (data ?? []) as unknown as MovimentacaoComProcesso[];
 }
 
-export async function listarUltimasMovimentacoes(): Promise<Map<string, Movimentacao>> {
-  const todas = await buscarTudoPaginado<Movimentacao>(
+// Busca o último andamento de cada processo direto no banco (função
+// listar_ultimas_movimentacoes, com DISTINCT ON) em vez de baixar a
+// tabela movimentacoes inteira pro navegador e reduzir aqui -- ficou
+// lento demais depois que a base cresceu com a separação dos andamentos
+// históricos colados.
+export async function listarUltimasMovimentacoes(): Promise<
+  Map<string, { data_movimentacao: string; descricao: string }>
+> {
+  const todas = await buscarTudoPaginado<{
+    processo_id: string;
+    data_movimentacao: string;
+    descricao: string;
+  }>(
     (offset, limite) =>
       supabase
-        .from("movimentacoes")
-        .select("*")
-        .order("data_movimentacao", { ascending: false })
-        .order("created_at", { ascending: false })
-        .order("id", { ascending: true })
+        .rpc("listar_ultimas_movimentacoes")
         .range(offset, offset + limite - 1) as unknown as PromiseLike<{
-        data: Movimentacao[] | null;
+        data: { processo_id: string; data_movimentacao: string; descricao: string }[] | null;
         error: { message: string } | null;
       }>,
   );
 
-  const ultimas = new Map<string, Movimentacao>();
+  const ultimas = new Map<string, { data_movimentacao: string; descricao: string }>();
   for (const m of todas) {
-    if (!ultimas.has(m.processo_id)) ultimas.set(m.processo_id, m);
+    ultimas.set(m.processo_id, { data_movimentacao: m.data_movimentacao, descricao: m.descricao });
   }
   return ultimas;
 }

@@ -999,6 +999,14 @@ export type Database = {
           user_id: string;
         }[];
       };
+      listar_ultimas_movimentacoes: {
+        Args: never;
+        Returns: {
+          data_movimentacao: string;
+          descricao: string;
+          processo_id: string;
+        }[];
+      };
       membro_do_grupo: { Args: { _grupo_id: string }; Returns: boolean };
       membro_do_grupo_do_processo: {
         Args: { _processo_id: string };
