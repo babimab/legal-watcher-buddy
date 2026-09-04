@@ -505,23 +505,38 @@ function montarPartesPublicacoes(
   return { assunto, partes };
 }
 
-function montarMailtoPublicacoes(
-  grupo: Grupo,
-  destinatarios: string[],
+// Quando mais de um grupo é escolhido de uma vez (ex.: ELV + Outros, pra
+// não perder uma publicação da Eliane que caiu em "Outros" por engano na
+// classificação automática), monta o conteúdo de cada grupo separado
+// (com sua própria saudação/fecho) e empilha um atrás do outro num único
+// e-mail/Word.
+function construirConteudoPublicacoes(
+  grupos: Grupo[],
   itens: LinhaCasada[],
   classificacoes: Map<number, ClassificacaoPublicacao>,
   dataPlanilha: string,
   naoLocalizadaAdvg: LinhaPublicacao[],
   naoLocalizadaGeral: LinhaPublicacao[],
-) {
-  const { assunto, partes } = montarPartesPublicacoes(
-    grupo,
-    itens,
-    classificacoes,
-    dataPlanilha,
-    naoLocalizadaAdvg,
-    naoLocalizadaGeral,
-  );
+): { assunto: string; partes: string[] } {
+  const assunto = `Publicações — ${grupos.join(" / ")}`;
+  const partes: string[] = [];
+  for (const g of grupos) {
+    const doGrupo = itens.filter((l) => l.grupo === g);
+    if (doGrupo.length === 0) continue;
+    const secao = montarPartesPublicacoes(
+      g,
+      doGrupo,
+      classificacoes,
+      dataPlanilha,
+      naoLocalizadaAdvg,
+      naoLocalizadaGeral,
+    );
+    partes.push(...secao.partes);
+  }
+  return { assunto, partes };
+}
+
+function montarLinkMailto(destinatarios: string[], assunto: string, partes: string[]): string {
   const corpo = partes.join("\n\n");
   return `mailto:${destinatarios.join(",")}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
 }
@@ -606,7 +621,7 @@ function mencionaTermos(l: LinhaPublicacao, termos: string[]) {
 
 function PublicacoesPage() {
   const [linhas, setLinhas] = useState<LinhaPublicacao[]>([]);
-  const [grupoAtivo, setGrupoAtivo] = useState<Grupo | "todos">("todos");
+  const [gruposAtivos, setGruposAtivos] = useState<Set<Grupo>>(new Set());
   const [selecionadas, setSelecionadas] = useState<Set<number>>(new Set());
   const [importando, setImportando] = useState(false);
   const [dataPlanilha, setDataPlanilha] = useState(() => new Date().toISOString().slice(0, 10));
@@ -692,8 +707,8 @@ function PublicacoesPage() {
   }, [casadas]);
 
   const exibidas = useMemo(
-    () => (grupoAtivo === "todos" ? casadas : casadas.filter((l) => l.grupo === grupoAtivo)),
-    [casadas, grupoAtivo],
+    () => (gruposAtivos.size === 0 ? casadas : casadas.filter((l) => gruposAtivos.has(l.grupo))),
+    [casadas, gruposAtivos],
   );
 
   const resumoUrgencia = useMemo(() => {
@@ -781,8 +796,8 @@ function PublicacoesPage() {
   };
 
   const enviarEmailDoGrupo = () => {
-    if (grupoAtivo === "todos") {
-      toast.error("Escolha um grupo (ELV, GFC, Astro ou Outros) pra montar o e-mail.");
+    if (gruposAtivos.size === 0) {
+      toast.error("Escolha ao menos um grupo (ELV, GFC, Astro ou Outros) pra montar o e-mail.");
       return;
     }
     const destinatarios = emails
@@ -794,33 +809,33 @@ function PublicacoesPage() {
       return;
     }
     if (exibidas.length === 0) {
-      toast.error("Nenhuma publicação desse grupo pra mandar.");
+      toast.error("Nenhuma publicação desses grupos pra mandar.");
       return;
     }
-    window.location.href = montarMailtoPublicacoes(
-      grupoAtivo,
-      destinatarios,
+    const { assunto, partes } = construirConteudoPublicacoes(
+      [...gruposAtivos],
       exibidas,
       classificacoes,
       dataPlanilha,
       naoLocalizadaAdvg,
       naoLocalizadaGeralCandidatas,
     );
+    window.location.href = montarLinkMailto(destinatarios, assunto, partes);
   };
 
   const baixarWordDoGrupo = async () => {
-    if (grupoAtivo === "todos") {
-      toast.error("Escolha um grupo (ELV, GFC, Astro ou Outros) pra baixar o Word.");
+    if (gruposAtivos.size === 0) {
+      toast.error("Escolha ao menos um grupo (ELV, GFC, Astro ou Outros) pra baixar o Word.");
       return;
     }
     if (exibidas.length === 0) {
-      toast.error("Nenhuma publicação desse grupo pra baixar.");
+      toast.error("Nenhuma publicação desses grupos pra baixar.");
       return;
     }
     setBaixandoDocx(true);
     try {
-      const { assunto, partes } = montarPartesPublicacoes(
-        grupoAtivo,
+      const { assunto, partes } = construirConteudoPublicacoes(
+        [...gruposAtivos],
         exibidas,
         classificacoes,
         dataPlanilha,
@@ -843,11 +858,9 @@ function PublicacoesPage() {
     }
     setBaixandoPlanilha(true);
     try {
-      await exportarPublicacoesExcel(
-        exibidas,
-        classificacoes,
-        `publicacoes-${grupoAtivo === "todos" ? "todos" : grupoAtivo.toLowerCase()}`,
-      );
+      const nomeGrupos =
+        gruposAtivos.size === 0 ? "todos" : [...gruposAtivos].map((g) => g.toLowerCase()).join("-");
+      await exportarPublicacoesExcel(exibidas, classificacoes, `publicacoes-${nomeGrupos}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não consegui gerar a planilha.");
     } finally {
@@ -876,7 +889,7 @@ function PublicacoesPage() {
       const montadas = montarLinhas(lidas);
       setLinhas(montadas);
       setSelecionadas(new Set(montadas.filter((l) => l.cnjDigits).map((l) => l.idx)));
-      setGrupoAtivo("todos");
+      setGruposAtivos(new Set());
       toast.success(`${montadas.length} publicação(ões) lida(s) (3 abas).`);
     } catch {
       toast.error("Não consegui ler o arquivo.");
@@ -1197,11 +1210,14 @@ function PublicacoesPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  Grupo (pode escolher mais de um):
+                </span>
                 <Button
                   type="button"
                   size="sm"
-                  variant={grupoAtivo === "todos" ? "default" : "outline"}
-                  onClick={() => setGrupoAtivo("todos")}
+                  variant={gruposAtivos.size === 0 ? "default" : "outline"}
+                  onClick={() => setGruposAtivos(new Set())}
                 >
                   Todos ({casadas.length})
                 </Button>
@@ -1210,8 +1226,15 @@ function PublicacoesPage() {
                     key={g}
                     type="button"
                     size="sm"
-                    variant={grupoAtivo === g ? "default" : "outline"}
-                    onClick={() => setGrupoAtivo(g)}
+                    variant={gruposAtivos.has(g) ? "default" : "outline"}
+                    onClick={() =>
+                      setGruposAtivos((atual) => {
+                        const novo = new Set(atual);
+                        if (novo.has(g)) novo.delete(g);
+                        else novo.add(g);
+                        return novo;
+                      })
+                    }
                   >
                     {g} ({contagemPorGrupo[g]})
                   </Button>
@@ -1233,16 +1256,17 @@ function PublicacoesPage() {
                 <Button
                   type="button"
                   onClick={enviarEmailDoGrupo}
-                  disabled={grupoAtivo === "todos"}
+                  disabled={gruposAtivos.size === 0}
                 >
                   <Mail className="size-4" />
-                  Mandar e-mail — {grupoAtivo === "todos" ? "escolha um grupo" : grupoAtivo}
+                  Mandar e-mail —{" "}
+                  {gruposAtivos.size === 0 ? "escolha um grupo" : [...gruposAtivos].join(", ")}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => void baixarWordDoGrupo()}
-                  disabled={grupoAtivo === "todos" || baixandoDocx}
+                  disabled={gruposAtivos.size === 0 || baixandoDocx}
                 >
                   <FileDown className="size-4" />
                   {baixandoDocx ? "Gerando..." : "Baixar em Word"}
