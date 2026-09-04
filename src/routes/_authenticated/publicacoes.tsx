@@ -38,6 +38,7 @@ import {
   listarProcessos,
   type Processo,
 } from "@/lib/processos";
+import { listarPastas } from "@/lib/grupos";
 import { classificarPublicacoes, type ClassificacaoPublicacao } from "@/lib/publicacoes-regras";
 import { classificarUrgencia, type Urgencia } from "@/lib/dias-uteis";
 import {
@@ -122,7 +123,15 @@ type LinhaPublicacao = {
   andamento: string | null;
 };
 
-type LinhaCasada = LinhaPublicacao & { processo: Processo; grupo: Grupo };
+// socioReal/advgReal vêm do cadastro do processo (Processo.socio e do
+// nome da Pasta vinculada por pasta_id), não da planilha/DJEN -- essas
+// são as fontes que a BDR pediu pra usar em vez do que vem na publicação.
+type LinhaCasada = LinhaPublicacao & {
+  processo: Processo;
+  grupo: Grupo;
+  socioReal: string;
+  advgReal: string;
+};
 
 function normalizar(coluna: string) {
   return coluna
@@ -347,8 +356,8 @@ function dataBR(iso: string | null | undefined) {
 function blocoProcesso(l: LinhaCasada, classificacao: ClassificacaoPublicacao | undefined) {
   const clienteCod = l.processo.numero_cliente ?? exibir(l.processo.cliente) ?? "—";
   const caso = l.processo.numero_interno ?? "—";
-  const coord = l.coord ?? "—";
-  const advg = l.advg ?? "—";
+  const socio = l.socioReal;
+  const advg = l.advgReal;
   const contraparte =
     l.processo.parte_contraria || [l.autor, l.reu].filter(Boolean).join(" x ") || null;
   const partes = [exibir(l.processo.cliente), contraparte].filter(Boolean).join(" x ") || "—";
@@ -359,8 +368,8 @@ function blocoProcesso(l: LinhaCasada, classificacao: ClassificacaoPublicacao | 
   const teor = classificacao?.resumo ?? l.andamento ?? "—";
 
   return [
-    "Processo\tCliente\tCaso\tCoord.\tADVG\tPartes\tJuízo\tTeor da publicação",
-    `${l.cnjTexto}\t${clienteCod}\t${caso}\t${coord}\t${advg}\t${partes}\t${juizo}\t${teor}`,
+    "Processo\tCliente\tCaso\tSócio\tADVG\tPartes\tJuízo\tTeor da publicação",
+    `${l.cnjTexto}\t${clienteCod}\t${caso}\t${socio}\t${advg}\t${partes}\t${juizo}\t${teor}`,
   ].join("\n");
 }
 
@@ -398,7 +407,7 @@ function montarAgendamentos(
       [l.processo.vara, [l.processo.comarca, l.processo.uf].filter(Boolean).join("/") || null]
         .filter(Boolean)
         .join(" de ") || "—";
-    const advg = l.advg ? ` (${l.advg})` : "";
+    const advg = l.advgReal !== "—" ? ` (${l.advgReal})` : "";
     const dataOuRevisar = c.dataVencimento
       ? dataBR(c.dataVencimento)
       : "Verificar prazo no sistema";
@@ -611,7 +620,7 @@ async function exportarPublicacoesExcel(
   planilha.columns = [
     { header: "Cliente", key: "cliente", width: 12 },
     { header: "Caso", key: "caso", width: 12 },
-    { header: "Coord", key: "coord", width: 10 },
+    { header: "Sócio", key: "socio", width: 10 },
     { header: "Advg", key: "advg", width: 10 },
     { header: "Nome do Autor", key: "autor", width: 26 },
     { header: "Nome do Réu", key: "reu", width: 26 },
@@ -630,8 +639,8 @@ async function exportarPublicacoesExcel(
     planilha.addRow({
       cliente: l.processo.numero_cliente ?? "—",
       caso: l.processo.numero_interno ?? "—",
-      coord: l.coord ?? "—",
-      advg: l.advg ?? "—",
+      socio: l.socioReal,
+      advg: l.advgReal,
       autor: l.autor ?? "—",
       reu: l.reu ?? "—",
       processo: { text: l.cnjTexto, hyperlink: linkTribunalEfetivo(l.processo) },
@@ -653,7 +662,7 @@ async function exportarPublicacoesExcel(
     planilha.addRow({
       cliente: "—",
       caso: "—",
-      coord: l.coord ?? "—",
+      socio: "—",
       advg: l.advg ?? "—",
       autor: l.autor ?? "—",
       reu: l.reu ?? "—",
@@ -737,6 +746,7 @@ function PublicacoesPage() {
   const queryClient = useQueryClient();
 
   const processos = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
+  const pastas = useQuery({ queryKey: ["pastas"], queryFn: listarPastas });
 
   const processoPorCnj = useMemo(() => {
     const mapa = new Map<string, Processo>();
@@ -744,16 +754,29 @@ function PublicacoesPage() {
     return mapa;
   }, [processos.data]);
 
+  const pastaPorId = useMemo(() => {
+    const mapa = new Map<string, string>();
+    for (const p of pastas.data ?? []) mapa.set(p.id, p.nome);
+    return mapa;
+  }, [pastas.data]);
+
   const { casadas, semProcesso } = useMemo(() => {
     const casadas: LinhaCasada[] = [];
     const semProcesso: LinhaPublicacao[] = [];
     for (const l of linhas) {
       const processo = l.cnjDigits ? processoPorCnj.get(l.cnjDigits) : undefined;
-      if (processo) casadas.push({ ...l, processo, grupo: grupoDaLinha(l, processo) });
-      else semProcesso.push(l);
+      if (processo) {
+        casadas.push({
+          ...l,
+          processo,
+          grupo: grupoDaLinha(l, processo),
+          socioReal: processo.socio ?? "—",
+          advgReal: pastaPorId.get(processo.pasta_id ?? "") ?? "—",
+        });
+      } else semProcesso.push(l);
     }
     return { casadas, semProcesso };
-  }, [linhas, processoPorCnj]);
+  }, [linhas, processoPorCnj, pastaPorId]);
 
   const naoLocalizadaAdvg = useMemo(
     () =>
@@ -1637,11 +1660,11 @@ function PublicacoesPage() {
                   Partes: {[detalhe.autor, detalhe.reu].filter(Boolean).join(" x ")}
                 </p>
               ) : null}
-              {detalhe.coord || detalhe.advg ? (
+              {detalhe.socioReal !== "—" || detalhe.advgReal !== "—" ? (
                 <p className="text-muted-foreground">
                   {[
-                    detalhe.coord ? `Coord.: ${detalhe.coord}` : null,
-                    detalhe.advg ? `ADVG: ${detalhe.advg}` : null,
+                    detalhe.socioReal !== "—" ? `Sócio: ${detalhe.socioReal}` : null,
+                    detalhe.advgReal !== "—" ? `ADVG: ${detalhe.advgReal}` : null,
                   ]
                     .filter(Boolean)
                     .join("   ")}
