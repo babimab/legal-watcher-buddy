@@ -643,8 +643,8 @@ async function exportarPublicacoesExcel(
       caso: l.processo.numero_interno ?? "—",
       socio: l.socioReal,
       advg: l.advgReal,
-      autor: l.autor ?? l.processo.autor ?? "—",
-      reu: l.reu ?? l.processo.reu ?? "—",
+      autor: l.processo.autor ?? l.autor ?? "—",
+      reu: l.processo.reu ?? l.reu ?? "—",
       processo: { text: l.cnjTexto, hyperlink: linkTribunalEfetivo(l.processo) },
       uf: l.processo.uf ?? "—",
       comarca: l.processo.comarca ?? "—",
@@ -1660,7 +1660,7 @@ function PublicacoesPage() {
               {detalhe.autor || detalhe.reu || detalhe.processo.autor || detalhe.processo.reu ? (
                 <p className="text-muted-foreground">
                   Partes:{" "}
-                  {[detalhe.autor ?? detalhe.processo.autor, detalhe.reu ?? detalhe.processo.reu]
+                  {[detalhe.processo.autor ?? detalhe.autor, detalhe.processo.reu ?? detalhe.reu]
                     .filter(Boolean)
                     .join(" x ")}
                 </p>
