@@ -619,6 +619,7 @@ const COLUNA_TEXTO_LIVRE_PUBLICACOES = new Set(["andamento"]);
 async function exportarPublicacoesExcel(
   itens: LinhaCasada[],
   avulsos: LinhaPublicacao[],
+  classificacoes: Map<number, ClassificacaoPublicacao>,
   nomeArquivo: string,
 ) {
   const workbook = new ExcelJS.Workbook();
@@ -638,11 +639,13 @@ async function exportarPublicacoesExcel(
     { header: "Vara", key: "vara", width: 20 },
     { header: "Status", key: "status", width: 12 },
     { header: "Fase", key: "fase", width: 16 },
+    { header: "Data Disponibilização", key: "disponibilizacao", width: 16 },
     { header: "Data Publicação", key: "data", width: 14 },
     { header: "Andamento", key: "andamento", width: 80 },
   ];
 
   for (const l of itens) {
+    const c = classificacoes.get(l.idx);
     planilha.addRow({
       cliente: l.processo.numero_cliente ?? "—",
       caso: l.processo.numero_interno ?? "—",
@@ -657,7 +660,8 @@ async function exportarPublicacoesExcel(
       vara: l.processo.vara ?? "—",
       status: l.processo.status ?? "—",
       fase: l.processo.fase ?? "—",
-      data: dataBR(l.dataPublicacao),
+      disponibilizacao: dataBR(l.dataPublicacao),
+      data: dataBR(c?.dataPublicacaoEfetiva ?? l.dataPublicacao),
       andamento: l.andamento ?? "—",
     });
   }
@@ -666,6 +670,7 @@ async function exportarPublicacoesExcel(
   // cadastrado, então as colunas que dependem dele ficam em branco e o
   // CNJ não vira link.
   for (const l of avulsos) {
+    const c = classificacoes.get(l.idx);
     planilha.addRow({
       cliente: "—",
       caso: "—",
@@ -680,7 +685,8 @@ async function exportarPublicacoesExcel(
       vara: "—",
       status: "—",
       fase: "—",
-      data: dataBR(l.dataPublicacao),
+      disponibilizacao: dataBR(l.dataPublicacao),
+      data: dataBR(c?.dataPublicacaoEfetiva ?? l.dataPublicacao),
       andamento: l.andamento ?? "—",
     });
   }
@@ -1012,7 +1018,12 @@ function PublicacoesPage() {
     try {
       const nomeGrupos =
         gruposAtivos.size === 0 ? "todos" : [...gruposAtivos].map((g) => g.toLowerCase()).join("-");
-      await exportarPublicacoesExcel(exibidas, avulsosParaPlanilha, `publicacoes-${nomeGrupos}`);
+      await exportarPublicacoesExcel(
+        exibidas,
+        avulsosParaPlanilha,
+        classificacoes,
+        `publicacoes-${nomeGrupos}`,
+      );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não consegui gerar a planilha.");
     } finally {
