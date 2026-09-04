@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, Mail, Sparkles, Upload } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Mail, Search, Sparkles, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ import {
 } from "@/lib/processos";
 import { classificarPublicacoes, type ClassificacaoPublicacao } from "@/lib/publicacoes-ia";
 import { classificarUrgencia, type Urgencia } from "@/lib/dias-uteis";
+import { buscarDjen, type ComunicacaoDjen, type FiltrosDjen } from "@/lib/djen";
 
 export const Route = createFileRoute("/_authenticated/publicacoes")({
   head: () => ({
@@ -75,7 +76,7 @@ const SINONIMOS: Record<string, Campo> = {
 
 type LinhaLida = { numero: number; origem: Origem; dados: Record<string, unknown> };
 
-type Origem = "Localizada" | "Não Localizada – Advg" | "Não Localizada – Geral";
+type Origem = "Localizada" | "Não Localizada – Advg" | "Não Localizada – Geral" | "DJEN";
 
 type LinhaPublicacao = {
   idx: number;
@@ -214,6 +215,29 @@ function montarLinhas(linhas: LinhaLida[]): LinhaPublicacao[] {
     });
   }
   return resultado;
+}
+
+// Converte o resultado da busca no DJEN pro mesmo formato de linha da
+// planilha, pra entrar na mesma pipeline (cruzamento, prazo, e-mail) sem
+// nenhuma lógica separada. "idxInicial" continua a sequência de idx já em
+// uso em `linhas`, já que a busca do DJEN é aditiva (não substitui o que já
+// foi carregado da planilha).
+function linhasDeDjen(comunicacoes: ComunicacaoDjen[], idxInicial: number): LinhaPublicacao[] {
+  return comunicacoes.map((c, i) => ({
+    idx: idxInicial + i,
+    linha: idxInicial + i + 1,
+    origem: "DJEN",
+    cnjDigits: c.cnjDigits,
+    cnjTexto: c.cnjTexto,
+    clientePlanilha: null,
+    coord: null,
+    advg: c.nomesAdvogados.join(", ") || null,
+    autor: c.partes[0] ?? null,
+    reu: c.partes[1] ?? null,
+    fase: c.orgao,
+    dataPublicacao: c.dataDisponibilizacao,
+    andamento: c.texto,
+  }));
 }
 
 // Regras 3 do projeto de publicações da BDR: Grupo 1 (Eliane/ELV) =
@@ -455,6 +479,18 @@ function PublicacoesPage() {
     new Map(),
   );
   const [dataPlanilha, setDataPlanilha] = useState(() => new Date().toISOString().slice(0, 10));
+  const [buscaDjen, setBuscaDjen] = useState<FiltrosDjen>(() => {
+    const hoje = new Date().toISOString().slice(0, 10);
+    return {
+      nomeAdvogado: "",
+      numeroOab: "",
+      ufOab: "",
+      siglaTribunal: "",
+      dataInicio: hoje,
+      dataFim: hoje,
+    };
+  });
+  const [buscandoDjen, setBuscandoDjen] = useState(false);
   const queryClient = useQueryClient();
 
   const processos = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
@@ -503,6 +539,11 @@ function PublicacoesPage() {
         (l) => classificacoes.get(l.idx)?.relevanteGeral === true,
       ),
     [naoLocalizadaGeralCandidatas, classificacoes],
+  );
+
+  const djenSemProcesso = useMemo(
+    () => semProcesso.filter((l) => l.origem === "DJEN"),
+    [semProcesso],
   );
 
   const contagemPorGrupo = useMemo(() => {
@@ -568,6 +609,52 @@ function PublicacoesPage() {
       toast.error(e instanceof Error ? e.message : "Não consegui calcular os prazos.");
     } finally {
       setClassificando(false);
+    }
+  };
+
+  const buscarNoDjen = async () => {
+    const nomeAdvogado = buscaDjen.nomeAdvogado?.trim();
+    const numeroOab = buscaDjen.numeroOab?.trim();
+    const ufOab = buscaDjen.ufOab?.trim();
+    if (!nomeAdvogado && !(numeroOab && ufOab)) {
+      toast.error("Informe o nome do advogado ou o número da OAB com a UF.");
+      return;
+    }
+    setBuscandoDjen(true);
+    try {
+      const { comunicacoes, totalRecebido, totalComCnj } = await buscarDjen(buscaDjen);
+      if (totalRecebido === 0) {
+        toast.warning("Nenhuma publicação encontrada no DJEN para esses filtros.");
+        return;
+      }
+      if (totalComCnj === 0) {
+        toast.warning(
+          `Recebi ${totalRecebido} comunicação(ões) do DJEN, mas não consegui reconhecer o ` +
+            "número do processo em nenhuma — avise que o mapeamento de campos do DJEN precisa de ajuste.",
+        );
+      }
+
+      const chavesExistentes = new Set(
+        linhas.map((l) => `${l.cnjDigits}|${l.dataPublicacao}|${l.andamento}`),
+      );
+      const novas = linhasDeDjen(comunicacoes, linhas.length).filter(
+        (l) => !chavesExistentes.has(`${l.cnjDigits}|${l.dataPublicacao}|${l.andamento}`),
+      );
+      setLinhas((atual) => [...atual, ...novas]);
+      setSelecionadas((atual) => {
+        const novo = new Set(atual);
+        for (const l of novas) if (l.cnjDigits) novo.add(l.idx);
+        return novo;
+      });
+      if (novas.length > 0) {
+        toast.success(`${novas.length} publicação(ões) do DJEN adicionada(s) à lista abaixo.`);
+      } else {
+        toast.info("Nenhuma publicação nova (todas já estavam na lista).");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não consegui buscar no DJEN.");
+    } finally {
+      setBuscandoDjen(false);
     }
   };
 
@@ -743,11 +830,97 @@ function PublicacoesPage() {
       <div>
         <h1 className="font-serif text-3xl font-semibold">Publicações</h1>
         <p className="text-muted-foreground">
-          Envie a planilha de publicações recebida do TI (abas "Localizada", "Não Localizada – Advg"
-          e "Não Localizada – Geral"). O sistema cruza o número do processo, calcula o prazo
-          automaticamente e monta os e-mails.
+          Busque direto no DJEN por advogado/OAB ou envie a planilha recebida do TI (abas
+          "Localizada", "Não Localizada – Advg" e "Não Localizada – Geral"). O sistema cruza o
+          número do processo, calcula o prazo automaticamente e monta os e-mails.
         </p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-serif text-lg">Busca Publicação DJEN</CardTitle>
+          <CardDescription>
+            Busca publicações direto no Diário de Justiça Eletrônico Nacional por nome do advogado
+            e/ou número da OAB. Os resultados entram na mesma lista de baixo, com cálculo de prazo e
+            e-mail automáticos — sem precisar da planilha do TI.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="space-y-1 lg:col-span-2">
+              <Label htmlFor="djen-advogado">Nome do advogado</Label>
+              <Input
+                id="djen-advogado"
+                placeholder="Eliane Leve"
+                value={buscaDjen.nomeAdvogado}
+                onChange={(e) => setBuscaDjen((a) => ({ ...a, nomeAdvogado: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="djen-oab">OAB nº</Label>
+              <Input
+                id="djen-oab"
+                placeholder="123456"
+                value={buscaDjen.numeroOab}
+                onChange={(e) => setBuscaDjen((a) => ({ ...a, numeroOab: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="djen-uf">UF da OAB</Label>
+              <Input
+                id="djen-uf"
+                placeholder="RJ"
+                maxLength={2}
+                value={buscaDjen.ufOab}
+                onChange={(e) =>
+                  setBuscaDjen((a) => ({ ...a, ufOab: e.target.value.toUpperCase() }))
+                }
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="djen-tribunal">Tribunal (opcional)</Label>
+              <Input
+                id="djen-tribunal"
+                placeholder="TJRJ"
+                value={buscaDjen.siglaTribunal}
+                onChange={(e) =>
+                  setBuscaDjen((a) => ({ ...a, siglaTribunal: e.target.value.toUpperCase() }))
+                }
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="djen-inicio" className="text-xs text-muted-foreground">
+                Data início
+              </Label>
+              <Input
+                id="djen-inicio"
+                type="date"
+                value={buscaDjen.dataInicio}
+                onChange={(e) => setBuscaDjen((a) => ({ ...a, dataInicio: e.target.value }))}
+                className="w-44"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="djen-fim" className="text-xs text-muted-foreground">
+                Data fim
+              </Label>
+              <Input
+                id="djen-fim"
+                type="date"
+                value={buscaDjen.dataFim}
+                onChange={(e) => setBuscaDjen((a) => ({ ...a, dataFim: e.target.value }))}
+                className="w-44"
+              />
+            </div>
+            <Button type="button" onClick={() => void buscarNoDjen()} disabled={buscandoDjen}>
+              <Search className="size-4" />
+              {buscandoDjen ? "Buscando..." : "Buscar no DJEN"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -1031,6 +1204,39 @@ function PublicacoesPage() {
                     </div>
                   ) : null,
                 )}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {djenSemProcesso.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-serif text-lg">
+                  DJEN sem processo cadastrado ({djenSemProcesso.length})
+                </CardTitle>
+                <CardDescription>
+                  Publicações encontradas na busca do DJEN que não correspondem a nenhum processo
+                  cadastrado no FaroLex — só informativo, não entram no cálculo de prazo nem no
+                  e-mail.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {djenSemProcesso.map((l) => (
+                  <div key={l.idx} className="rounded-md border border-border p-3 text-sm">
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-xs">{l.cnjTexto}</span>
+                      {l.advg ? <Badge variant="outline">{l.advg}</Badge> : null}
+                      {l.dataPublicacao ? (
+                        <span className="text-xs text-muted-foreground">
+                          {dataBR(l.dataPublicacao)}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="line-clamp-2 text-xs text-muted-foreground">
+                      {l.andamento ?? "—"}
+                    </p>
+                  </div>
+                ))}
               </CardContent>
             </Card>
           ) : null}
