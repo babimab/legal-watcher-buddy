@@ -1,7 +1,8 @@
 // Busca publicacoes diretamente no Diario de Justica Eletronico Nacional
 // (DJEN) por nome do advogado e/ou numero da OAB -- a outra metade do
 // fluxo que ja existe pra planilha do TI (ver classificar-publicacoes),
-// pra achar publicacoes que a planilha nao pegou.
+// pra achar publicacoes que a planilha nao pegou. Aceita varios
+// advogados numa busca so (roda uma busca por advogado e junta tudo).
 //
 // A API do DJEN (comunicaapi.pje.jus.br) e publica e nao exige
 // autenticacao propria, mas o fetch e feito aqui no servidor (nao no
@@ -28,13 +29,17 @@ const corsHeaders = {
 
 const DJEN_BASE_URL = "https://comunicaapi.pje.jus.br/api/v1/comunicacao";
 const ITENS_POR_PAGINA = 100;
-const MAX_PAGINAS = 3;
+const MAX_PAGINAS_POR_ADVOGADO = 3;
 const MAX_ITENS = 300;
 
-type FiltrosBusca = {
-  nomeAdvogado?: string;
+type AdvogadoFiltro = {
+  nome?: string;
   numeroOab?: string;
   ufOab?: string;
+};
+
+type FiltrosBusca = {
+  advogados?: AdvogadoFiltro[];
   siglaTribunal?: string;
   dataInicio?: string;
   dataFim?: string;
@@ -59,6 +64,51 @@ function extrairTotal(dados: unknown): number | null {
     if (typeof v === "number") return v;
   }
   return null;
+}
+
+async function buscarUmAdvogado(
+  advogado: AdvogadoFiltro,
+  comuns: { siglaTribunal?: string; dataInicio?: string; dataFim?: string },
+  limiteRestante: number,
+): Promise<unknown[]> {
+  const itens: unknown[] = [];
+  let pagina = 1;
+  let totalDisponivel: number | null = null;
+
+  while (pagina <= MAX_PAGINAS_POR_ADVOGADO && itens.length < limiteRestante) {
+    const params = new URLSearchParams({
+      itensPorPagina: String(ITENS_POR_PAGINA),
+      pagina: String(pagina),
+    });
+    if (advogado.nome?.trim()) params.set("nomeAdvogado", advogado.nome.trim());
+    if (advogado.numeroOab?.trim()) params.set("numeroOab", advogado.numeroOab.trim());
+    if (advogado.ufOab?.trim()) params.set("ufOab", advogado.ufOab.trim().toUpperCase());
+    if (comuns.siglaTribunal?.trim())
+      params.set("siglaTribunal", comuns.siglaTribunal.trim().toUpperCase());
+    if (comuns.dataInicio) params.set("dataDisponibilizacaoInicio", comuns.dataInicio);
+    if (comuns.dataFim) params.set("dataDisponibilizacaoFim", comuns.dataFim);
+
+    const resposta = await fetch(`${DJEN_BASE_URL}?${params.toString()}`, {
+      headers: { accept: "application/json" },
+    });
+    if (!resposta.ok) {
+      const detalhe = await resposta.text();
+      throw new Error(
+        `A API do DJEN recusou o pedido (${resposta.status}): ${detalhe.slice(0, 300)}`,
+      );
+    }
+    const dados = await resposta.json();
+    const paginaItens = extrairItens(dados);
+    if (pagina === 1) totalDisponivel = extrairTotal(dados);
+    if (paginaItens.length === 0) break;
+
+    itens.push(...paginaItens);
+    if (totalDisponivel != null && itens.length >= totalDisponivel) break;
+    if (paginaItens.length < ITENS_POR_PAGINA) break;
+    pagina++;
+  }
+
+  return itens;
 }
 
 Deno.serve(async (req: Request) => {
@@ -88,50 +138,21 @@ Deno.serve(async (req: Request) => {
     }
 
     const filtros = (await req.json()) as FiltrosBusca;
-    const temAdvogado = !!filtros.nomeAdvogado?.trim();
-    const temOab = !!filtros.numeroOab?.trim() && !!filtros.ufOab?.trim();
-    if (!temAdvogado && !temOab) {
-      throw new Error("Informe o nome do advogado ou o número da OAB com a UF.");
+    const advogados = (filtros.advogados ?? []).filter(
+      (a) => a.nome?.trim() || (a.numeroOab?.trim() && a.ufOab?.trim()),
+    );
+    if (advogados.length === 0) {
+      throw new Error("Informe pelo menos um advogado (nome, ou número da OAB com a UF).");
     }
 
     const itens: unknown[] = [];
-    let pagina = 1;
-    let totalDisponivel: number | null = null;
-
-    while (pagina <= MAX_PAGINAS && itens.length < MAX_ITENS) {
-      const params = new URLSearchParams({
-        itensPorPagina: String(ITENS_POR_PAGINA),
-        pagina: String(pagina),
-      });
-      if (filtros.nomeAdvogado?.trim()) params.set("nomeAdvogado", filtros.nomeAdvogado.trim());
-      if (filtros.numeroOab?.trim()) params.set("numeroOab", filtros.numeroOab.trim());
-      if (filtros.ufOab?.trim()) params.set("ufOab", filtros.ufOab.trim().toUpperCase());
-      if (filtros.siglaTribunal?.trim())
-        params.set("siglaTribunal", filtros.siglaTribunal.trim().toUpperCase());
-      if (filtros.dataInicio) params.set("dataDisponibilizacaoInicio", filtros.dataInicio);
-      if (filtros.dataFim) params.set("dataDisponibilizacaoFim", filtros.dataFim);
-
-      const resposta = await fetch(`${DJEN_BASE_URL}?${params.toString()}`, {
-        headers: { accept: "application/json" },
-      });
-      if (!resposta.ok) {
-        const detalhe = await resposta.text();
-        throw new Error(
-          `A API do DJEN recusou o pedido (${resposta.status}): ${detalhe.slice(0, 300)}`,
-        );
-      }
-      const dados = await resposta.json();
-      const paginaItens = extrairItens(dados);
-      if (pagina === 1) totalDisponivel = extrairTotal(dados);
-      if (paginaItens.length === 0) break;
-
-      itens.push(...paginaItens);
-      if (totalDisponivel != null && itens.length >= totalDisponivel) break;
-      if (paginaItens.length < ITENS_POR_PAGINA) break;
-      pagina++;
+    for (const advogado of advogados) {
+      if (itens.length >= MAX_ITENS) break;
+      const doAdvogado = await buscarUmAdvogado(advogado, filtros, MAX_ITENS - itens.length);
+      itens.push(...doAdvogado);
     }
 
-    return new Response(JSON.stringify({ itens: itens.slice(0, MAX_ITENS), totalDisponivel }), {
+    return new Response(JSON.stringify({ itens: itens.slice(0, MAX_ITENS) }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (erro) {

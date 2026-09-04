@@ -3,7 +3,16 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, Mail, Search, Sparkles, Upload } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  FileDown,
+  Mail,
+  Plus,
+  Search,
+  Trash2,
+  Upload,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,9 +35,15 @@ import {
   listarProcessos,
   type Processo,
 } from "@/lib/processos";
-import { classificarPublicacoes, type ClassificacaoPublicacao } from "@/lib/publicacoes-ia";
+import { classificarPublicacoes, type ClassificacaoPublicacao } from "@/lib/publicacoes-regras";
 import { classificarUrgencia, type Urgencia } from "@/lib/dias-uteis";
-import { buscarDjen, type ComunicacaoDjen, type FiltrosDjen } from "@/lib/djen";
+import {
+  buscarDjen,
+  type AdvogadoFiltro,
+  type ComunicacaoDjen,
+  type FiltrosDjen,
+} from "@/lib/djen";
+import { baixarBlob, gerarDocxPublicacoes } from "@/lib/publicacoes-docx";
 
 export const Route = createFileRoute("/_authenticated/publicacoes")({
   head: () => ({
@@ -387,15 +402,18 @@ function montarAlertas(
   return `⚠️ Alertas processuais\n\n${alertas.join("\n")}`;
 }
 
-function montarMailtoPublicacoes(
+// Monta as seções de texto (saudação, agendamentos, publicações por
+// processo, não localizadas, alertas, fecho) reaproveitadas tanto pelo
+// e-mail (mailto:) quanto pelo download em Word -- só muda como cada um
+// renderiza essas seções depois.
+function montarPartesPublicacoes(
   grupo: Grupo,
-  destinatarios: string[],
   itens: LinhaCasada[],
   classificacoes: Map<number, ClassificacaoPublicacao>,
   dataPlanilha: string,
   naoLocalizadaAdvg: LinhaPublicacao[],
   naoLocalizadaGeral: LinhaPublicacao[],
-) {
+): { assunto: string; partes: string[] } {
   const assunto = `Publicações — ${grupo}`;
   const saudacaoInicial = SAUDACAO_INICIAL[grupo]
     .replace("{saudacao}", saudacaoAgora())
@@ -441,6 +459,26 @@ function montarMailtoPublicacoes(
     FECHO[grupo],
   ].filter((p): p is string => !!p);
 
+  return { assunto, partes };
+}
+
+function montarMailtoPublicacoes(
+  grupo: Grupo,
+  destinatarios: string[],
+  itens: LinhaCasada[],
+  classificacoes: Map<number, ClassificacaoPublicacao>,
+  dataPlanilha: string,
+  naoLocalizadaAdvg: LinhaPublicacao[],
+  naoLocalizadaGeral: LinhaPublicacao[],
+) {
+  const { assunto, partes } = montarPartesPublicacoes(
+    grupo,
+    itens,
+    classificacoes,
+    dataPlanilha,
+    naoLocalizadaAdvg,
+    naoLocalizadaGeral,
+  );
   const corpo = partes.join("\n\n");
   return `mailto:${destinatarios.join(",")}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
 }
@@ -474,23 +512,16 @@ function PublicacoesPage() {
   const [grupoAtivo, setGrupoAtivo] = useState<Grupo | "todos">("todos");
   const [selecionadas, setSelecionadas] = useState<Set<number>>(new Set());
   const [importando, setImportando] = useState(false);
-  const [classificando, setClassificando] = useState(false);
-  const [classificacoes, setClassificacoes] = useState<Map<number, ClassificacaoPublicacao>>(
-    new Map(),
-  );
   const [dataPlanilha, setDataPlanilha] = useState(() => new Date().toISOString().slice(0, 10));
-  const [buscaDjen, setBuscaDjen] = useState<FiltrosDjen>(() => {
+  const [advogadosDjen, setAdvogadosDjen] = useState<AdvogadoFiltro[]>(() => [
+    { nome: "", numeroOab: "", ufOab: "" },
+  ]);
+  const [periodoDjen, setPeriodoDjen] = useState(() => {
     const hoje = new Date().toISOString().slice(0, 10);
-    return {
-      nomeAdvogado: "",
-      numeroOab: "",
-      ufOab: "",
-      siglaTribunal: "",
-      dataInicio: hoje,
-      dataFim: hoje,
-    };
+    return { siglaTribunal: "", dataInicio: hoje, dataFim: hoje };
   });
   const [buscandoDjen, setBuscandoDjen] = useState(false);
+  const [baixandoDocx, setBaixandoDocx] = useState(false);
   const queryClient = useQueryClient();
 
   const processos = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
@@ -530,21 +561,29 @@ function PublicacoesPage() {
       ),
     [semProcesso],
   );
-  // Só entram de fato no e-mail as que a IA confirmou como relevantes
-  // (critérios 1-4 da regra 8) -- o pré-filtro acima só evita gastar
-  // chamada de IA com linhas obviamente fora do escopo.
-  const naoLocalizadaGeralRelevante = useMemo(
-    () =>
-      naoLocalizadaGeralCandidatas.filter(
-        (l) => classificacoes.get(l.idx)?.relevanteGeral === true,
-      ),
-    [naoLocalizadaGeralCandidatas, classificacoes],
-  );
-
   const djenSemProcesso = useMemo(
     () => semProcesso.filter((l) => l.origem === "DJEN"),
     [semProcesso],
   );
+
+  // Tipo de ato/prazo calculados por regra fixa (sem IA), a partir do teor
+  // de cada publicação -- puramente síncrono, então recalcula sozinho
+  // sempre que a lista muda (nada de botão manual).
+  const classificacoes = useMemo(() => {
+    const itens = [...casadas, ...naoLocalizadaAdvg, ...naoLocalizadaGeralCandidatas].filter(
+      (l) => l.andamento,
+    );
+    const resultado = classificarPublicacoes(
+      itens.map((l) => ({
+        id: String(l.idx),
+        texto: l.andamento!,
+        dataPublicacao: l.dataPublicacao,
+      })),
+    );
+    const mapa = new Map<number, ClassificacaoPublicacao>();
+    for (const [id, c] of resultado) mapa.set(Number(id), c);
+    return mapa;
+  }, [casadas, naoLocalizadaAdvg, naoLocalizadaGeralCandidatas]);
 
   const contagemPorGrupo = useMemo(() => {
     const c: Record<Grupo, number> = { ELV: 0, GFC: 0, Astro: 0, Outros: 0 };
@@ -578,51 +617,29 @@ function PublicacoesPage() {
   const [emails, setEmails] = useState("");
   const [detalhe, setDetalhe] = useState<LinhaCasada | null>(null);
 
-  const calcularPrazos = async () => {
-    const paraClassificar = [
-      ...casadas,
-      ...naoLocalizadaAdvg,
-      ...naoLocalizadaGeralCandidatas,
-    ].filter((l) => l.andamento && !classificacoes.has(l.idx));
-    if (paraClassificar.length === 0) {
-      toast.warning("Nada novo pra classificar (ou nenhuma linha tem texto de andamento).");
-      return;
-    }
-    setClassificando(true);
-    try {
-      const resultado = await classificarPublicacoes(
-        paraClassificar.map((l) => ({
-          id: String(l.idx),
-          texto: l.andamento!,
-          ...(l.origem === "Não Localizada – Geral"
-            ? { aba: "nao_localizada_geral" as const }
-            : {}),
-        })),
-      );
-      setClassificacoes((atual) => {
-        const novo = new Map(atual);
-        for (const [id, c] of resultado) novo.set(Number(id), c);
-        return novo;
-      });
-      toast.success(`${resultado.size} publicação(ões) classificada(s).`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não consegui calcular os prazos.");
-    } finally {
-      setClassificando(false);
-    }
-  };
+  const adicionarAdvogadoDjen = () =>
+    setAdvogadosDjen((atual) => [...atual, { nome: "", numeroOab: "", ufOab: "" }]);
+
+  const removerAdvogadoDjen = (i: number) =>
+    setAdvogadosDjen((atual) => atual.filter((_, idx) => idx !== i));
+
+  const atualizarAdvogadoDjen = (i: number, patch: Partial<AdvogadoFiltro>) =>
+    setAdvogadosDjen((atual) => atual.map((a, idx) => (idx === i ? { ...a, ...patch } : a)));
 
   const buscarNoDjen = async () => {
-    const nomeAdvogado = buscaDjen.nomeAdvogado?.trim();
-    const numeroOab = buscaDjen.numeroOab?.trim();
-    const ufOab = buscaDjen.ufOab?.trim();
-    if (!nomeAdvogado && !(numeroOab && ufOab)) {
-      toast.error("Informe o nome do advogado ou o número da OAB com a UF.");
+    const advogadosValidos = advogadosDjen.filter(
+      (a) => a.nome.trim() || (a.numeroOab.trim() && a.ufOab.trim()),
+    );
+    if (advogadosValidos.length === 0) {
+      toast.error("Informe pelo menos um advogado (nome, ou OAB com a UF).");
       return;
     }
     setBuscandoDjen(true);
     try {
-      const { comunicacoes, totalRecebido, totalComCnj } = await buscarDjen(buscaDjen);
+      const { comunicacoes, totalRecebido, totalComCnj } = await buscarDjen({
+        advogados: advogadosValidos,
+        ...periodoDjen,
+      });
       if (totalRecebido === 0) {
         toast.warning("Nenhuma publicação encontrada no DJEN para esses filtros.");
         return;
@@ -682,8 +699,60 @@ function PublicacoesPage() {
       classificacoes,
       dataPlanilha,
       naoLocalizadaAdvg,
-      naoLocalizadaGeralRelevante,
+      naoLocalizadaGeralCandidatas,
     );
+  };
+
+  const baixarWordDoGrupo = async () => {
+    if (grupoAtivo === "todos") {
+      toast.error("Escolha um grupo (ELV, GFC, Astro ou Outros) pra baixar o Word.");
+      return;
+    }
+    if (exibidas.length === 0) {
+      toast.error("Nenhuma publicação desse grupo pra baixar.");
+      return;
+    }
+    setBaixandoDocx(true);
+    try {
+      const { assunto, partes } = montarPartesPublicacoes(
+        grupoAtivo,
+        exibidas,
+        classificacoes,
+        dataPlanilha,
+        naoLocalizadaAdvg,
+        naoLocalizadaGeralCandidatas,
+      );
+      const blob = await gerarDocxPublicacoes(assunto, partes);
+      baixarBlob(blob, `${assunto}.docx`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não consegui gerar o Word.");
+    } finally {
+      setBaixandoDocx(false);
+    }
+  };
+
+  const baixarPlanilha = () => {
+    if (exibidas.length === 0) {
+      toast.error("Nenhuma publicação pra exportar.");
+      return;
+    }
+    const linhasPlanilha = exibidas.map((l) => {
+      const c = classificacoes.get(l.idx);
+      return {
+        Processo: l.cnjTexto,
+        Cliente: exibir(l.processo.cliente) ?? "",
+        Grupo: l.grupo,
+        "Data publicação": dataBR(l.dataPublicacao),
+        "Tipo de ato": c?.tipoAto ?? "",
+        Prazo: c?.dataVencimento ? dataBR(c.dataVencimento) : "",
+        Revisar: c?.revisar ? "Sim" : "",
+        Andamento: l.andamento ?? "",
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(linhasPlanilha);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Publicações");
+    XLSX.writeFile(wb, `Publicacoes-${grupoAtivo === "todos" ? "todos" : grupoAtivo}.xlsx`);
   };
 
   const ler = async (arquivo: File) => {
@@ -707,7 +776,6 @@ function PublicacoesPage() {
       const montadas = montarLinhas(lidas);
       setLinhas(montadas);
       setSelecionadas(new Set(montadas.filter((l) => l.cnjDigits).map((l) => l.idx)));
-      setClassificacoes(new Map());
       setGrupoAtivo("todos");
       toast.success(`${montadas.length} publicação(ões) lida(s) (3 abas).`);
     } catch {
@@ -813,7 +881,6 @@ function PublicacoesPage() {
         );
         setLinhas([]);
         setSelecionadas(new Set());
-        setClassificacoes(new Map());
       }
       await queryClient.invalidateQueries();
     } catch (e) {
@@ -846,50 +913,63 @@ function PublicacoesPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <div className="space-y-1 lg:col-span-2">
-              <Label htmlFor="djen-advogado">Nome do advogado</Label>
-              <Input
-                id="djen-advogado"
-                placeholder="Eliane Leve"
-                value={buscaDjen.nomeAdvogado}
-                onChange={(e) => setBuscaDjen((a) => ({ ...a, nomeAdvogado: e.target.value }))}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Advogados</Label>
+            {advogadosDjen.map((a, i) => (
+              <div key={i} className="grid gap-2 sm:grid-cols-[2fr_1fr_5rem_auto]">
+                <Input
+                  aria-label="Nome do advogado"
+                  placeholder="Nome do advogado (ex.: Eliane Leve)"
+                  value={a.nome}
+                  onChange={(e) => atualizarAdvogadoDjen(i, { nome: e.target.value })}
+                />
+                <Input
+                  aria-label="OAB nº"
+                  placeholder="OAB nº"
+                  value={a.numeroOab}
+                  onChange={(e) => atualizarAdvogadoDjen(i, { numeroOab: e.target.value })}
+                />
+                <Input
+                  aria-label="UF da OAB"
+                  placeholder="UF"
+                  maxLength={2}
+                  value={a.ufOab}
+                  onChange={(e) =>
+                    atualizarAdvogadoDjen(i, { ufOab: e.target.value.toUpperCase() })
+                  }
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => removerAdvogadoDjen(i)}
+                  disabled={advogadosDjen.length <= 1}
+                  aria-label="Remover advogado"
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={adicionarAdvogadoDjen}>
+              <Plus className="size-4" />
+              Adicionar advogado
+            </Button>
+          </div>
+          <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-1">
-              <Label htmlFor="djen-oab">OAB nº</Label>
-              <Input
-                id="djen-oab"
-                placeholder="123456"
-                value={buscaDjen.numeroOab}
-                onChange={(e) => setBuscaDjen((a) => ({ ...a, numeroOab: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="djen-uf">UF da OAB</Label>
-              <Input
-                id="djen-uf"
-                placeholder="RJ"
-                maxLength={2}
-                value={buscaDjen.ufOab}
-                onChange={(e) =>
-                  setBuscaDjen((a) => ({ ...a, ufOab: e.target.value.toUpperCase() }))
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="djen-tribunal">Tribunal (opcional)</Label>
+              <Label htmlFor="djen-tribunal" className="text-xs text-muted-foreground">
+                Tribunal (opcional)
+              </Label>
               <Input
                 id="djen-tribunal"
                 placeholder="TJRJ"
-                value={buscaDjen.siglaTribunal}
+                value={periodoDjen.siglaTribunal}
                 onChange={(e) =>
-                  setBuscaDjen((a) => ({ ...a, siglaTribunal: e.target.value.toUpperCase() }))
+                  setPeriodoDjen((a) => ({ ...a, siglaTribunal: e.target.value.toUpperCase() }))
                 }
+                className="w-32"
               />
             </div>
-          </div>
-          <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-1">
               <Label htmlFor="djen-inicio" className="text-xs text-muted-foreground">
                 Data início
@@ -897,8 +977,8 @@ function PublicacoesPage() {
               <Input
                 id="djen-inicio"
                 type="date"
-                value={buscaDjen.dataInicio}
-                onChange={(e) => setBuscaDjen((a) => ({ ...a, dataInicio: e.target.value }))}
+                value={periodoDjen.dataInicio}
+                onChange={(e) => setPeriodoDjen((a) => ({ ...a, dataInicio: e.target.value }))}
                 className="w-44"
               />
             </div>
@@ -909,8 +989,8 @@ function PublicacoesPage() {
               <Input
                 id="djen-fim"
                 type="date"
-                value={buscaDjen.dataFim}
-                onChange={(e) => setBuscaDjen((a) => ({ ...a, dataFim: e.target.value }))}
+                value={periodoDjen.dataFim}
+                onChange={(e) => setPeriodoDjen((a) => ({ ...a, dataFim: e.target.value }))}
                 className="w-44"
               />
             </div>
@@ -962,24 +1042,11 @@ function PublicacoesPage() {
         <>
           <Card>
             <CardHeader>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <CardTitle className="font-serif text-lg">Prazos</CardTitle>
-                  <CardDescription>
-                    A IA lê o teor de cada publicação e sugere tipo de ato e prazo — a contagem de
-                    dias úteis em si é feita no sistema, não pela IA. Confira sempre o que vier
-                    marcado "revisar".
-                  </CardDescription>
-                </div>
-                <Button
-                  type="button"
-                  onClick={() => void calcularPrazos()}
-                  disabled={classificando}
-                >
-                  <Sparkles className="size-4" />
-                  {classificando ? "Calculando..." : "Calcular prazos"}
-                </Button>
-              </div>
+              <CardTitle className="font-serif text-lg">Prazos</CardTitle>
+              <CardDescription>
+                Tipo de ato e prazo calculados automaticamente por regra fixa a partir do teor de
+                cada publicação (sem IA). Confira sempre o que vier marcado "revisar".
+              </CardDescription>
             </CardHeader>
             {classificacoes.size > 0 ? (
               <CardContent>
@@ -1056,6 +1123,19 @@ function PublicacoesPage() {
                 >
                   <Mail className="size-4" />
                   Mandar e-mail — {grupoAtivo === "todos" ? "escolha um grupo" : grupoAtivo}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void baixarWordDoGrupo()}
+                  disabled={grupoAtivo === "todos" || baixandoDocx}
+                >
+                  <FileDown className="size-4" />
+                  {baixandoDocx ? "Gerando..." : "Baixar em Word"}
+                </Button>
+                <Button type="button" variant="outline" onClick={baixarPlanilha}>
+                  <FileDown className="size-4" />
+                  Baixar planilha
                 </Button>
               </div>
 
@@ -1162,9 +1242,8 @@ function PublicacoesPage() {
                   Não localizadas ({naoLocalizadaAdvg.length + naoLocalizadaGeralCandidatas.length})
                 </CardTitle>
                 <CardDescription>
-                  Linhas sem processo cadastrado que mencionam Eliane Leve/Souza Cruz/Merck. Só
-                  entram no e-mail da Eliane (ELV) — a aba "Geral" só depois que "Calcular prazos"
-                  confirmar relevância.
+                  Linhas sem processo cadastrado que mencionam Eliane Leve/Souza Cruz/Merck — entram
+                  automaticamente no e-mail da Eliane (ELV).
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1187,11 +1266,6 @@ function PublicacoesPage() {
                             >
                               <div className="mb-1 flex flex-wrap items-center gap-2">
                                 <span className="font-mono text-xs">{l.cnjTexto}</span>
-                                {c?.relevanteGeral === false ? (
-                                  <Badge variant="outline">Não relevante (IA)</Badge>
-                                ) : c?.relevanteGeral === true ? (
-                                  <Badge>Relevante — entra no e-mail</Badge>
-                                ) : null}
                                 {c?.tipoAto ? <Badge variant="secondary">{c.tipoAto}</Badge> : null}
                               </div>
                               <p className="text-xs text-muted-foreground">

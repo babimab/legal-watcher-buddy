@@ -10,10 +10,14 @@ import { formatarCNJ } from "@/lib/processos";
 // quebrar a busca inteira. Se algum campo vier errado na prática, o ajuste
 // fica isolado aqui.
 
+export type AdvogadoFiltro = {
+  nome: string;
+  numeroOab: string;
+  ufOab: string;
+};
+
 export type FiltrosDjen = {
-  nomeAdvogado?: string;
-  numeroOab?: string;
-  ufOab?: string;
+  advogados: AdvogadoFiltro[];
   siglaTribunal?: string;
   dataInicio: string;
   dataFim: string;
