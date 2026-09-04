@@ -596,54 +596,76 @@ const COLUNA_TEXTO_LIVRE_PUBLICACOES = new Set(["andamento"]);
 
 // Mesmo formato/estilo (cabeçalho azul, bordas, largura automática, link
 // no CNJ) já usado nas planilhas de Relatórios -- reaproveita os
-// helpers de src/lib/excel.ts em vez de inventar um estilo novo.
+// helpers de src/lib/excel.ts em vez de inventar um estilo novo. Colunas
+// no formato que a BDR já usa fora do FaroLex (números de cliente/caso,
+// autor/réu, UF/comarca/foro/vara/status/fase) -- "Foro" não existe no
+// cadastro de processo do FaroLex hoje, então fica em branco.
 async function exportarPublicacoesExcel(
   itens: LinhaCasada[],
   avulsos: LinhaPublicacao[],
-  classificacoes: Map<number, ClassificacaoPublicacao>,
   nomeArquivo: string,
 ) {
   const workbook = new ExcelJS.Workbook();
   const planilha = workbook.addWorksheet("Publicações");
 
   planilha.columns = [
+    { header: "Cliente", key: "cliente", width: 12 },
+    { header: "Caso", key: "caso", width: 12 },
+    { header: "Coord", key: "coord", width: 10 },
+    { header: "Advg", key: "advg", width: 10 },
+    { header: "Nome do Autor", key: "autor", width: 26 },
+    { header: "Nome do Réu", key: "reu", width: 26 },
     { header: "Processo", key: "processo", width: 22 },
-    { header: "Cliente", key: "cliente", width: 22 },
-    { header: "Grupo", key: "grupo", width: 10 },
-    { header: "Data publicação", key: "data", width: 14 },
-    { header: "Tipo de ato", key: "tipo", width: 18 },
-    { header: "Prazo", key: "prazo", width: 14 },
-    { header: "Revisar", key: "revisar", width: 10 },
+    { header: "UF", key: "uf", width: 8 },
+    { header: "Comarca", key: "comarca", width: 22 },
+    { header: "Foro", key: "foro", width: 20 },
+    { header: "Vara", key: "vara", width: 20 },
+    { header: "Status", key: "status", width: 12 },
+    { header: "Fase", key: "fase", width: 16 },
+    { header: "Data Publicação", key: "data", width: 14 },
     { header: "Andamento", key: "andamento", width: 80 },
   ];
 
   for (const l of itens) {
-    const c = classificacoes.get(l.idx);
     planilha.addRow({
+      cliente: l.processo.numero_cliente ?? "—",
+      caso: l.processo.numero_interno ?? "—",
+      coord: l.coord ?? "—",
+      advg: l.advg ?? "—",
+      autor: l.autor ?? "—",
+      reu: l.reu ?? "—",
       processo: { text: l.cnjTexto, hyperlink: linkTribunalEfetivo(l.processo) },
-      cliente: exibir(l.processo.cliente) ?? "",
-      grupo: l.grupo,
+      uf: l.processo.uf ?? "—",
+      comarca: l.processo.comarca ?? "—",
+      foro: "—",
+      vara: l.processo.vara ?? "—",
+      status: l.processo.status ?? "—",
+      fase: l.processo.fase ?? "—",
       data: dataBR(l.dataPublicacao),
-      tipo: c?.tipoAto ?? "",
-      prazo: c?.dataVencimento ? dataBR(c.dataVencimento) : "",
-      revisar: c?.revisar ? "Sim" : "",
-      andamento: c?.resumo ?? l.andamento ?? "",
+      andamento: l.andamento ?? "—",
     });
   }
 
   // Selecionadas na seção "DJEN sem processo cadastrado" -- sem Processo
-  // cadastrado, então Cliente/Grupo ficam em branco e o CNJ não vira link.
+  // cadastrado, então as colunas que dependem dele ficam em branco e o
+  // CNJ não vira link.
   for (const l of avulsos) {
-    const c = classificacoes.get(l.idx);
     planilha.addRow({
-      processo: l.cnjTexto,
       cliente: "—",
-      grupo: "—",
+      caso: "—",
+      coord: l.coord ?? "—",
+      advg: l.advg ?? "—",
+      autor: l.autor ?? "—",
+      reu: l.reu ?? "—",
+      processo: l.cnjTexto,
+      uf: "—",
+      comarca: "—",
+      foro: "—",
+      vara: "—",
+      status: "—",
+      fase: "—",
       data: dataBR(l.dataPublicacao),
-      tipo: c?.tipoAto ?? "",
-      prazo: c?.dataVencimento ? dataBR(c.dataVencimento) : "",
-      revisar: c?.revisar ? "Sim" : "",
-      andamento: c?.resumo ?? l.andamento ?? "",
+      andamento: l.andamento ?? "—",
     });
   }
 
@@ -963,12 +985,7 @@ function PublicacoesPage() {
     try {
       const nomeGrupos =
         gruposAtivos.size === 0 ? "todos" : [...gruposAtivos].map((g) => g.toLowerCase()).join("-");
-      await exportarPublicacoesExcel(
-        exibidas,
-        avulsosParaPlanilha,
-        classificacoes,
-        `publicacoes-${nomeGrupos}`,
-      );
+      await exportarPublicacoesExcel(exibidas, avulsosParaPlanilha, `publicacoes-${nomeGrupos}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não consegui gerar a planilha.");
     } finally {
