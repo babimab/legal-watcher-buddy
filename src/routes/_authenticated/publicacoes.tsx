@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { toast } from "sonner";
 import {
   AlertTriangle,
@@ -46,6 +47,16 @@ import {
   type FiltrosDjen,
 } from "@/lib/djen";
 import { baixarBlob, gerarDocxPublicacoes } from "@/lib/publicacoes-docx";
+import { linkTribunalEfetivo } from "@/lib/tribunais";
+import {
+  estilizarCabecalho,
+  centralizarLinhas,
+  ajustarLargurasAoConteudo,
+  fecharLinhasComBorda,
+  estilizarComoLink,
+  finalizarPlanilha,
+  baixarPlanilha as baixarWorkbook,
+} from "@/lib/excel";
 
 export const Route = createFileRoute("/_authenticated/publicacoes")({
   head: () => ({
@@ -515,6 +526,60 @@ function montarMailtoPublicacoes(
   return `mailto:${destinatarios.join(",")}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
 }
 
+const COLUNA_TEXTO_LIVRE_PUBLICACOES = new Set(["andamento"]);
+
+// Mesmo formato/estilo (cabeçalho azul, bordas, largura automática, link
+// no CNJ) já usado nas planilhas de Relatórios -- reaproveita os
+// helpers de src/lib/excel.ts em vez de inventar um estilo novo.
+async function exportarPublicacoesExcel(
+  itens: LinhaCasada[],
+  classificacoes: Map<number, ClassificacaoPublicacao>,
+  nomeArquivo: string,
+) {
+  const workbook = new ExcelJS.Workbook();
+  const planilha = workbook.addWorksheet("Publicações");
+
+  planilha.columns = [
+    { header: "Processo", key: "processo", width: 22 },
+    { header: "Cliente", key: "cliente", width: 22 },
+    { header: "Grupo", key: "grupo", width: 10 },
+    { header: "Data publicação", key: "data", width: 14 },
+    { header: "Tipo de ato", key: "tipo", width: 18 },
+    { header: "Prazo", key: "prazo", width: 14 },
+    { header: "Revisar", key: "revisar", width: 10 },
+    { header: "Andamento", key: "andamento", width: 80 },
+  ];
+
+  for (const l of itens) {
+    const c = classificacoes.get(l.idx);
+    planilha.addRow({
+      processo: { text: l.cnjTexto, hyperlink: linkTribunalEfetivo(l.processo) },
+      cliente: exibir(l.processo.cliente) ?? "",
+      grupo: l.grupo,
+      data: dataBR(l.dataPublicacao),
+      tipo: c?.tipoAto ?? "",
+      prazo: c?.dataVencimento ? dataBR(c.dataVencimento) : "",
+      revisar: c?.revisar ? "Sim" : "",
+      andamento: c?.resumo ?? l.andamento ?? "",
+    });
+  }
+
+  estilizarCabecalho(planilha);
+  centralizarLinhas(planilha, COLUNA_TEXTO_LIVRE_PUBLICACOES);
+  planilha.getColumn("andamento").alignment = {
+    vertical: "top",
+    horizontal: "left",
+    wrapText: true,
+  };
+  ajustarLargurasAoConteudo(planilha, COLUNA_TEXTO_LIVRE_PUBLICACOES);
+  fecharLinhasComBorda(planilha);
+  estilizarComoLink(planilha, new Set(["processo"]));
+  planilha.pageSetup = { orientation: "landscape", fitToWidth: 1, fitToHeight: 0 };
+  finalizarPlanilha(planilha);
+
+  await baixarWorkbook(workbook, nomeArquivo);
+}
+
 function badgeUrgencia(urgencia: Urgencia) {
   switch (urgencia) {
     case "vencido":
@@ -556,6 +621,7 @@ function PublicacoesPage() {
   });
   const [buscandoDjen, setBuscandoDjen] = useState(false);
   const [baixandoDocx, setBaixandoDocx] = useState(false);
+  const [baixandoPlanilha, setBaixandoPlanilha] = useState(false);
   const queryClient = useQueryClient();
 
   const processos = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
@@ -770,28 +836,23 @@ function PublicacoesPage() {
     }
   };
 
-  const baixarPlanilha = () => {
+  const baixarPlanilha = async () => {
     if (exibidas.length === 0) {
       toast.error("Nenhuma publicação pra exportar.");
       return;
     }
-    const linhasPlanilha = exibidas.map((l) => {
-      const c = classificacoes.get(l.idx);
-      return {
-        Processo: l.cnjTexto,
-        Cliente: exibir(l.processo.cliente) ?? "",
-        Grupo: l.grupo,
-        "Data publicação": dataBR(l.dataPublicacao),
-        "Tipo de ato": c?.tipoAto ?? "",
-        Prazo: c?.dataVencimento ? dataBR(c.dataVencimento) : "",
-        Revisar: c?.revisar ? "Sim" : "",
-        Andamento: l.andamento ?? "",
-      };
-    });
-    const ws = XLSX.utils.json_to_sheet(linhasPlanilha);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Publicações");
-    XLSX.writeFile(wb, `Publicacoes-${grupoAtivo === "todos" ? "todos" : grupoAtivo}.xlsx`);
+    setBaixandoPlanilha(true);
+    try {
+      await exportarPublicacoesExcel(
+        exibidas,
+        classificacoes,
+        `publicacoes-${grupoAtivo === "todos" ? "todos" : grupoAtivo.toLowerCase()}`,
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não consegui gerar a planilha.");
+    } finally {
+      setBaixandoPlanilha(false);
+    }
   };
 
   const ler = async (arquivo: File) => {
@@ -1186,9 +1247,14 @@ function PublicacoesPage() {
                   <FileDown className="size-4" />
                   {baixandoDocx ? "Gerando..." : "Baixar em Word"}
                 </Button>
-                <Button type="button" variant="outline" onClick={baixarPlanilha}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void baixarPlanilha()}
+                  disabled={baixandoPlanilha}
+                >
                   <FileDown className="size-4" />
-                  Baixar planilha
+                  {baixandoPlanilha ? "Gerando..." : "Baixar planilha"}
                 </Button>
               </div>
 

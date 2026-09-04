@@ -51,6 +51,28 @@ function pegarFuzzy(obj: Record<string, unknown>, ...termos: string[]): unknown 
   return undefined;
 }
 
+// O teor de várias comunicações do DJEN vem como HTML inteiro (com
+// <style>, tabelas etc.), não texto puro -- confirmado testando na
+// prática. Usa o próprio parser HTML do navegador (via innerHTML) pra
+// decodificar entidades (&ccedil; etc.) e tirar as tags de forma
+// confiável, inserindo quebra de linha nos limites de bloco antes pra não
+// devolver tudo grudado numa linha só.
+function htmlParaTextoPlano(bruto: string): string {
+  if (!bruto.includes("<") && !bruto.includes("&")) return bruto;
+  const comQuebras = bruto
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<(br|\/p|\/div|\/tr|\/section|\/li|\/h[1-6])\s*\/?>/gi, "\n")
+    .replace(/<(p|div|tr|section|li|h[1-6])(\s[^>]*)?>/gi, "\n");
+  const div = document.createElement("div");
+  div.innerHTML = comQuebras;
+  return (div.textContent ?? "")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function comoTexto(valor: unknown): string | null {
   if (valor == null) return null;
   const s = String(valor).trim();
@@ -120,7 +142,10 @@ function mapearItem(itemBruto: unknown): ComunicacaoDjen | null {
       pegar(obj, "data_disponibilizacao", "dataDisponibilizacao", "datadisponibilizacao") ??
         pegarFuzzy(obj, "disponibiliz"),
     ),
-    texto: comoTexto(pegar(obj, "texto", "teor", "conteudo") ?? pegarFuzzy(obj, "texto")),
+    texto: (() => {
+      const bruto = pegar(obj, "texto", "teor", "conteudo") ?? pegarFuzzy(obj, "texto");
+      return typeof bruto === "string" ? comoTexto(htmlParaTextoPlano(bruto)) : comoTexto(bruto);
+    })(),
     nomesAdvogados: nomesDeArray(advogadosRaw),
     partes: nomesDeArray(partesRaw),
     link: comoTexto(pegar(obj, "link", "linkPublicacao", "url") ?? pegarFuzzy(obj, "link")),
