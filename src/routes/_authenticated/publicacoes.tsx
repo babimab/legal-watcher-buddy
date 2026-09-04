@@ -278,17 +278,19 @@ function linhasDeDjen(comunicacoes: ComunicacaoDjen[], idxInicial: number): Linh
 }
 
 // Regras 3 do projeto de publicações da BDR: Grupo 1 (Eliane/ELV) =
-// Coord.="ELV" na planilha OU numero_cliente do processo numa lista
-// fixa; Grupo 2 (MLV/BBS) = numero_cliente="4608" E Coord.="GFC" --
-// checar ELV primeiro garante que cliente 4608 com Coord. ELV fique no
-// grupo da Eliane, conforme a exceção explícita do prompt dela. Astro
-// não muda: continua pela categoria do cliente.
-function grupoDaLinha(l: LinhaPublicacao, p: Processo): Grupo {
+// Sócio="ELV" no cadastro do processo OU numero_cliente do processo numa
+// lista fixa; Grupo 2 (MLV/BBS) = numero_cliente="4608" E Sócio="GFC" --
+// checar ELV primeiro garante que cliente 4608 com Sócio ELV fique no
+// grupo da Eliane, conforme a exceção explícita do prompt dela. Usa o
+// Sócio cadastrado no processo, não o que vem na planilha/DJEN (esse
+// pode estar desatualizado ou nem existir). Astro não muda: continua
+// pela categoria do cliente.
+function grupoDaLinha(p: Processo): Grupo {
   if (categoriaCliente(p.cliente) === "Astro") return "Astro";
-  const coord = (l.coord ?? "").trim().toUpperCase();
+  const socio = (p.socio ?? "").trim().toUpperCase();
   const numeroCliente = (p.numero_cliente ?? "").trim();
-  if (coord === "ELV" || CLIENTES_GRUPO_ELV.includes(numeroCliente)) return "ELV";
-  if (numeroCliente === CLIENTE_GRUPO_GFC && coord === "GFC") return "GFC";
+  if (socio === "ELV" || CLIENTES_GRUPO_ELV.includes(numeroCliente)) return "ELV";
+  if (numeroCliente === CLIENTE_GRUPO_GFC && socio === "GFC") return "GFC";
   return "Outros";
 }
 
@@ -769,7 +771,7 @@ function PublicacoesPage() {
         casadas.push({
           ...l,
           processo,
-          grupo: grupoDaLinha(l, processo),
+          grupo: grupoDaLinha(processo),
           socioReal: processo.socio ?? "—",
           advgReal: pastaPorId.get(processo.pasta_id ?? "") ?? "—",
         });
