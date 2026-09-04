@@ -340,55 +340,69 @@ function dataBR(iso: string | null | undefined) {
   return iso ? new Date(`${iso}T12:00:00`).toLocaleDateString("pt-BR") : "—";
 }
 
+// Formato de tabela (cabeçalho + uma linha de dados, separados por tab)
+// pedido pela BDR pra bater com o formato do projeto de Claude dela --
+// cada processo repete o cabeçalho, já que os blocos ficam separados por
+// uma linha de "═" (ver montarPartesPublicacoes).
 function blocoProcesso(l: LinhaCasada, classificacao: ClassificacaoPublicacao | undefined) {
-  const cliente = exibir(l.processo.cliente) ?? "";
-  const numeroCliente = l.processo.numero_cliente ? ` (nº ${l.processo.numero_cliente})` : "";
-  const caso = l.processo.numero_interno ? `\nCaso: ${l.processo.numero_interno}` : "";
-  const coordAdvg = [l.coord ? `Coord.: ${l.coord}` : null, l.advg ? `ADVG: ${l.advg}` : null]
-    .filter(Boolean)
-    .join("   ");
-  const partes = [l.autor, l.reu].filter(Boolean).join(" x ") || "—";
-  const juizo = [l.processo.vara, l.processo.comarca].filter(Boolean).join(" — ") || "—";
+  const clienteCod = l.processo.numero_cliente ?? exibir(l.processo.cliente) ?? "—";
+  const caso = l.processo.numero_interno ?? "—";
+  const coord = l.coord ?? "—";
+  const advg = l.advg ?? "—";
+  const contraparte =
+    l.processo.parte_contraria || [l.autor, l.reu].filter(Boolean).join(" x ") || null;
+  const partes = [exibir(l.processo.cliente), contraparte].filter(Boolean).join(" x ") || "—";
+  const juizo =
+    [l.processo.vara, [l.processo.comarca, l.processo.uf].filter(Boolean).join("/") || null]
+      .filter(Boolean)
+      .join(" de ") || "—";
   const teor = classificacao?.resumo ?? l.andamento ?? "—";
-  const prazoLinha = classificacao?.dataVencimento
-    ? `Prazo: ${dataBR(classificacao.dataVencimento)} (${classificacao.regraAplicada})${classificacao.revisar ? " — CONFERIR" : ""}`
-    : classificacao?.revisar
-      ? "Prazo: verificar prazo no sistema (não foi possível confirmar automaticamente)"
-      : null;
 
   return [
-    `Processo: ${l.cnjTexto}`,
-    `Cliente: ${cliente}${numeroCliente}${caso}`,
-    coordAdvg || "Coord./ADVG: —",
-    `Partes: ${partes}`,
-    `Juízo: ${juizo}`,
-    `Data da publicação: ${dataBR(l.dataPublicacao)}`,
-    prazoLinha,
-    `Teor da publicação: ${teor}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+    "Processo\tCliente\tCaso\tCoord.\tADVG\tPartes\tJuízo\tTeor da publicação",
+    `${l.cnjTexto}\t${clienteCod}\t${caso}\t${coord}\t${advg}\t${partes}\t${juizo}\t${teor}`,
+  ].join("\n");
 }
 
 function montarAgendamentos(
   itens: LinhaCasada[],
   classificacoes: Map<number, ClassificacaoPublicacao>,
 ) {
-  const comPrazo = itens
+  const comClassificacao = itens
     .map((l) => ({ l, c: classificacoes.get(l.idx) }))
-    .filter((x): x is { l: LinhaCasada; c: ClassificacaoPublicacao } => !!x.c?.dataVencimento)
-    .sort((a, b) => (a.c.dataVencimento! < b.c.dataVencimento! ? -1 : 1));
+    // Entra em Agendamentos sempre que houver prazo calculado OU a
+    // classificação tiver ficado incerta ("revisar") -- nesse caso
+    // aparece como "Verificar prazo no sistema" em vez de sumir da lista.
+    .filter(
+      (x): x is { l: LinhaCasada; c: ClassificacaoPublicacao } =>
+        !!x.c && (!!x.c.dataVencimento || x.c.revisar),
+    )
+    .sort((a, b) => {
+      if (!a.c.dataVencimento) return 1;
+      if (!b.c.dataVencimento) return -1;
+      return a.c.dataVencimento < b.c.dataVencimento ? -1 : 1;
+    });
 
-  if (comPrazo.length === 0) return null;
+  if (comClassificacao.length === 0) return null;
 
-  const linhas = comPrazo.map(({ l, c }) => {
+  const linhas = comClassificacao.map(({ l, c }) => {
     const parteContraria =
-      l.processo.parte_contraria ?? [l.autor, l.reu].filter(Boolean).join(" x ") ?? "—";
-    const clienteCaso = [l.processo.cliente, l.processo.numero_interno].filter(Boolean).join("/");
-    const varaTribunal = l.processo.vara ?? l.processo.tribunal ?? "—";
-    const cidadeUf = [l.processo.comarca, l.processo.uf].filter(Boolean).join("/") || "—";
-    const advg = l.advg ? ` [${l.advg}]` : "";
-    return `${dataBR(c.dataVencimento)}: ${c.tipoAto} — ${parteContraria} (${clienteCaso}) ${varaTribunal} ${cidadeUf}${advg}`;
+      l.processo.parte_contraria || [l.autor, l.reu].filter(Boolean).join(" x ") || "—";
+    const clienteCaso = [
+      l.processo.numero_cliente ? `Cliente ${l.processo.numero_cliente}` : null,
+      l.processo.numero_interno ? `Caso ${l.processo.numero_interno}` : null,
+    ]
+      .filter(Boolean)
+      .join("/");
+    const juizo =
+      [l.processo.vara, [l.processo.comarca, l.processo.uf].filter(Boolean).join("/") || null]
+        .filter(Boolean)
+        .join(" de ") || "—";
+    const advg = l.advg ? ` (${l.advg})` : "";
+    const dataOuRevisar = c.dataVencimento
+      ? dataBR(c.dataVencimento)
+      : "Verificar prazo no sistema";
+    return `${dataOuRevisar}: ${c.tipoAto} — ${parteContraria} (${clienteCaso}) ${juizo}${advg}`;
   });
 
   return `Agendamentos:\n${linhas.join("\n")}`;
@@ -406,12 +420,28 @@ function montarNaoLocalizada(
     const teor = c?.resumo ?? l.andamento ?? "—";
     if (colunas === "advg") {
       const referencia = [l.advg, l.coord].filter(Boolean).join(" / ") || "—";
-      return `Processo: ${l.cnjTexto}\nReferência: ${referencia}\nTeor: ${teor}`;
+      return ["Processo\tReferência\tTeor", `${l.cnjTexto}\t${referencia}\t${teor}`].join("\n");
     }
     const partes = [l.autor, l.reu].filter(Boolean).join(" x ") || "—";
-    return `Processo: ${l.cnjTexto}\nCliente: ${l.clientePlanilha ?? "—"}\nADVG: ${l.advg ?? "—"}\nPartes: ${partes}\nTeor: ${teor}`;
+    return [
+      "Processo\tCliente\tADVG\tPartes\tTeor",
+      `${l.cnjTexto}\t${l.clientePlanilha ?? "—"}\t${l.advg ?? "—"}\t${partes}\t${teor}`,
+    ].join("\n");
   });
   return `${rotulo}:\n\n${blocos.join(`\n\n${SEPARADOR_EMAIL}\n\n`)}`;
+}
+
+// Quando não há nenhuma publicação relevante na aba "Não Localizada –
+// Geral" pra essa remessa, explica o porquê em vez de simplesmente
+// omitir a seção (só faz sentido dizer isso quando havia candidatas
+// mencionando Souza Cruz/Merck, senão nem vale citar a aba).
+function montarSemResultadoGeral(totalCandidatas: number): string | null {
+  if (totalCandidatas === 0) return null;
+  return (
+    `Quanto à aba "Não Localizada – Geral": foram identificadas ${totalCandidatas} ` +
+    `publicação(ões) contendo os termos "Souza Cruz" ou "Merck" como parte, porém em ` +
+    `nenhuma delas a advogada responsável é Eliane Leve.`
+  );
 }
 
 function montarAlertas(
@@ -456,35 +486,37 @@ function montarPartesPublicacoes(
   dataPlanilha: string,
   naoLocalizadaAdvg: LinhaPublicacao[],
   naoLocalizadaGeral: LinhaPublicacao[],
+  naoLocalizadaGeralTotalCandidatas: number,
 ): { assunto: string; partes: string[] } {
   const assunto = `Publicações — ${grupo}`;
   const saudacaoInicial = SAUDACAO_INICIAL[grupo]
     .replace("{saudacao}", saudacaoAgora())
     .replace("{data}", dataBR(dataPlanilha));
 
-  const blocos = itens.map((l, i) => `${i + 1}. ${blocoProcesso(l, classificacoes.get(l.idx))}`);
+  const blocos = itens.map((l) => blocoProcesso(l, classificacoes.get(l.idx)));
 
   // As seções de "Não Localizada" (regras 7 e 8 do prompt da BDR) só se
   // aplicam ao grupo da Eliane/ELV -- os critérios de busca (Eliane
   // Leve/Souza Cruz/Merck) e de relevância (advogada Eliane Leve) são
   // específicos dos clientes dela, não do grupo 4608/GFC.
-  const partesExtras =
+  const naoLocalizadaAdvgTexto =
     grupo === "ELV"
-      ? [
-          montarNaoLocalizada(
-            'Adicionalmente, na aba "Não Localizada – Advg", foram localizadas as seguintes publicações relevantes',
-            naoLocalizadaAdvg,
-            classificacoes,
-            "advg",
-          ),
-          montarNaoLocalizada(
-            'Adicionalmente, na aba "Não Localizada – Geral", foram localizadas as seguintes publicações relevantes',
-            naoLocalizadaGeral,
-            classificacoes,
-            "geral",
-          ),
-        ]
-      : [];
+      ? montarNaoLocalizada(
+          'Adicionalmente, na aba "Não Localizada – Advg", foram localizadas as seguintes publicações relevantes',
+          naoLocalizadaAdvg,
+          classificacoes,
+          "advg",
+        )
+      : null;
+  const naoLocalizadaGeralTexto =
+    grupo === "ELV"
+      ? (montarNaoLocalizada(
+          'Adicionalmente, na aba "Não Localizada – Geral", foram localizadas as seguintes publicações relevantes',
+          naoLocalizadaGeral,
+          classificacoes,
+          "geral",
+        ) ?? montarSemResultadoGeral(naoLocalizadaGeralTotalCandidatas))
+      : null;
 
   const agendamentos = montarAgendamentos(itens, classificacoes);
   const alertas = montarAlertas(
@@ -493,14 +525,20 @@ function montarPartesPublicacoes(
     grupo === "ELV" ? [...naoLocalizadaAdvg, ...naoLocalizadaGeral] : [],
   );
 
-  const partes = [
-    saudacaoInicial,
-    agendamentos,
-    `Seguem as publicações localizadas nos processos monitorados:\n\n${blocos.join(`\n${SEPARADOR_EMAIL}\n\n`)}\n${SEPARADOR_EMAIL}`,
-    ...partesExtras,
-    alertas,
-    FECHO[grupo],
-  ].filter((p): p is string => !!p);
+  // Cada tabela (um processo, ou uma aba "Não Localizada") fica separada
+  // visualmente por uma linha de "═", igual ao formato do projeto de
+  // Claude da BDR -- alertas e fecho não entram nessa cadeia.
+  const secoesComTabela = [...blocos, naoLocalizadaAdvgTexto, naoLocalizadaGeralTexto].filter(
+    (s): s is string => !!s,
+  );
+  const blocoTabelas =
+    secoesComTabela.length > 0
+      ? `${SEPARADOR_EMAIL}\n\n${secoesComTabela.join(`\n\n${SEPARADOR_EMAIL}\n\n`)}`
+      : null;
+
+  const partes = [saudacaoInicial, agendamentos, blocoTabelas, alertas, FECHO[grupo]].filter(
+    (p): p is string => !!p,
+  );
 
   return { assunto, partes };
 }
@@ -517,6 +555,7 @@ function construirConteudoPublicacoes(
   dataPlanilha: string,
   naoLocalizadaAdvg: LinhaPublicacao[],
   naoLocalizadaGeral: LinhaPublicacao[],
+  naoLocalizadaGeralTotalCandidatas: number,
   avulsosSelecionados: LinhaPublicacao[],
 ): { assunto: string; partes: string[] } {
   const assunto = `Publicações — ${grupos.join(" / ")}`;
@@ -531,6 +570,7 @@ function construirConteudoPublicacoes(
       dataPlanilha,
       naoLocalizadaAdvg,
       naoLocalizadaGeral,
+      naoLocalizadaGeralTotalCandidatas,
     );
     partes.push(...secao.partes);
   }
@@ -543,7 +583,7 @@ function construirConteudoPublicacoes(
     classificacoes,
     "geral",
   );
-  if (avulsos) partes.push(avulsos);
+  if (avulsos) partes.push(`${SEPARADOR_EMAIL}\n\n${avulsos}`);
   return { assunto, partes };
 }
 
@@ -702,12 +742,24 @@ function PublicacoesPage() {
       ),
     [semProcesso],
   );
+  // Regra 8 do prompt da BDR: só é relevante quando o processo é da Souza
+  // Cruz/Merck E a advogada responsável é a Eliane Leve -- as duas
+  // condições, não uma ou outra (senão pega processo de outra advogada só
+  // por citar Souza Cruz/Merck de passagem).
+  const naoLocalizadaGeralTotalCandidatas = useMemo(
+    () =>
+      semProcesso.filter(
+        (l) => l.origem === "Não Localizada – Geral" && mencionaTermos(l, ["Souza Cruz", "Merck"]),
+      ).length,
+    [semProcesso],
+  );
   const naoLocalizadaGeralCandidatas = useMemo(
     () =>
       semProcesso.filter(
         (l) =>
           l.origem === "Não Localizada – Geral" &&
-          mencionaTermos(l, ["Souza Cruz", "Merck", "Eliane Leve"]),
+          mencionaTermos(l, ["Souza Cruz", "Merck"]) &&
+          mencionaTermos(l, ["Eliane Leve"]),
       ),
     [semProcesso],
   );
@@ -866,6 +918,7 @@ function PublicacoesPage() {
       dataPlanilha,
       naoLocalizadaAdvg,
       naoLocalizadaGeralCandidatas,
+      naoLocalizadaGeralTotalCandidatas,
       avulsosParaEmail,
     );
     window.location.href = montarLinkMailto(destinatarios, assunto, partes);
@@ -889,6 +942,7 @@ function PublicacoesPage() {
         dataPlanilha,
         naoLocalizadaAdvg,
         naoLocalizadaGeralCandidatas,
+        naoLocalizadaGeralTotalCandidatas,
         avulsosParaEmail,
       );
       const blob = await gerarDocxPublicacoes(assunto, partes);
