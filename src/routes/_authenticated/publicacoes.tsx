@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import {
@@ -8,6 +8,8 @@ import {
   CheckCircle2,
   FileDown,
   Mail,
+  Pin,
+  PinOff,
   Plus,
   Search,
   Trash2,
@@ -270,6 +272,36 @@ function grupoDaLinha(l: LinhaPublicacao, p: Processo): Grupo {
   return "Outros";
 }
 
+// Advogados "fixados" na busca do DJEN -- fica salvo no navegador (não é
+// dado do escritório, é só conveniência de quem está usando essa tela)
+// pra não precisar redigitar nome/OAB toda vez.
+const CHAVE_ADVOGADOS_FIXADOS = "farolex.publicacoes.advogadosFixadosDjen";
+
+type AdvogadoDjenRow = AdvogadoFiltro & { fixado: boolean };
+
+function carregarAdvogadosFixados(): AdvogadoDjenRow[] {
+  try {
+    const bruto = localStorage.getItem(CHAVE_ADVOGADOS_FIXADOS);
+    const lista = bruto ? (JSON.parse(bruto) as AdvogadoFiltro[]) : [];
+    if (!Array.isArray(lista) || lista.length === 0) return [];
+    return lista.map((a) => ({ ...a, fixado: true }));
+  } catch {
+    return [];
+  }
+}
+
+function salvarAdvogadosFixados(linhas: AdvogadoDjenRow[]) {
+  try {
+    const fixados = linhas
+      .filter((a) => a.fixado)
+      .map(({ nome, numeroOab, ufOab }) => ({ nome, numeroOab, ufOab }));
+    localStorage.setItem(CHAVE_ADVOGADOS_FIXADOS, JSON.stringify(fixados));
+  } catch {
+    // Sem localStorage (aba anônima, storage bloqueado etc.) -- não é
+    // crítico, só perde a conveniência de lembrar pra próxima visita.
+  }
+}
+
 function saudacaoAgora() {
   const hora = new Date().getHours();
   if (hora < 12) return "bom dia";
@@ -513,9 +545,11 @@ function PublicacoesPage() {
   const [selecionadas, setSelecionadas] = useState<Set<number>>(new Set());
   const [importando, setImportando] = useState(false);
   const [dataPlanilha, setDataPlanilha] = useState(() => new Date().toISOString().slice(0, 10));
-  const [advogadosDjen, setAdvogadosDjen] = useState<AdvogadoFiltro[]>(() => [
-    { nome: "", numeroOab: "", ufOab: "" },
-  ]);
+  const [advogadosDjen, setAdvogadosDjen] = useState<AdvogadoDjenRow[]>(() => {
+    const fixados = carregarAdvogadosFixados();
+    return fixados.length > 0 ? fixados : [{ nome: "", numeroOab: "", ufOab: "", fixado: false }];
+  });
+  useEffect(() => salvarAdvogadosFixados(advogadosDjen), [advogadosDjen]);
   const [periodoDjen, setPeriodoDjen] = useState(() => {
     const hoje = new Date().toISOString().slice(0, 10);
     return { siglaTribunal: "", dataInicio: hoje, dataFim: hoje };
@@ -618,7 +652,7 @@ function PublicacoesPage() {
   const [detalhe, setDetalhe] = useState<LinhaCasada | null>(null);
 
   const adicionarAdvogadoDjen = () =>
-    setAdvogadosDjen((atual) => [...atual, { nome: "", numeroOab: "", ufOab: "" }]);
+    setAdvogadosDjen((atual) => [...atual, { nome: "", numeroOab: "", ufOab: "", fixado: false }]);
 
   const removerAdvogadoDjen = (i: number) =>
     setAdvogadosDjen((atual) => atual.filter((_, idx) => idx !== i));
@@ -626,10 +660,15 @@ function PublicacoesPage() {
   const atualizarAdvogadoDjen = (i: number, patch: Partial<AdvogadoFiltro>) =>
     setAdvogadosDjen((atual) => atual.map((a, idx) => (idx === i ? { ...a, ...patch } : a)));
 
-  const buscarNoDjen = async () => {
-    const advogadosValidos = advogadosDjen.filter(
-      (a) => a.nome.trim() || (a.numeroOab.trim() && a.ufOab.trim()),
+  const alternarFixarAdvogadoDjen = (i: number) =>
+    setAdvogadosDjen((atual) =>
+      atual.map((a, idx) => (idx === i ? { ...a, fixado: !a.fixado } : a)),
     );
+
+  const buscarNoDjen = async () => {
+    const advogadosValidos = advogadosDjen
+      .filter((a) => a.nome.trim() || (a.numeroOab.trim() && a.ufOab.trim()))
+      .map(({ nome, numeroOab, ufOab }) => ({ nome, numeroOab, ufOab }));
     if (advogadosValidos.length === 0) {
       toast.error("Informe pelo menos um advogado (nome, ou OAB com a UF).");
       return;
@@ -914,9 +953,11 @@ function PublicacoesPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Advogados</Label>
+            <Label className="text-xs text-muted-foreground">
+              Advogados — fixe os que você busca sempre pra não precisar redigitar
+            </Label>
             {advogadosDjen.map((a, i) => (
-              <div key={i} className="grid gap-2 sm:grid-cols-[2fr_1fr_5rem_auto]">
+              <div key={i} className="grid gap-2 sm:grid-cols-[2fr_1fr_5rem_auto_auto]">
                 <Input
                   aria-label="Nome do advogado"
                   placeholder="Nome do advogado (ex.: Eliane Leve)"
@@ -938,6 +979,18 @@ function PublicacoesPage() {
                     atualizarAdvogadoDjen(i, { ufOab: e.target.value.toUpperCase() })
                   }
                 />
+                <Button
+                  type="button"
+                  variant={a.fixado ? "default" : "outline"}
+                  size="icon"
+                  onClick={() => alternarFixarAdvogadoDjen(i)}
+                  aria-label={a.fixado ? "Desfixar advogado" : "Fixar advogado"}
+                  title={
+                    a.fixado ? "Desfixar (não lembrar da próxima vez)" : "Fixar pra próxima vez"
+                  }
+                >
+                  {a.fixado ? <Pin className="size-4" /> : <PinOff className="size-4" />}
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
