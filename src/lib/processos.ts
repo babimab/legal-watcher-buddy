@@ -60,6 +60,7 @@ export type Movimentacao = {
   tipo: string | null;
   exige_acao: boolean;
   prazo: string | null;
+  prazo_revisar: boolean;
   concluida: boolean;
   observacao: string | null;
   fonte: string;

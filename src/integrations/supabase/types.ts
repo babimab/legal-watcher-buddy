@@ -369,6 +369,7 @@ export type Database = {
           observacao: string | null;
           ordem: number | null;
           prazo: string | null;
+          prazo_revisar: boolean;
           processo_id: string;
           tipo: string | null;
           updated_at: string;
@@ -392,6 +393,7 @@ export type Database = {
           observacao?: string | null;
           ordem?: number | null;
           prazo?: string | null;
+          prazo_revisar?: boolean;
           processo_id: string;
           tipo?: string | null;
           updated_at?: string;
@@ -415,6 +417,7 @@ export type Database = {
           observacao?: string | null;
           ordem?: number | null;
           prazo?: string | null;
+          prazo_revisar?: boolean;
           processo_id?: string;
           tipo?: string | null;
           updated_at?: string;

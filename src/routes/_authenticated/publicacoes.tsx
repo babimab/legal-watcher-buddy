@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
-import { Upload, CheckCircle2, Mail } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Mail, Sparkles, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,8 @@ import {
   listarProcessos,
   type Processo,
 } from "@/lib/processos";
+import { classificarPublicacoes, type ClassificacaoPublicacao } from "@/lib/publicacoes-ia";
+import { classificarUrgencia, type Urgencia } from "@/lib/dias-uteis";
 
 export const Route = createFileRoute("/_authenticated/publicacoes")({
   head: () => ({
@@ -34,7 +36,7 @@ export const Route = createFileRoute("/_authenticated/publicacoes")({
       {
         name: "description",
         content:
-          "Envie a planilha de publicações recebida do TI e o sistema já sugere os andamentos dos processos que já estão cadastrados.",
+          "Envie a planilha de publicações recebida do TI, calcule o prazo automaticamente e monte os e-mails prontos.",
       },
     ],
   }),
@@ -46,6 +48,9 @@ const EXTENSOES = [".xlsm", ".xlsx", ".xls"];
 
 const GRUPOS = ["ELV", "GFC", "Astro", "Outros"] as const;
 type Grupo = (typeof GRUPOS)[number];
+
+const CLIENTES_GRUPO_ELV = ["2599", "8228", "7347", "8247"];
+const CLIENTE_GRUPO_GFC = "4608";
 
 type Campo =
   "cliente" | "coord" | "advg" | "autor" | "reu" | "processo" | "fase" | "data" | "andamento";
@@ -68,12 +73,14 @@ const SINONIMOS: Record<string, Campo> = {
   andamento: "andamento",
 };
 
-type LinhaLida = { numero: number; origem: string; dados: Record<string, unknown> };
+type LinhaLida = { numero: number; origem: Origem; dados: Record<string, unknown> };
+
+type Origem = "Localizada" | "Não Localizada – Advg" | "Não Localizada – Geral";
 
 type LinhaPublicacao = {
   idx: number;
   linha: number;
-  origem: string;
+  origem: Origem;
   cnjDigits: string;
   cnjTexto: string;
   clientePlanilha: string | null;
@@ -128,16 +135,22 @@ function dataISO(valor: unknown): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
 }
 
-// Lê a aba "Localizada" (já vem com o processo identificado pelo TI) e
-// também as duas abas "Não Localizada" — o TI não conseguiu casar essas
-// automaticamente no sistema deles, mas o número do processo (coluna
-// PROCESSO) ainda está lá, então a gente cruza do mesmo jeito com os
-// processos já cadastrados aqui. As demais abas (Termos, Resumo,
-// Duplicada etc.) ficam pro projeto de análise da Bárbara no Claude, que
-// faz a leitura jurídica de prazo e relevância.
-const ABAS_RECONHECIDAS: { rotulo: string; bate: (nomeNormalizado: string) => boolean }[] = [
+// Lê as 3 abas do padrão de planilha do TI. "Localizada" já vem com o
+// processo identificado; "Não Localizada – Advg" e "Não Localizada –
+// Geral" o TI não conseguiu casar automaticamente, então tratamos cada
+// uma com regras próprias (ver seções 7 e 8 do projeto de publicações
+// da BDR). As demais abas (Termos, Resumo, Duplicada etc.) continuam
+// fora do escopo.
+const ABAS_RECONHECIDAS: { rotulo: Origem; bate: (nomeNormalizado: string) => boolean }[] = [
   { rotulo: "Localizada", bate: (n) => n === "localizada" },
-  { rotulo: "Não Localizada", bate: (n) => n.includes("localizada") && n.includes("nao") },
+  {
+    rotulo: "Não Localizada – Advg",
+    bate: (n) => n.includes("localizada") && n.includes("nao") && n.includes("advg"),
+  },
+  {
+    rotulo: "Não Localizada – Geral",
+    bate: (n) => n.includes("localizada") && n.includes("nao") && n.includes("geral"),
+  },
 ];
 
 function lerPublicacoes(buffer: ArrayBuffer): LinhaLida[] {
@@ -179,16 +192,17 @@ function montarLinhas(linhas: LinhaLida[]): LinhaPublicacao[] {
       if (campo && (l[campo] == null || l[campo] === "")) l[campo] = valor;
     }
     const cnjBruto = texto(l.processo);
-    if (!cnjBruto) continue;
-    const cnjDigits = cnjBruto.replace(/\D/g, "");
-    if (cnjDigits.length < 15) continue;
+    const cnjDigits = cnjBruto ? cnjBruto.replace(/\D/g, "") : "";
+    // Nas abas "Não Localizada" é normal não ter um CNJ reconhecível --
+    // ainda assim a linha entra, só não vai casar com processo nenhum.
+    if (linha.origem === "Localizada" && cnjDigits.length < 15) continue;
 
     resultado.push({
       idx: resultado.length,
       linha: linha.numero,
       origem: linha.origem,
-      cnjDigits,
-      cnjTexto: formatarCNJ(cnjDigits),
+      cnjDigits: cnjDigits.length >= 15 ? cnjDigits : "",
+      cnjTexto: cnjDigits.length >= 15 ? formatarCNJ(cnjDigits) : (cnjBruto ?? "—"),
       clientePlanilha: texto(l.cliente),
       coord: texto(l.coord),
       advg: texto(l.advg),
@@ -202,10 +216,18 @@ function montarLinhas(linhas: LinhaLida[]): LinhaPublicacao[] {
   return resultado;
 }
 
-function grupoDoProcesso(p: Processo): Grupo {
+// Regras 3 do projeto de publicações da BDR: Grupo 1 (Eliane/ELV) =
+// Coord.="ELV" na planilha OU numero_cliente do processo numa lista
+// fixa; Grupo 2 (MLV/BBS) = numero_cliente="4608" E Coord.="GFC" --
+// checar ELV primeiro garante que cliente 4608 com Coord. ELV fique no
+// grupo da Eliane, conforme a exceção explícita do prompt dela. Astro
+// não muda: continua pela categoria do cliente.
+function grupoDaLinha(l: LinhaPublicacao, p: Processo): Grupo {
   if (categoriaCliente(p.cliente) === "Astro") return "Astro";
-  if (p.socio === "ELV") return "ELV";
-  if (p.socio === "GFC") return "GFC";
+  const coord = (l.coord ?? "").trim().toUpperCase();
+  const numeroCliente = (p.numero_cliente ?? "").trim();
+  if (coord === "ELV" || CLIENTES_GRUPO_ELV.includes(numeroCliente)) return "ELV";
+  if (numeroCliente === CLIENTE_GRUPO_GFC && coord === "GFC") return "GFC";
   return "Outros";
 }
 
@@ -217,58 +239,210 @@ function saudacaoAgora() {
 }
 
 const SAUDACAO_INICIAL: Record<Grupo, string> = {
-  ELV: "Eliane, {saudacao}.",
-  GFC: "MLV e BBS, {saudacao}.",
-  Astro: "Pessoal da Astro, {saudacao}.",
-  Outros: "Pessoal, {saudacao}.",
+  ELV: "Eliane, {saudacao}.\n\nSeguem as publicações recebidas em {data}, referentes à sua coordenação (ELV) e aos clientes monitorados.",
+  GFC: "MLV e BBS, {saudacao}.\n\nSeguem as publicações recebidas em {data}, referentes ao cliente 4608 sob coordenação GFC.",
+  Astro: "Pessoal da Astro, {saudacao}.\n\nSeguem as publicações recebidas em {data}.",
+  Outros: "Pessoal, {saudacao}.\n\nSeguem as publicações recebidas em {data}.",
+};
+
+const FECHO: Record<Grupo, string> = {
+  ELV: "Por gentileza, verificar se o prazo está correto e se há outros compromissos a serem agendados.\n\nPermaneço à disposição.\n\nAbs.,",
+  GFC: "BBS, por gentileza, verificar se o prazo está correto e se há outros compromissos a serem agendados.\n\nPermaneço à disposição.\n\nAbs.,",
+  Astro: "Abs.,",
+  Outros: "Abs.,",
 };
 
 const SEPARADOR_EMAIL = "═".repeat(60);
 
-// Formato pensado a partir do projeto que a Bárbara já usa pra publicações:
-// saudação por grupo, bloco por processo com Caso/Coord/ADVG/Partes/Juízo e
-// um separador entre eles. A diferença é que aqui o "teor" é o texto bruto
-// do ANDAMENTO da planilha — o sistema não faz a leitura jurídica (prazo,
-// relevância, resumo) que o projeto de IA da Bárbara faz; isso continua lá.
-function montarMailtoPublicacoes(grupo: Grupo, destinatarios: string[], itens: LinhaCasada[]) {
-  const assunto = `Publicações — ${grupo}`;
-  const saudacaoInicial = SAUDACAO_INICIAL[grupo].replace("{saudacao}", saudacaoAgora());
+function dataBR(iso: string | null | undefined) {
+  return iso ? new Date(`${iso}T12:00:00`).toLocaleDateString("pt-BR") : "—";
+}
 
-  const blocos = itens.map((l, i) => {
-    const cliente = exibir(l.processo.cliente) ?? "";
-    const numeroCliente = l.processo.numero_cliente ? ` (nº ${l.processo.numero_cliente})` : "";
-    const caso = l.processo.numero_interno ? `\nCaso: ${l.processo.numero_interno}` : "";
-    const coordAdvg = [l.coord ? `Coord.: ${l.coord}` : null, l.advg ? `ADVG: ${l.advg}` : null]
-      .filter(Boolean)
-      .join("   ");
-    const partes = [l.autor, l.reu].filter(Boolean).join(" x ") || "—";
-    const juizo = [l.processo.vara, l.processo.comarca].filter(Boolean).join(" — ") || "—";
-    const data = l.dataPublicacao
-      ? new Date(`${l.dataPublicacao}T12:00:00`).toLocaleDateString("pt-BR")
-      : "—";
-    return `${i + 1}. Processo: ${l.cnjTexto}
-Cliente: ${cliente}${numeroCliente}${caso}
-${coordAdvg || "Coord./ADVG: —"}
-Partes: ${partes}
-Juízo: ${juizo}
-Data da publicação: ${data}
-Teor da publicação: ${l.andamento ?? "—"}`;
+function blocoProcesso(l: LinhaCasada, classificacao: ClassificacaoPublicacao | undefined) {
+  const cliente = exibir(l.processo.cliente) ?? "";
+  const numeroCliente = l.processo.numero_cliente ? ` (nº ${l.processo.numero_cliente})` : "";
+  const caso = l.processo.numero_interno ? `\nCaso: ${l.processo.numero_interno}` : "";
+  const coordAdvg = [l.coord ? `Coord.: ${l.coord}` : null, l.advg ? `ADVG: ${l.advg}` : null]
+    .filter(Boolean)
+    .join("   ");
+  const partes = [l.autor, l.reu].filter(Boolean).join(" x ") || "—";
+  const juizo = [l.processo.vara, l.processo.comarca].filter(Boolean).join(" — ") || "—";
+  const teor = classificacao?.resumo ?? l.andamento ?? "—";
+  const prazoLinha = classificacao?.dataVencimento
+    ? `Prazo: ${dataBR(classificacao.dataVencimento)} (${classificacao.regraAplicada})${classificacao.revisar ? " — CONFERIR" : ""}`
+    : classificacao?.revisar
+      ? "Prazo: verificar prazo no sistema (não foi possível confirmar automaticamente)"
+      : null;
+
+  return [
+    `Processo: ${l.cnjTexto}`,
+    `Cliente: ${cliente}${numeroCliente}${caso}`,
+    coordAdvg || "Coord./ADVG: —",
+    `Partes: ${partes}`,
+    `Juízo: ${juizo}`,
+    `Data da publicação: ${dataBR(l.dataPublicacao)}`,
+    prazoLinha,
+    `Teor da publicação: ${teor}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function montarAgendamentos(
+  itens: LinhaCasada[],
+  classificacoes: Map<number, ClassificacaoPublicacao>,
+) {
+  const comPrazo = itens
+    .map((l) => ({ l, c: classificacoes.get(l.idx) }))
+    .filter((x): x is { l: LinhaCasada; c: ClassificacaoPublicacao } => !!x.c?.dataVencimento)
+    .sort((a, b) => (a.c.dataVencimento! < b.c.dataVencimento! ? -1 : 1));
+
+  if (comPrazo.length === 0) return null;
+
+  const linhas = comPrazo.map(({ l, c }) => {
+    const parteContraria =
+      l.processo.parte_contraria ?? [l.autor, l.reu].filter(Boolean).join(" x ") ?? "—";
+    const clienteCaso = [l.processo.cliente, l.processo.numero_interno].filter(Boolean).join("/");
+    const varaTribunal = l.processo.vara ?? l.processo.tribunal ?? "—";
+    const cidadeUf = [l.processo.comarca, l.processo.uf].filter(Boolean).join("/") || "—";
+    const advg = l.advg ? ` [${l.advg}]` : "";
+    return `${dataBR(c.dataVencimento)}: ${c.tipoAto} — ${parteContraria} (${clienteCaso}) ${varaTribunal} ${cidadeUf}${advg}`;
   });
 
-  const corpo = `${saudacaoInicial}
+  return `Agendamentos:\n${linhas.join("\n")}`;
+}
 
-Seguem as publicações localizadas nos processos monitorados:
+function montarNaoLocalizada(
+  rotulo: string,
+  itens: LinhaPublicacao[],
+  classificacoes: Map<number, ClassificacaoPublicacao>,
+  colunas: "advg" | "geral",
+) {
+  if (itens.length === 0) return null;
+  const blocos = itens.map((l) => {
+    const c = classificacoes.get(l.idx);
+    const teor = c?.resumo ?? l.andamento ?? "—";
+    if (colunas === "advg") {
+      const referencia = [l.advg, l.coord].filter(Boolean).join(" / ") || "—";
+      return `Processo: ${l.cnjTexto}\nReferência: ${referencia}\nTeor: ${teor}`;
+    }
+    const partes = [l.autor, l.reu].filter(Boolean).join(" x ") || "—";
+    return `Processo: ${l.cnjTexto}\nCliente: ${l.clientePlanilha ?? "—"}\nADVG: ${l.advg ?? "—"}\nPartes: ${partes}\nTeor: ${teor}`;
+  });
+  return `${rotulo}:\n\n${blocos.join(`\n\n${SEPARADOR_EMAIL}\n\n`)}`;
+}
 
-${blocos.join(`\n${SEPARADOR_EMAIL}\n\n`)}
-${SEPARADOR_EMAIL}
+function montarAlertas(
+  itens: LinhaCasada[],
+  classificacoes: Map<number, ClassificacaoPublicacao>,
+  naoLocalizadaIncluida: LinhaPublicacao[],
+) {
+  const alertas: string[] = [];
+  for (const l of itens) {
+    const c = classificacoes.get(l.idx);
+    if (!c) continue;
+    const parteContraria =
+      l.processo.parte_contraria ?? [l.autor, l.reu].filter(Boolean).join(" x ");
+    const rotuloProcesso = `Processo nº ${l.cnjTexto} (${parteContraria ?? "—"} x ${exibir(l.processo.cliente) ?? "—"})`;
+    if (c.revisar) {
+      alertas.push(`${rotuloProcesso} — não foi possível confirmar a data/prazo automaticamente.`);
+    } else if (c.dataVencimento) {
+      const urgencia = classificarUrgencia(c.dataVencimento);
+      if (urgencia === "vencido")
+        alertas.push(`${rotuloProcesso} — prazo já vencido em ${dataBR(c.dataVencimento)}.`);
+      else if (urgencia === "urgente")
+        alertas.push(`${rotuloProcesso} — prazo urgente, vence em ${dataBR(c.dataVencimento)}.`);
+    }
+  }
+  for (const l of naoLocalizadaIncluida) {
+    alertas.push(
+      `Processo nº ${l.cnjTexto} — encontrado na aba "${l.origem}", conferir cadastro no FaroLex.`,
+    );
+  }
+  if (alertas.length === 0) return null;
+  return `⚠️ Alertas processuais\n\n${alertas.join("\n")}`;
+}
 
-Qualquer prazo mencionado acima precisa ser conferido com atenção antes de agendar — este
-e-mail traz o teor da publicação tal como veio da planilha do TI, sem cálculo automático de
-prazo.
+function montarMailtoPublicacoes(
+  grupo: Grupo,
+  destinatarios: string[],
+  itens: LinhaCasada[],
+  classificacoes: Map<number, ClassificacaoPublicacao>,
+  dataPlanilha: string,
+  naoLocalizadaAdvg: LinhaPublicacao[],
+  naoLocalizadaGeral: LinhaPublicacao[],
+) {
+  const assunto = `Publicações — ${grupo}`;
+  const saudacaoInicial = SAUDACAO_INICIAL[grupo]
+    .replace("{saudacao}", saudacaoAgora())
+    .replace("{data}", dataBR(dataPlanilha));
 
-Abs.,`;
+  const blocos = itens.map((l, i) => `${i + 1}. ${blocoProcesso(l, classificacoes.get(l.idx))}`);
 
+  // As seções de "Não Localizada" (regras 7 e 8 do prompt da BDR) só se
+  // aplicam ao grupo da Eliane/ELV -- os critérios de busca (Eliane
+  // Leve/Souza Cruz/Merck) e de relevância (advogada Eliane Leve) são
+  // específicos dos clientes dela, não do grupo 4608/GFC.
+  const partesExtras =
+    grupo === "ELV"
+      ? [
+          montarNaoLocalizada(
+            'Adicionalmente, na aba "Não Localizada – Advg", foram localizadas as seguintes publicações relevantes',
+            naoLocalizadaAdvg,
+            classificacoes,
+            "advg",
+          ),
+          montarNaoLocalizada(
+            'Adicionalmente, na aba "Não Localizada – Geral", foram localizadas as seguintes publicações relevantes',
+            naoLocalizadaGeral,
+            classificacoes,
+            "geral",
+          ),
+        ]
+      : [];
+
+  const agendamentos = montarAgendamentos(itens, classificacoes);
+  const alertas = montarAlertas(
+    itens,
+    classificacoes,
+    grupo === "ELV" ? [...naoLocalizadaAdvg, ...naoLocalizadaGeral] : [],
+  );
+
+  const partes = [
+    saudacaoInicial,
+    agendamentos,
+    `Seguem as publicações localizadas nos processos monitorados:\n\n${blocos.join(`\n${SEPARADOR_EMAIL}\n\n`)}\n${SEPARADOR_EMAIL}`,
+    ...partesExtras,
+    alertas,
+    FECHO[grupo],
+  ].filter((p): p is string => !!p);
+
+  const corpo = partes.join("\n\n");
   return `mailto:${destinatarios.join(",")}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+}
+
+function badgeUrgencia(urgencia: Urgencia) {
+  switch (urgencia) {
+    case "vencido":
+      return { label: "Vencido", className: "bg-red-600 text-white hover:bg-red-600" };
+    case "urgente":
+      return { label: "Urgente", className: "bg-red-500 text-white hover:bg-red-500" };
+    case "atencao":
+      return { label: "Atenção", className: "bg-amber-500 text-white hover:bg-amber-500" };
+    case "normal":
+      return { label: "Normal", className: "bg-emerald-600 text-white hover:bg-emerald-600" };
+    case "sem_prazo":
+      return { label: "Sem prazo", className: "" };
+  }
+}
+
+// Pré-filtro barato antes de gastar chamada de IA -- regra 7/8 do
+// prompt da BDR (busca por termos / cliente Souza Cruz ou Merck).
+function mencionaTermos(l: LinhaPublicacao, termos: string[]) {
+  const alvo = normalizar(
+    [l.andamento, l.autor, l.reu, l.advg, l.clientePlanilha].filter(Boolean).join(" "),
+  );
+  return termos.some((t) => alvo.includes(normalizar(t)));
 }
 
 function PublicacoesPage() {
@@ -276,6 +450,11 @@ function PublicacoesPage() {
   const [grupoAtivo, setGrupoAtivo] = useState<Grupo | "todos">("todos");
   const [selecionadas, setSelecionadas] = useState<Set<number>>(new Set());
   const [importando, setImportando] = useState(false);
+  const [classificando, setClassificando] = useState(false);
+  const [classificacoes, setClassificacoes] = useState<Map<number, ClassificacaoPublicacao>>(
+    new Map(),
+  );
+  const [dataPlanilha, setDataPlanilha] = useState(() => new Date().toISOString().slice(0, 10));
   const queryClient = useQueryClient();
 
   const processos = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
@@ -290,12 +469,41 @@ function PublicacoesPage() {
     const casadas: LinhaCasada[] = [];
     const semProcesso: LinhaPublicacao[] = [];
     for (const l of linhas) {
-      const processo = processoPorCnj.get(l.cnjDigits);
-      if (processo) casadas.push({ ...l, processo, grupo: grupoDoProcesso(processo) });
+      const processo = l.cnjDigits ? processoPorCnj.get(l.cnjDigits) : undefined;
+      if (processo) casadas.push({ ...l, processo, grupo: grupoDaLinha(l, processo) });
       else semProcesso.push(l);
     }
     return { casadas, semProcesso };
   }, [linhas, processoPorCnj]);
+
+  const naoLocalizadaAdvg = useMemo(
+    () =>
+      semProcesso.filter(
+        (l) =>
+          l.origem === "Não Localizada – Advg" &&
+          mencionaTermos(l, ["Eliane Leve", "Souza Cruz", "Merck"]),
+      ),
+    [semProcesso],
+  );
+  const naoLocalizadaGeralCandidatas = useMemo(
+    () =>
+      semProcesso.filter(
+        (l) =>
+          l.origem === "Não Localizada – Geral" &&
+          mencionaTermos(l, ["Souza Cruz", "Merck", "Eliane Leve"]),
+      ),
+    [semProcesso],
+  );
+  // Só entram de fato no e-mail as que a IA confirmou como relevantes
+  // (critérios 1-4 da regra 8) -- o pré-filtro acima só evita gastar
+  // chamada de IA com linhas obviamente fora do escopo.
+  const naoLocalizadaGeralRelevante = useMemo(
+    () =>
+      naoLocalizadaGeralCandidatas.filter(
+        (l) => classificacoes.get(l.idx)?.relevanteGeral === true,
+      ),
+    [naoLocalizadaGeralCandidatas, classificacoes],
+  );
 
   const contagemPorGrupo = useMemo(() => {
     const c: Record<Grupo, number> = { ELV: 0, GFC: 0, Astro: 0, Outros: 0 };
@@ -308,8 +516,60 @@ function PublicacoesPage() {
     [casadas, grupoAtivo],
   );
 
+  const resumoUrgencia = useMemo(() => {
+    const c: Record<Urgencia, number> = {
+      vencido: 0,
+      urgente: 0,
+      atencao: 0,
+      normal: 0,
+      sem_prazo: 0,
+    };
+    for (const l of casadas) {
+      const classificacao = classificacoes.get(l.idx);
+      const urgencia = classificacao
+        ? classificarUrgencia(classificacao.dataVencimento)
+        : "sem_prazo";
+      c[urgencia]++;
+    }
+    return c;
+  }, [casadas, classificacoes]);
+
   const [emails, setEmails] = useState("");
   const [detalhe, setDetalhe] = useState<LinhaCasada | null>(null);
+
+  const calcularPrazos = async () => {
+    const paraClassificar = [
+      ...casadas,
+      ...naoLocalizadaAdvg,
+      ...naoLocalizadaGeralCandidatas,
+    ].filter((l) => l.andamento && !classificacoes.has(l.idx));
+    if (paraClassificar.length === 0) {
+      toast.warning("Nada novo pra classificar (ou nenhuma linha tem texto de andamento).");
+      return;
+    }
+    setClassificando(true);
+    try {
+      const resultado = await classificarPublicacoes(
+        paraClassificar.map((l) => ({
+          id: String(l.idx),
+          texto: l.andamento!,
+          ...(l.origem === "Não Localizada – Geral"
+            ? { aba: "nao_localizada_geral" as const }
+            : {}),
+        })),
+      );
+      setClassificacoes((atual) => {
+        const novo = new Map(atual);
+        for (const [id, c] of resultado) novo.set(Number(id), c);
+        return novo;
+      });
+      toast.success(`${resultado.size} publicação(ões) classificada(s).`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não consegui calcular os prazos.");
+    } finally {
+      setClassificando(false);
+    }
+  };
 
   const enviarEmailDoGrupo = () => {
     if (grupoAtivo === "todos") {
@@ -328,7 +588,15 @@ function PublicacoesPage() {
       toast.error("Nenhuma publicação desse grupo pra mandar.");
       return;
     }
-    window.location.href = montarMailtoPublicacoes(grupoAtivo, destinatarios, exibidas);
+    window.location.href = montarMailtoPublicacoes(
+      grupoAtivo,
+      destinatarios,
+      exibidas,
+      classificacoes,
+      dataPlanilha,
+      naoLocalizadaAdvg,
+      naoLocalizadaGeralRelevante,
+    );
   };
 
   const ler = async (arquivo: File) => {
@@ -345,15 +613,16 @@ function PublicacoesPage() {
       const lidas = lerPublicacoes(await arquivo.arrayBuffer());
       if (lidas.length === 0) {
         toast.error(
-          'Não encontrei as abas "Localizada" ou "Não Localizada" com linhas de dados nesse arquivo.',
+          'Não encontrei as abas "Localizada", "Não Localizada – Advg" ou "Não Localizada – Geral" com linhas de dados nesse arquivo.',
         );
         return;
       }
       const montadas = montarLinhas(lidas);
       setLinhas(montadas);
-      setSelecionadas(new Set(montadas.map((l) => l.idx)));
+      setSelecionadas(new Set(montadas.filter((l) => l.cnjDigits).map((l) => l.idx)));
+      setClassificacoes(new Map());
       setGrupoAtivo("todos");
-      toast.success(`${montadas.length} publicação(ões) lida(s) (Localizada + Não Localizada).`);
+      toast.success(`${montadas.length} publicação(ões) lida(s) (3 abas).`);
     } catch {
       toast.error("Não consegui ler o arquivo.");
     }
@@ -411,6 +680,9 @@ function PublicacoesPage() {
         descricao: string;
         tipo: string;
         exige_acao: boolean;
+        prazo: string | null;
+        prazo_revisar: boolean;
+        observacao: string | null;
         fonte: string;
         validado: boolean;
         created_by: string;
@@ -419,12 +691,16 @@ function PublicacoesPage() {
         const chave = `${l.processo.id}|${l.dataPublicacao}|${l.andamento}`;
         if (existentes.has(chave)) continue;
         existentes.add(chave);
+        const c = classificacoes.get(l.idx);
         novas.push({
           processo_id: l.processo.id,
           data_movimentacao: l.dataPublicacao!,
           descricao: l.andamento!,
-          tipo: "Publicação",
-          exige_acao: false,
+          tipo: c?.tipoAto ?? "Publicação",
+          exige_acao: !!c?.dataVencimento,
+          prazo: c?.dataVencimento ?? null,
+          prazo_revisar: c?.revisar ?? false,
+          observacao: c?.resumo ?? null,
           fonte: "publicacoes",
           validado: false,
           created_by: criador,
@@ -450,6 +726,7 @@ function PublicacoesPage() {
         );
         setLinhas([]);
         setSelecionadas(new Set());
+        setClassificacoes(new Map());
       }
       await queryClient.invalidateQueries();
     } catch (e) {
@@ -466,9 +743,9 @@ function PublicacoesPage() {
       <div>
         <h1 className="font-serif text-3xl font-semibold">Publicações</h1>
         <p className="text-muted-foreground">
-          Envie a planilha de publicações recebida do TI (abas "Localizada" e "Não Localizada"). O
-          sistema cruza o número do processo com o que já está cadastrado aqui e já sugere o
-          andamento.
+          Envie a planilha de publicações recebida do TI (abas "Localizada", "Não Localizada – Advg"
+          e "Não Localizada – Geral"). O sistema cruza o número do processo, calcula o prazo
+          automaticamente e monta os e-mails.
         </p>
       </div>
 
@@ -477,155 +754,287 @@ function PublicacoesPage() {
           <CardTitle className="font-serif text-lg">Arquivo</CardTitle>
           <CardDescription>
             Formatos aceitos: .xlsm, .xlsx e .xls (até 20 MB). Só processos que já existem no
-            FaroLex são sugeridos — nada novo é criado a partir daqui.
+            FaroLex são sugeridos pra importar — nada novo é criado a partir daqui.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Input
-            type="file"
-            accept=".xlsm,.xlsx,.xls"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void ler(f);
-            }}
-          />
+        <CardContent className="flex flex-wrap items-end gap-4">
+          <div className="flex-1 space-y-1">
+            <Label htmlFor="arquivo-publicacoes">Planilha</Label>
+            <Input
+              id="arquivo-publicacoes"
+              type="file"
+              accept=".xlsm,.xlsx,.xls"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void ler(f);
+              }}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="data-planilha" className="text-xs text-muted-foreground">
+              Data da planilha (pro texto do e-mail)
+            </Label>
+            <Input
+              id="data-planilha"
+              type="date"
+              value={dataPlanilha}
+              onChange={(e) => setDataPlanilha(e.target.value)}
+              className="w-44"
+            />
+          </div>
         </CardContent>
       </Card>
 
       {linhas.length > 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-serif text-lg">
-              {casadas.length} publicação(ões) de processos já cadastrados
-            </CardTitle>
-            <CardDescription>
-              {semProcesso.length > 0
-                ? `${semProcesso.length} linha(s) da planilha não batem com nenhum processo cadastrado e foram ignoradas.`
-                : "Todas as linhas da planilha bateram com processos cadastrados."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant={grupoAtivo === "todos" ? "default" : "outline"}
-                onClick={() => setGrupoAtivo("todos")}
-              >
-                Todos ({casadas.length})
-              </Button>
-              {GRUPOS.map((g) => (
+        <>
+          <Card>
+            <CardHeader>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="font-serif text-lg">Prazos</CardTitle>
+                  <CardDescription>
+                    A IA lê o teor de cada publicação e sugere tipo de ato e prazo — a contagem de
+                    dias úteis em si é feita no sistema, não pela IA. Confira sempre o que vier
+                    marcado "revisar".
+                  </CardDescription>
+                </div>
                 <Button
-                  key={g}
+                  type="button"
+                  onClick={() => void calcularPrazos()}
+                  disabled={classificando}
+                >
+                  <Sparkles className="size-4" />
+                  {classificando ? "Calculando..." : "Calcular prazos"}
+                </Button>
+              </div>
+            </CardHeader>
+            {classificacoes.size > 0 ? (
+              <CardContent>
+                <div className="flex flex-wrap gap-3">
+                  {(
+                    [
+                      ["vencido", "Vencidos"],
+                      ["urgente", "Urgentes"],
+                      ["atencao", "Atenção"],
+                      ["normal", "Normal"],
+                      ["sem_prazo", "Sem prazo"],
+                    ] as [Urgencia, string][]
+                  ).map(([u, rotulo]) => (
+                    <div key={u} className="rounded-md border border-border px-4 py-2 text-center">
+                      <p className="text-2xl font-semibold">{resumoUrgencia[u]}</p>
+                      <p className="text-xs text-muted-foreground">{rotulo}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            ) : null}
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-serif text-lg">
+                {casadas.length} publicação(ões) de processos já cadastrados
+              </CardTitle>
+              <CardDescription>
+                {semProcesso.length > 0
+                  ? `${semProcesso.length} linha(s) não bateram com processo cadastrado (ver seção "Não localizadas" abaixo).`
+                  : "Todas as linhas da planilha bateram com processos cadastrados."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
                   type="button"
                   size="sm"
-                  variant={grupoAtivo === g ? "default" : "outline"}
-                  onClick={() => setGrupoAtivo(g)}
+                  variant={grupoAtivo === "todos" ? "default" : "outline"}
+                  onClick={() => setGrupoAtivo("todos")}
                 >
-                  {g} ({contagemPorGrupo[g]})
+                  Todos ({casadas.length})
                 </Button>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap items-end gap-2 rounded-md border border-border bg-muted/40 p-3">
-              <div className="min-w-64 flex-1 space-y-1">
-                <Label htmlFor="emails-publicacoes" className="text-xs text-muted-foreground">
-                  E-mail(s) de destino
-                </Label>
-                <Input
-                  id="emails-publicacoes"
-                  placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br"
-                  value={emails}
-                  onChange={(e) => setEmails(e.target.value)}
-                />
+                {GRUPOS.map((g) => (
+                  <Button
+                    key={g}
+                    type="button"
+                    size="sm"
+                    variant={grupoAtivo === g ? "default" : "outline"}
+                    onClick={() => setGrupoAtivo(g)}
+                  >
+                    {g} ({contagemPorGrupo[g]})
+                  </Button>
+                ))}
               </div>
-              <Button type="button" onClick={enviarEmailDoGrupo} disabled={grupoAtivo === "todos"}>
-                <Mail className="size-4" />
-                Mandar e-mail — {grupoAtivo === "todos" ? "escolha um grupo" : grupoAtivo}
+
+              <div className="flex flex-wrap items-end gap-2 rounded-md border border-border bg-muted/40 p-3">
+                <div className="min-w-64 flex-1 space-y-1">
+                  <Label htmlFor="emails-publicacoes" className="text-xs text-muted-foreground">
+                    E-mail(s) de destino
+                  </Label>
+                  <Input
+                    id="emails-publicacoes"
+                    placeholder="e-mail@escritorio.com.br, outro@escritorio.com.br"
+                    value={emails}
+                    onChange={(e) => setEmails(e.target.value)}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  onClick={enviarEmailDoGrupo}
+                  disabled={grupoAtivo === "todos"}
+                >
+                  <Mail className="size-4" />
+                  Mandar e-mail — {grupoAtivo === "todos" ? "escolha um grupo" : grupoAtivo}
+                </Button>
+              </div>
+
+              <div className="flex items-center gap-3 text-sm">
+                <button
+                  type="button"
+                  className="text-primary underline-offset-4 hover:underline"
+                  onClick={() => selecionarTodasVisiveis(true)}
+                >
+                  Selecionar todas visíveis
+                </button>
+                <button
+                  type="button"
+                  className="text-primary underline-offset-4 hover:underline"
+                  onClick={() => selecionarTodasVisiveis(false)}
+                >
+                  Limpar seleção
+                </button>
+              </div>
+
+              <div className="overflow-x-auto rounded-md border border-border">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted">
+                    <tr>
+                      <th className="w-8 p-2"></th>
+                      <th className="p-2 text-left">Processo</th>
+                      <th className="p-2 text-left">Cliente</th>
+                      <th className="p-2 text-left">Grupo</th>
+                      <th className="p-2 text-left">Data publicação</th>
+                      <th className="p-2 text-left">Tipo de ato</th>
+                      <th className="p-2 text-left">Prazo</th>
+                      <th className="p-2 text-left">Andamento</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {exibidas.map((l) => {
+                      const c = classificacoes.get(l.idx);
+                      const urgencia = classificarUrgencia(c?.dataVencimento ?? null);
+                      const cfgUrgencia = badgeUrgencia(urgencia);
+                      return (
+                        <tr
+                          key={`${l.cnjDigits}-${l.linha}`}
+                          className="cursor-pointer border-t border-border hover:bg-muted/50"
+                          onClick={() => setDetalhe(l)}
+                        >
+                          <td className="p-2" onClick={(e) => e.stopPropagation()}>
+                            <Checkbox
+                              checked={selecionadas.has(l.idx)}
+                              onCheckedChange={() => alternarSelecao(l.idx)}
+                            />
+                          </td>
+                          <td className="p-2 font-mono text-xs">{l.cnjTexto}</td>
+                          <td className="p-2">{exibir(l.processo.cliente)}</td>
+                          <td className="p-2">
+                            <Badge variant="outline">{l.grupo}</Badge>
+                          </td>
+                          <td className="p-2">{dataBR(l.dataPublicacao)}</td>
+                          <td className="p-2">{c?.tipoAto ?? "—"}</td>
+                          <td className="p-2">
+                            {c ? (
+                              <div className="flex items-center gap-1.5">
+                                <Badge variant="outline" className={cfgUrgencia.className}>
+                                  {cfgUrgencia.label}
+                                </Badge>
+                                {c.dataVencimento ? (
+                                  <span className="text-xs">{dataBR(c.dataVencimento)}</span>
+                                ) : null}
+                                {c.revisar ? (
+                                  <AlertTriangle className="size-3.5 text-amber-600" />
+                                ) : null}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className="max-w-96 truncate p-2 text-xs text-muted-foreground">
+                            {l.andamento ?? "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <Button onClick={importar} disabled={importando || totalSelecionadas === 0}>
+                <Upload className="size-4" />
+                {importando
+                  ? "Importando..."
+                  : `Sugerir ${totalSelecionadas} andamento(s) pros processos`}
               </Button>
-            </div>
+              <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                <CheckCircle2 className="size-3.5" /> Os andamentos sugeridos entram como não
+                validados — aparecem marcados em Relatórios até alguém confirmar. O prazo calculado
+                (quando houver) já vai junto.
+              </p>
+            </CardContent>
+          </Card>
 
-            <div className="flex items-center gap-3 text-sm">
-              <button
-                type="button"
-                className="text-primary underline-offset-4 hover:underline"
-                onClick={() => selecionarTodasVisiveis(true)}
-              >
-                Selecionar todas visíveis
-              </button>
-              <button
-                type="button"
-                className="text-primary underline-offset-4 hover:underline"
-                onClick={() => selecionarTodasVisiveis(false)}
-              >
-                Limpar seleção
-              </button>
-            </div>
-
-            <div className="overflow-x-auto rounded-md border border-border">
-              <table className="w-full text-sm">
-                <thead className="bg-muted">
-                  <tr>
-                    <th className="w-8 p-2"></th>
-                    <th className="p-2 text-left">Processo</th>
-                    <th className="p-2 text-left">Cliente</th>
-                    <th className="p-2 text-left">Grupo</th>
-                    <th className="p-2 text-left">Origem</th>
-                    <th className="p-2 text-left">Data publicação</th>
-                    <th className="p-2 text-left">Andamento</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {exibidas.map((l) => {
-                    return (
-                      <tr
-                        key={`${l.cnjDigits}-${l.linha}`}
-                        className="cursor-pointer border-t border-border hover:bg-muted/50"
-                        onClick={() => setDetalhe(l)}
-                      >
-                        <td className="p-2" onClick={(e) => e.stopPropagation()}>
-                          <Checkbox
-                            checked={selecionadas.has(l.idx)}
-                            onCheckedChange={() => alternarSelecao(l.idx)}
-                          />
-                        </td>
-                        <td className="p-2 font-mono text-xs">{l.cnjTexto}</td>
-                        <td className="p-2">{exibir(l.processo.cliente)}</td>
-                        <td className="p-2">
-                          <Badge variant="outline">{l.grupo}</Badge>
-                        </td>
-                        <td className="p-2">
-                          <Badge variant={l.origem === "Localizada" ? "secondary" : "outline"}>
-                            {l.origem}
-                          </Badge>
-                        </td>
-                        <td className="p-2">
-                          {l.dataPublicacao
-                            ? new Date(`${l.dataPublicacao}T00:00:00`).toLocaleDateString("pt-BR")
-                            : "—"}
-                        </td>
-                        <td className="max-w-96 truncate p-2 text-xs text-muted-foreground">
-                          {l.andamento ?? "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            <Button onClick={importar} disabled={importando || totalSelecionadas === 0}>
-              <Upload className="size-4" />
-              {importando
-                ? "Importando..."
-                : `Sugerir ${totalSelecionadas} andamento(s) pros processos`}
-            </Button>
-            <p className="flex items-center gap-1 text-xs text-muted-foreground">
-              <CheckCircle2 className="size-3.5" /> Os andamentos sugeridos entram como não
-              validados — aparecem marcados em Relatórios até alguém confirmar.
-            </p>
-          </CardContent>
-        </Card>
+          {naoLocalizadaAdvg.length > 0 || naoLocalizadaGeralCandidatas.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-serif text-lg">
+                  Não localizadas ({naoLocalizadaAdvg.length + naoLocalizadaGeralCandidatas.length})
+                </CardTitle>
+                <CardDescription>
+                  Linhas sem processo cadastrado que mencionam Eliane Leve/Souza Cruz/Merck. Só
+                  entram no e-mail da Eliane (ELV) — a aba "Geral" só depois que "Calcular prazos"
+                  confirmar relevância.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {[
+                  { rotulo: "Não Localizada – Advg", itens: naoLocalizadaAdvg },
+                  { rotulo: "Não Localizada – Geral", itens: naoLocalizadaGeralCandidatas },
+                ].map(({ rotulo, itens }) =>
+                  itens.length > 0 ? (
+                    <div key={rotulo}>
+                      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {rotulo} ({itens.length})
+                      </p>
+                      <div className="space-y-2">
+                        {itens.map((l) => {
+                          const c = classificacoes.get(l.idx);
+                          return (
+                            <div
+                              key={l.idx}
+                              className="rounded-md border border-border p-3 text-sm"
+                            >
+                              <div className="mb-1 flex flex-wrap items-center gap-2">
+                                <span className="font-mono text-xs">{l.cnjTexto}</span>
+                                {c?.relevanteGeral === false ? (
+                                  <Badge variant="outline">Não relevante (IA)</Badge>
+                                ) : c?.relevanteGeral === true ? (
+                                  <Badge>Relevante — entra no e-mail</Badge>
+                                ) : null}
+                                {c?.tipoAto ? <Badge variant="secondary">{c.tipoAto}</Badge> : null}
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {c?.resumo ?? l.andamento ?? "—"}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null,
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
+        </>
       ) : null}
 
       <Dialog open={!!detalhe} onOpenChange={(v) => !v && setDetalhe(null)}>
@@ -640,13 +1049,9 @@ function PublicacoesPage() {
             <div className="space-y-3 text-sm">
               <div className="flex flex-wrap gap-2">
                 <Badge variant="outline">{detalhe.grupo}</Badge>
-                <Badge variant={detalhe.origem === "Localizada" ? "secondary" : "outline"}>
-                  {detalhe.origem}
-                </Badge>
+                <Badge variant="secondary">{detalhe.origem}</Badge>
                 {detalhe.dataPublicacao ? (
-                  <Badge variant="outline">
-                    {new Date(`${detalhe.dataPublicacao}T00:00:00`).toLocaleDateString("pt-BR")}
-                  </Badge>
+                  <Badge variant="outline">{dataBR(detalhe.dataPublicacao)}</Badge>
                 ) : null}
               </div>
               {detalhe.autor || detalhe.reu ? (
@@ -663,6 +1068,21 @@ function PublicacoesPage() {
                     .filter(Boolean)
                     .join("   ")}
                 </p>
+              ) : null}
+              {classificacoes.get(detalhe.idx) ? (
+                <div className="rounded-md border border-border bg-muted/40 p-3">
+                  <p className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">
+                    Prazo calculado
+                  </p>
+                  <p>
+                    {classificacoes.get(detalhe.idx)!.tipoAto} —{" "}
+                    {classificacoes.get(detalhe.idx)!.regraAplicada}
+                  </p>
+                  <p>
+                    Vencimento: {dataBR(classificacoes.get(detalhe.idx)!.dataVencimento)}
+                    {classificacoes.get(detalhe.idx)!.revisar ? " — conferir no sistema" : ""}
+                  </p>
+                </div>
               ) : null}
               <div>
                 <p className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">
