@@ -38,7 +38,6 @@ import {
   listarProcessos,
   type Processo,
 } from "@/lib/processos";
-import { listarPastas } from "@/lib/grupos";
 import { classificarPublicacoes, type ClassificacaoPublicacao } from "@/lib/publicacoes-regras";
 import { classificarUrgencia, type Urgencia } from "@/lib/dias-uteis";
 import {
@@ -360,9 +359,12 @@ function blocoProcesso(l: LinhaCasada, classificacao: ClassificacaoPublicacao | 
   const caso = l.processo.numero_interno ?? "—";
   const socio = l.socioReal;
   const advg = l.advgReal;
-  const contraparte =
-    l.processo.parte_contraria || [l.autor, l.reu].filter(Boolean).join(" x ") || null;
-  const partes = [exibir(l.processo.cliente), contraparte].filter(Boolean).join(" x ") || "—";
+  // Prefere o cadastro do processo (parte_contraria, ou autor/réu já
+  // revisados) -- as partes que vêm da publicação (DJEN/planilha) podem
+  // estar trocadas ou incompletas (ver correção de Autor/Réu acima).
+  const partes = l.processo.parte_contraria
+    ? [exibir(l.processo.cliente), l.processo.parte_contraria].filter(Boolean).join(" x ") || "—"
+    : [l.processo.autor ?? l.autor, l.processo.reu ?? l.reu].filter(Boolean).join(" x ") || "—";
   const juizo =
     [l.processo.vara, [l.processo.comarca, l.processo.uf].filter(Boolean).join("/") || null]
       .filter(Boolean)
@@ -398,7 +400,9 @@ function montarAgendamentos(
 
   const linhas = comClassificacao.map(({ l, c }) => {
     const parteContraria =
-      l.processo.parte_contraria || [l.autor, l.reu].filter(Boolean).join(" x ") || "—";
+      l.processo.parte_contraria ||
+      [l.processo.autor ?? l.autor, l.processo.reu ?? l.reu].filter(Boolean).join(" x ") ||
+      "—";
     const clienteCaso = [
       l.processo.numero_cliente ? `Cliente ${l.processo.numero_cliente}` : null,
       l.processo.numero_interno ? `Caso ${l.processo.numero_interno}` : null,
@@ -465,7 +469,8 @@ function montarAlertas(
     const c = classificacoes.get(l.idx);
     if (!c) continue;
     const parteContraria =
-      l.processo.parte_contraria ?? [l.autor, l.reu].filter(Boolean).join(" x ");
+      l.processo.parte_contraria ??
+      [l.processo.autor ?? l.autor, l.processo.reu ?? l.reu].filter(Boolean).join(" x ");
     const rotuloProcesso = `Processo nº ${l.cnjTexto} (${parteContraria ?? "—"} x ${exibir(l.processo.cliente) ?? "—"})`;
     if (c.revisar) {
       alertas.push(`${rotuloProcesso} — não foi possível confirmar a data/prazo automaticamente.`);
@@ -748,19 +753,12 @@ function PublicacoesPage() {
   const queryClient = useQueryClient();
 
   const processos = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
-  const pastas = useQuery({ queryKey: ["pastas"], queryFn: listarPastas });
 
   const processoPorCnj = useMemo(() => {
     const mapa = new Map<string, Processo>();
     for (const p of processos.data ?? []) mapa.set(p.numero_cnj.replace(/\D/g, ""), p);
     return mapa;
   }, [processos.data]);
-
-  const pastaPorId = useMemo(() => {
-    const mapa = new Map<string, string>();
-    for (const p of pastas.data ?? []) mapa.set(p.id, p.nome);
-    return mapa;
-  }, [pastas.data]);
 
   const { casadas, semProcesso } = useMemo(() => {
     const casadas: LinhaCasada[] = [];
@@ -773,12 +771,16 @@ function PublicacoesPage() {
           processo,
           grupo: grupoDaLinha(processo),
           socioReal: processo.socio ?? "—",
-          advgReal: pastaPorId.get(processo.pasta_id ?? "") ?? "—",
+          // "Advg" é o advogado responsável que conduz o processo
+          // (campo Responsável do cadastro) -- não tem relação com a
+          // Pasta (que é só uma organização por grupo/advogado dentro do
+          // FaroLex).
+          advgReal: processo.responsavel ?? "—",
         });
       } else semProcesso.push(l);
     }
     return { casadas, semProcesso };
-  }, [linhas, processoPorCnj, pastaPorId]);
+  }, [linhas, processoPorCnj]);
 
   const naoLocalizadaAdvg = useMemo(
     () =>
