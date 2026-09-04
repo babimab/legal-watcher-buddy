@@ -643,8 +643,8 @@ async function exportarPublicacoesExcel(
       caso: l.processo.numero_interno ?? "—",
       socio: l.socioReal,
       advg: l.advgReal,
-      autor: l.autor ?? "—",
-      reu: l.reu ?? "—",
+      autor: l.autor ?? l.processo.autor ?? "—",
+      reu: l.reu ?? l.processo.reu ?? "—",
       processo: { text: l.cnjTexto, hyperlink: linkTribunalEfetivo(l.processo) },
       uf: l.processo.uf ?? "—",
       comarca: l.processo.comarca ?? "—",
@@ -1657,9 +1657,12 @@ function PublicacoesPage() {
                   <Badge variant="outline">{dataBR(detalhe.dataPublicacao)}</Badge>
                 ) : null}
               </div>
-              {detalhe.autor || detalhe.reu ? (
+              {detalhe.autor || detalhe.reu || detalhe.processo.autor || detalhe.processo.reu ? (
                 <p className="text-muted-foreground">
-                  Partes: {[detalhe.autor, detalhe.reu].filter(Boolean).join(" x ")}
+                  Partes:{" "}
+                  {[detalhe.autor ?? detalhe.processo.autor, detalhe.reu ?? detalhe.processo.reu]
+                    .filter(Boolean)
+                    .join(" x ")}
                 </p>
               ) : null}
               {detalhe.socioReal !== "—" || detalhe.advgReal !== "—" ? (
