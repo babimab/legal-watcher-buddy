@@ -517,6 +517,7 @@ function construirConteudoPublicacoes(
   dataPlanilha: string,
   naoLocalizadaAdvg: LinhaPublicacao[],
   naoLocalizadaGeral: LinhaPublicacao[],
+  avulsosSelecionados: LinhaPublicacao[],
 ): { assunto: string; partes: string[] } {
   const assunto = `Publicações — ${grupos.join(" / ")}`;
   const partes: string[] = [];
@@ -533,6 +534,16 @@ function construirConteudoPublicacoes(
     );
     partes.push(...secao.partes);
   }
+  // Publicações do DJEN sem processo cadastrado que a BDR escolheu incluir
+  // mesmo assim (nem toda linha sem processo é ruído -- pode ser algo
+  // relevante ainda não cadastrado no FaroLex).
+  const avulsos = montarNaoLocalizada(
+    "Publicações do DJEN sem processo cadastrado (selecionadas manualmente)",
+    avulsosSelecionados,
+    classificacoes,
+    "geral",
+  );
+  if (avulsos) partes.push(avulsos);
   return { assunto, partes };
 }
 
@@ -548,6 +559,7 @@ const COLUNA_TEXTO_LIVRE_PUBLICACOES = new Set(["andamento"]);
 // helpers de src/lib/excel.ts em vez de inventar um estilo novo.
 async function exportarPublicacoesExcel(
   itens: LinhaCasada[],
+  avulsos: LinhaPublicacao[],
   classificacoes: Map<number, ClassificacaoPublicacao>,
   nomeArquivo: string,
 ) {
@@ -571,6 +583,22 @@ async function exportarPublicacoesExcel(
       processo: { text: l.cnjTexto, hyperlink: linkTribunalEfetivo(l.processo) },
       cliente: exibir(l.processo.cliente) ?? "",
       grupo: l.grupo,
+      data: dataBR(l.dataPublicacao),
+      tipo: c?.tipoAto ?? "",
+      prazo: c?.dataVencimento ? dataBR(c.dataVencimento) : "",
+      revisar: c?.revisar ? "Sim" : "",
+      andamento: c?.resumo ?? l.andamento ?? "",
+    });
+  }
+
+  // Selecionadas na seção "DJEN sem processo cadastrado" -- sem Processo
+  // cadastrado, então Cliente/Grupo ficam em branco e o CNJ não vira link.
+  for (const l of avulsos) {
+    const c = classificacoes.get(l.idx);
+    planilha.addRow({
+      processo: l.cnjTexto,
+      cliente: "—",
+      grupo: "—",
       data: dataBR(l.dataPublicacao),
       tipo: c?.tipoAto ?? "",
       prazo: c?.dataVencimento ? dataBR(c.dataVencimento) : "",
@@ -637,6 +665,13 @@ function PublicacoesPage() {
   const [buscandoDjen, setBuscandoDjen] = useState(false);
   const [baixandoDocx, setBaixandoDocx] = useState(false);
   const [baixandoPlanilha, setBaixandoPlanilha] = useState(false);
+  // Nem toda publicação do DJEN sem processo cadastrado é ruído -- a BDR
+  // escolhe manualmente quais entram na planilha e/ou no e-mail (podem
+  // ser conjuntos diferentes: algo pode valer só de registro na planilha
+  // sem precisar avisar por e-mail, por exemplo).
+  const [selecaoAvulsa, setSelecaoAvulsa] = useState<
+    Map<number, { planilha: boolean; email: boolean }>
+  >(new Map());
   const queryClient = useQueryClient();
 
   const processos = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
@@ -685,9 +720,12 @@ function PublicacoesPage() {
   // de cada publicação -- puramente síncrono, então recalcula sozinho
   // sempre que a lista muda (nada de botão manual).
   const classificacoes = useMemo(() => {
-    const itens = [...casadas, ...naoLocalizadaAdvg, ...naoLocalizadaGeralCandidatas].filter(
-      (l) => l.andamento,
-    );
+    const itens = [
+      ...casadas,
+      ...naoLocalizadaAdvg,
+      ...naoLocalizadaGeralCandidatas,
+      ...djenSemProcesso,
+    ].filter((l) => l.andamento);
     const resultado = classificarPublicacoes(
       itens.map((l) => ({
         id: String(l.idx),
@@ -698,7 +736,16 @@ function PublicacoesPage() {
     const mapa = new Map<number, ClassificacaoPublicacao>();
     for (const [id, c] of resultado) mapa.set(Number(id), c);
     return mapa;
-  }, [casadas, naoLocalizadaAdvg, naoLocalizadaGeralCandidatas]);
+  }, [casadas, naoLocalizadaAdvg, naoLocalizadaGeralCandidatas, djenSemProcesso]);
+
+  const avulsosParaEmail = useMemo(
+    () => djenSemProcesso.filter((l) => selecaoAvulsa.get(l.idx)?.email),
+    [djenSemProcesso, selecaoAvulsa],
+  );
+  const avulsosParaPlanilha = useMemo(
+    () => djenSemProcesso.filter((l) => selecaoAvulsa.get(l.idx)?.planilha),
+    [djenSemProcesso, selecaoAvulsa],
+  );
 
   const contagemPorGrupo = useMemo(() => {
     const c: Record<Grupo, number> = { ELV: 0, GFC: 0, Astro: 0, Outros: 0 };
@@ -808,8 +855,8 @@ function PublicacoesPage() {
       toast.error("Informe pelo menos um e-mail.");
       return;
     }
-    if (exibidas.length === 0) {
-      toast.error("Nenhuma publicação desses grupos pra mandar.");
+    if (exibidas.length === 0 && avulsosParaEmail.length === 0) {
+      toast.error("Nenhuma publicação desses grupos (nem avulsa selecionada) pra mandar.");
       return;
     }
     const { assunto, partes } = construirConteudoPublicacoes(
@@ -819,6 +866,7 @@ function PublicacoesPage() {
       dataPlanilha,
       naoLocalizadaAdvg,
       naoLocalizadaGeralCandidatas,
+      avulsosParaEmail,
     );
     window.location.href = montarLinkMailto(destinatarios, assunto, partes);
   };
@@ -828,8 +876,8 @@ function PublicacoesPage() {
       toast.error("Escolha ao menos um grupo (ELV, GFC, Astro ou Outros) pra baixar o Word.");
       return;
     }
-    if (exibidas.length === 0) {
-      toast.error("Nenhuma publicação desses grupos pra baixar.");
+    if (exibidas.length === 0 && avulsosParaEmail.length === 0) {
+      toast.error("Nenhuma publicação desses grupos (nem avulsa selecionada) pra baixar.");
       return;
     }
     setBaixandoDocx(true);
@@ -841,6 +889,7 @@ function PublicacoesPage() {
         dataPlanilha,
         naoLocalizadaAdvg,
         naoLocalizadaGeralCandidatas,
+        avulsosParaEmail,
       );
       const blob = await gerarDocxPublicacoes(assunto, partes);
       baixarBlob(blob, `${assunto}.docx`);
@@ -852,7 +901,7 @@ function PublicacoesPage() {
   };
 
   const baixarPlanilha = async () => {
-    if (exibidas.length === 0) {
+    if (exibidas.length === 0 && avulsosParaPlanilha.length === 0) {
       toast.error("Nenhuma publicação pra exportar.");
       return;
     }
@@ -860,7 +909,12 @@ function PublicacoesPage() {
     try {
       const nomeGrupos =
         gruposAtivos.size === 0 ? "todos" : [...gruposAtivos].map((g) => g.toLowerCase()).join("-");
-      await exportarPublicacoesExcel(exibidas, classificacoes, `publicacoes-${nomeGrupos}`);
+      await exportarPublicacoesExcel(
+        exibidas,
+        avulsosParaPlanilha,
+        classificacoes,
+        `publicacoes-${nomeGrupos}`,
+      );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não consegui gerar a planilha.");
     } finally {
@@ -912,6 +966,15 @@ function PublicacoesPage() {
         if (marcar) novo.add(l.idx);
         else novo.delete(l.idx);
       }
+      return novo;
+    });
+  };
+
+  const alternarSelecaoAvulsa = (idx: number, campo: "planilha" | "email") => {
+    setSelecaoAvulsa((atual) => {
+      const novo = new Map(atual);
+      const item = novo.get(idx) ?? { planilha: false, email: false };
+      novo.set(idx, { ...item, [campo]: !item[campo] });
       return novo;
     });
   };
@@ -1433,27 +1496,48 @@ function PublicacoesPage() {
                 </CardTitle>
                 <CardDescription>
                   Publicações encontradas na busca do DJEN que não correspondem a nenhum processo
-                  cadastrado no FaroLex — só informativo, não entram no cálculo de prazo nem no
-                  e-mail.
+                  cadastrado no FaroLex — nem toda uma é ruído, então marque as que valem a pena
+                  incluir na planilha e/ou no e-mail (podem ser conjuntos diferentes).
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
-                {djenSemProcesso.map((l) => (
-                  <div key={l.idx} className="rounded-md border border-border p-3 text-sm">
-                    <div className="mb-1 flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-xs">{l.cnjTexto}</span>
-                      {l.advg ? <Badge variant="outline">{l.advg}</Badge> : null}
-                      {l.dataPublicacao ? (
-                        <span className="text-xs text-muted-foreground">
-                          {dataBR(l.dataPublicacao)}
-                        </span>
-                      ) : null}
+                {djenSemProcesso.map((l) => {
+                  const sel = selecaoAvulsa.get(l.idx);
+                  const c = classificacoes.get(l.idx);
+                  return (
+                    <div key={l.idx} className="rounded-md border border-border p-3 text-sm">
+                      <div className="mb-1 flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-xs">{l.cnjTexto}</span>
+                        {l.advg ? <Badge variant="outline">{l.advg}</Badge> : null}
+                        {c?.tipoAto ? <Badge variant="secondary">{c.tipoAto}</Badge> : null}
+                        {l.dataPublicacao ? (
+                          <span className="text-xs text-muted-foreground">
+                            {dataBR(l.dataPublicacao)}
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="mb-2 line-clamp-2 text-xs text-muted-foreground">
+                        {l.andamento ?? "—"}
+                      </p>
+                      <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-1.5 text-xs">
+                          <Checkbox
+                            checked={sel?.planilha ?? false}
+                            onCheckedChange={() => alternarSelecaoAvulsa(l.idx, "planilha")}
+                          />
+                          Incluir na planilha
+                        </label>
+                        <label className="flex items-center gap-1.5 text-xs">
+                          <Checkbox
+                            checked={sel?.email ?? false}
+                            onCheckedChange={() => alternarSelecaoAvulsa(l.idx, "email")}
+                          />
+                          Incluir no e-mail
+                        </label>
+                      </div>
                     </div>
-                    <p className="line-clamp-2 text-xs text-muted-foreground">
-                      {l.andamento ?? "—"}
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
           ) : null}
