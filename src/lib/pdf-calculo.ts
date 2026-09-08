@@ -420,6 +420,54 @@ export async function exportarCalculoPdfDireto(
     return true;
   };
 
+  const periodos = resultado.memoria.flatMap((linha) =>
+    (linha.periodosJuros ?? []).map((periodo) => ({ verba: linha.verba, periodo })),
+  );
+  if (periodos.length) {
+    const largJ = [92, 175, 62, 62, 104];
+    const xsJ: number[] = [];
+    let xAcJ = MARGIN;
+    largJ.forEach((w) => { xsJ.push(xAcJ); xAcJ += w; });
+    const cabJ = ["Verba", "Período / critério", "De", "Até", "Juros"];
+    const largTotalJ = largJ.reduce((a, b) => a + b, 0);
+
+    garantirEspaco(70);
+    tituloSecao(p, "Taxa Legal — períodos aplicados", y);
+    y += 15;
+    y = tabelaCabecalho(p, y, xsJ, largJ, cabJ);
+
+    periodos.forEach(({ verba, periodo }, idx) => {
+      const linhasVerbaJ = quebrarTexto(verba, largJ[0]! - 8, 6.5);
+      const linhasDesc = quebrarTexto(periodo.descricao, largJ[1]! - 8, 6.5);
+      const maxLinhas = Math.max(linhasVerbaJ.length, linhasDesc.length);
+      const rowH = Math.max(20, 10 + maxLinhas * 8);
+      if (y + rowH > A4_H - 55) {
+        p = new Pagina();
+        paginas.push(p);
+        cabecalhoContinuacao(p);
+        y = 76;
+        tituloSecao(p, "Taxa Legal — períodos aplicados · continuação", y);
+        y += 15;
+        y = tabelaCabecalho(p, y, xsJ, largJ, cabJ);
+      }
+      if (idx % 2) {
+        p.fill(COLORS.lighter);
+        p.rect(MARGIN, y, largTotalJ, rowH);
+      }
+      p.stroke([220, 232, 238]);
+      p.line(MARGIN, y + rowH, MARGIN + largTotalJ, y + rowH);
+      linhasVerbaJ.forEach((txt, li) => p.text(txt, xsJ[0]! + 4, y + 14 + li * 8, 6.5, { color: COLORS.text }));
+      linhasDesc.forEach((txt, li) => p.text(txt, xsJ[1]! + 4, y + 14 + li * 8, 6.5, { color: COLORS.text }));
+      p.text(isoBR(periodo.de), xsJ[2]! + 4, y + 14, 6.5, { color: COLORS.text });
+      p.text(isoBR(periodo.ate), xsJ[3]! + 4, y + 14, 6.5, { color: COLORS.text });
+      p.text(moeda(periodo.juros), xsJ[4]! + largJ[4]! - 4, y + 14, 6.5, { bold: true, color: COLORS.blue, align: "right" });
+      y += rowH;
+    });
+    y += 18;
+  }
+
+
+
   if (resultado.fontes.length) {
     garantirEspaco(55);
     tituloSecao(p, "Fontes e critérios", y);
