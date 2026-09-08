@@ -753,9 +753,17 @@ function PublicacoesPage() {
     }, 600);
     return () => clearTimeout(timer);
   }, [advogadosDjen, advogadosFixadosCarregados]);
+  // Padrão de alguns dias pra trás (não só hoje) -- uma disponibilização
+  // de ontem já escapava da busca com o período de 1 dia só.
   const [periodoDjen, setPeriodoDjen] = useState(() => {
-    const hoje = new Date().toISOString().slice(0, 10);
-    return { siglaTribunal: "", dataInicio: hoje, dataFim: hoje };
+    const hoje = new Date();
+    const inicio = new Date(hoje);
+    inicio.setDate(inicio.getDate() - 3);
+    return {
+      siglaTribunal: "",
+      dataInicio: inicio.toISOString().slice(0, 10),
+      dataFim: hoje.toISOString().slice(0, 10),
+    };
   });
   const [buscandoDjen, setBuscandoDjen] = useState(false);
   const [baixandoDocx, setBaixandoDocx] = useState(false);
