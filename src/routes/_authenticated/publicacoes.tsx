@@ -818,8 +818,13 @@ function PublicacoesPage() {
       ),
     [semProcesso],
   );
-  const djenSemProcesso = useMemo(
-    () => semProcesso.filter((l) => l.origem === "DJEN"),
+  // Linhas com CNJ reconhecido (vieram da busca DJEN ou da aba "Localizada"
+  // da planilha do TI -- as duas trazem um número de processo de verdade)
+  // mas que não bateram com nenhum processo cadastrado no FaroLex. Sem
+  // isso essas linhas ficavam completamente invisíveis (diferente das
+  // abas "Não Localizada", que já tinham uma seção própria).
+  const semProcessoCadastrado = useMemo(
+    () => semProcesso.filter((l) => l.origem === "DJEN" || l.origem === "Localizada"),
     [semProcesso],
   );
 
@@ -831,7 +836,7 @@ function PublicacoesPage() {
       ...casadas,
       ...naoLocalizadaAdvg,
       ...naoLocalizadaGeralCandidatas,
-      ...djenSemProcesso,
+      ...semProcessoCadastrado,
     ].filter((l) => l.andamento);
     const resultado = classificarPublicacoes(
       itens.map((l) => ({
@@ -843,15 +848,15 @@ function PublicacoesPage() {
     const mapa = new Map<number, ClassificacaoPublicacao>();
     for (const [id, c] of resultado) mapa.set(Number(id), c);
     return mapa;
-  }, [casadas, naoLocalizadaAdvg, naoLocalizadaGeralCandidatas, djenSemProcesso]);
+  }, [casadas, naoLocalizadaAdvg, naoLocalizadaGeralCandidatas, semProcessoCadastrado]);
 
   const avulsosParaEmail = useMemo(
-    () => djenSemProcesso.filter((l) => selecaoAvulsa.get(l.idx)?.email),
-    [djenSemProcesso, selecaoAvulsa],
+    () => semProcessoCadastrado.filter((l) => selecaoAvulsa.get(l.idx)?.email),
+    [semProcessoCadastrado, selecaoAvulsa],
   );
   const avulsosParaPlanilha = useMemo(
-    () => djenSemProcesso.filter((l) => selecaoAvulsa.get(l.idx)?.planilha),
-    [djenSemProcesso, selecaoAvulsa],
+    () => semProcessoCadastrado.filter((l) => selecaoAvulsa.get(l.idx)?.planilha),
+    [semProcessoCadastrado, selecaoAvulsa],
   );
 
   const contagemPorGrupo = useMemo(() => {
@@ -1597,26 +1602,29 @@ function PublicacoesPage() {
             </Card>
           ) : null}
 
-          {djenSemProcesso.length > 0 ? (
+          {semProcessoCadastrado.length > 0 ? (
             <Card>
               <CardHeader>
                 <CardTitle className="font-serif text-lg">
-                  DJEN sem processo cadastrado ({djenSemProcesso.length})
+                  Sem processo cadastrado ({semProcessoCadastrado.length})
                 </CardTitle>
                 <CardDescription>
-                  Publicações encontradas na busca do DJEN que não correspondem a nenhum processo
-                  cadastrado no FaroLex — nem toda uma é ruído, então marque as que valem a pena
-                  incluir na planilha e/ou no e-mail (podem ser conjuntos diferentes).
+                  Publicações com número de processo reconhecido (vindas da busca no DJEN ou da aba
+                  "Localizada" da planilha) que não batem com nenhum processo cadastrado no FaroLex
+                  — nem toda uma é ruído, então marque as que valem a pena incluir na planilha e/ou
+                  no e-mail (podem ser conjuntos diferentes). Se for um processo de verdade do
+                  escritório, considere cadastrá-lo no FaroLex.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
-                {djenSemProcesso.map((l) => {
+                {semProcessoCadastrado.map((l) => {
                   const sel = selecaoAvulsa.get(l.idx);
                   const c = classificacoes.get(l.idx);
                   return (
                     <div key={l.idx} className="rounded-md border border-border p-3 text-sm">
                       <div className="mb-1 flex flex-wrap items-center gap-2">
                         <span className="font-mono text-xs">{l.cnjTexto}</span>
+                        <Badge variant="outline">{l.origem}</Badge>
                         {l.advg ? <Badge variant="outline">{l.advg}</Badge> : null}
                         {c?.tipoAto ? <Badge variant="secondary">{c.tipoAto}</Badge> : null}
                         {l.dataPublicacao ? (
