@@ -19,27 +19,27 @@ export type Database = {
           created_at: string
           id: string
           nome: string
-          numero_oab: string
+          numero_oab: string | null
           ordem: number
-          uf_oab: string
+          uf_oab: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
-          nome?: string
-          numero_oab?: string
+          nome: string
+          numero_oab?: string | null
           ordem?: number
-          uf_oab?: string
+          uf_oab?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
           nome?: string
-          numero_oab?: string
+          numero_oab?: string | null
           ordem?: number
-          uf_oab?: string
+          uf_oab?: string | null
           user_id?: string
         }
         Relationships: []
