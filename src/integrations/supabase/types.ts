@@ -14,36 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      advogados_fixados_djen: {
-        Row: {
-          created_at: string
-          id: string
-          nome: string
-          numero_oab: string
-          ordem: number
-          uf_oab: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          nome?: string
-          numero_oab?: string
-          ordem?: number
-          uf_oab?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          nome?: string
-          numero_oab?: string
-          ordem?: number
-          uf_oab?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       baixas_cliente: {
         Row: {
           created_at: string
