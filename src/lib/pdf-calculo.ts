@@ -327,30 +327,50 @@ export async function exportarCalculoPdfDireto(
     ["Principal", resultado.principal],
     ["Correção monetária", resultado.correcao],
     ["Juros", resultado.juros],
-    ["Multa de execução", resultado.multaExecucao],
-    ["Honorários de execução", resultado.honorariosExecucao],
-    ["Honorários sucumbenciais", resultado.honorariosSucumbenciais],
-    ["Abatimentos", -resultado.abatimentos],
+    ["Subtotal das verbas", resultado.subtotal],
   ] as const;
   const cardGap = 7;
   const cardW = (A4_W - MARGIN * 2 - cardGap * 3) / 4;
   comps.forEach(([rotulo, valor], i) => {
-    const col = i % 4;
-    const linha = Math.floor(i / 4);
-    const x = MARGIN + col * (cardW + cardGap);
-    const yy = y + linha * 52;
-    p.fill(COLORS.light);
-    p.stroke(COLORS.border);
-    p.rect(x, yy, cardW, 45, true, true);
-    p.text(rotulo.toUpperCase(), x + 7, yy + 13, 6.3, { color: COLORS.muted });
-    p.text(moeda(valor), x + 7, yy + 31, 10.5, { bold: true, color: COLORS.blue });
+    const destaque = i === comps.length - 1;
+    const x = MARGIN + i * (cardW + cardGap);
+    p.fill(destaque ? [226, 240, 247] : COLORS.light);
+    p.stroke(destaque ? COLORS.accent : COLORS.border);
+    p.rect(x, y, cardW, 45, true, true);
+    p.text(rotulo.toUpperCase(), x + 7, y + 13, 6.3, { color: COLORS.muted });
+    p.text(moeda(valor), x + 7, y + 31, 10.5, { bold: true, color: destaque ? COLORS.navy : COLORS.blue });
   });
-  y += Math.ceil(comps.length / 4) * 52 + 3;
+  y += 45 + 22;
+
+  tituloSecao(p, "Fechamento do cálculo", y);
+  y += 18;
+  const fechamento = [
+    ["Multa de execução", resultado.multaExecucao],
+    ["Honorários de execução", resultado.honorariosExecucao],
+    ["Honorários sucumbenciais", resultado.honorariosSucumbenciais],
+    ["Pagamentos/abatimentos", -resultado.abatimentos],
+  ] as const;
+  const fechH = 20;
+  p.fill(COLORS.lighter);
+  p.stroke(COLORS.border);
+  p.rect(MARGIN, y, A4_W - MARGIN * 2, fechH * fechamento.length + 8, true, true);
+  fechamento.forEach(([rotulo, valor], i) => {
+    const yy = y + 8 + i * fechH;
+    p.text(rotulo, MARGIN + 12, yy + 9, 8.5, { color: COLORS.text });
+    p.text(moeda(valor), A4_W - MARGIN - 12, yy + 9, 8.5, { bold: true, color: COLORS.blue, align: "right" });
+    if (i < fechamento.length - 1) {
+      p.stroke([223, 235, 242]);
+      p.line(MARGIN + 12, yy + 15, A4_W - MARGIN - 12, yy + 15);
+    }
+  });
+  y += fechH * fechamento.length + 8 + 12;
+
   p.fill(COLORS.blue);
   p.rect(MARGIN, y, A4_W - MARGIN * 2, 49);
   p.text("TOTAL ATUALIZADO", MARGIN + 13, y + 29, 8, { color: [216, 235, 244] });
   p.text(moeda(resultado.total), A4_W - MARGIN - 13, y + 31, 18, { bold: true, color: COLORS.white, align: "right" });
   y += 72;
+
 
   tituloSecao(p, "Memória de cálculo", y);
   y += 15;
@@ -399,6 +419,54 @@ export async function exportarCalculoPdfDireto(
     y = 78;
     return true;
   };
+
+  const periodos = resultado.memoria.flatMap((linha) =>
+    (linha.periodosJuros ?? []).map((periodo) => ({ verba: linha.verba, periodo })),
+  );
+  if (periodos.length) {
+    const largJ = [92, 175, 62, 62, 104];
+    const xsJ: number[] = [];
+    let xAcJ = MARGIN;
+    largJ.forEach((w) => { xsJ.push(xAcJ); xAcJ += w; });
+    const cabJ = ["Verba", "Período / critério", "De", "Até", "Juros"];
+    const largTotalJ = largJ.reduce((a, b) => a + b, 0);
+
+    garantirEspaco(70);
+    tituloSecao(p, "Taxa Legal — períodos aplicados", y);
+    y += 15;
+    y = tabelaCabecalho(p, y, xsJ, largJ, cabJ);
+
+    periodos.forEach(({ verba, periodo }, idx) => {
+      const linhasVerbaJ = quebrarTexto(verba, largJ[0]! - 8, 6.5);
+      const linhasDesc = quebrarTexto(periodo.descricao, largJ[1]! - 8, 6.5);
+      const maxLinhas = Math.max(linhasVerbaJ.length, linhasDesc.length);
+      const rowH = Math.max(20, 10 + maxLinhas * 8);
+      if (y + rowH > A4_H - 55) {
+        p = new Pagina();
+        paginas.push(p);
+        cabecalhoContinuacao(p);
+        y = 76;
+        tituloSecao(p, "Taxa Legal — períodos aplicados · continuação", y);
+        y += 15;
+        y = tabelaCabecalho(p, y, xsJ, largJ, cabJ);
+      }
+      if (idx % 2) {
+        p.fill(COLORS.lighter);
+        p.rect(MARGIN, y, largTotalJ, rowH);
+      }
+      p.stroke([220, 232, 238]);
+      p.line(MARGIN, y + rowH, MARGIN + largTotalJ, y + rowH);
+      linhasVerbaJ.forEach((txt, li) => p.text(txt, xsJ[0]! + 4, y + 14 + li * 8, 6.5, { color: COLORS.text }));
+      linhasDesc.forEach((txt, li) => p.text(txt, xsJ[1]! + 4, y + 14 + li * 8, 6.5, { color: COLORS.text }));
+      p.text(isoBR(periodo.de), xsJ[2]! + 4, y + 14, 6.5, { color: COLORS.text });
+      p.text(isoBR(periodo.ate), xsJ[3]! + 4, y + 14, 6.5, { color: COLORS.text });
+      p.text(moeda(periodo.juros), xsJ[4]! + largJ[4]! - 4, y + 14, 6.5, { bold: true, color: COLORS.blue, align: "right" });
+      y += rowH;
+    });
+    y += 18;
+  }
+
+
 
   if (resultado.fontes.length) {
     garantirEspaco(55);
