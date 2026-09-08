@@ -161,7 +161,7 @@ export async function listarAdvogadosFixados(): Promise<AdvogadoFiltro[]> {
     .select("nome, numero_oab, uf_oab")
     .order("ordem");
   if (error) throw error;
-  return (data ?? []).map((r) => ({ nome: r.nome, numeroOab: r.numero_oab, ufOab: r.uf_oab }));
+  return (data ?? []).map((r) => ({ nome: r.nome, numeroOab: r.numero_oab ?? "", ufOab: r.uf_oab ?? "" }));
 }
 
 export async function salvarAdvogadosFixados(advogados: AdvogadoFiltro[]): Promise<void> {
