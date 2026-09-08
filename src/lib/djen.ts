@@ -152,6 +152,43 @@ function mapearItem(itemBruto: unknown): ComunicacaoDjen | null {
   };
 }
 
+// Advogados que o usuário fixou na busca do DJEN, vinculados à conta (não
+// ao navegador) -- pra sobreviver a troca de navegador/dispositivo e ao
+// preview em iframe do Lovable, onde localStorage pode não persistir.
+export async function listarAdvogadosFixados(): Promise<AdvogadoFiltro[]> {
+  const { data, error } = await supabase
+    .from("advogados_fixados_djen")
+    .select("nome, numero_oab, uf_oab")
+    .order("ordem");
+  if (error) throw error;
+  return (data ?? []).map((r) => ({ nome: r.nome, numeroOab: r.numero_oab, ufOab: r.uf_oab }));
+}
+
+export async function salvarAdvogadosFixados(advogados: AdvogadoFiltro[]): Promise<void> {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+  const userId = userData.user?.id;
+  if (!userId) return;
+
+  const { error: delError } = await supabase
+    .from("advogados_fixados_djen")
+    .delete()
+    .eq("user_id", userId);
+  if (delError) throw delError;
+  if (advogados.length === 0) return;
+
+  const { error: insError } = await supabase.from("advogados_fixados_djen").insert(
+    advogados.map((a, i) => ({
+      user_id: userId,
+      nome: a.nome,
+      numero_oab: a.numeroOab,
+      uf_oab: a.ufOab,
+      ordem: i,
+    })),
+  );
+  if (insError) throw insError;
+}
+
 export async function buscarDjen(
   filtros: FiltrosDjen,
 ): Promise<{ comunicacoes: ComunicacaoDjen[]; totalRecebido: number; totalComCnj: number }> {

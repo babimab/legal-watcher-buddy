@@ -42,6 +42,8 @@ import { classificarPublicacoes, type ClassificacaoPublicacao } from "@/lib/publ
 import { classificarUrgencia, type Urgencia } from "@/lib/dias-uteis";
 import {
   buscarDjen,
+  listarAdvogadosFixados,
+  salvarAdvogadosFixados,
   type AdvogadoFiltro,
   type ComunicacaoDjen,
   type FiltrosDjen,
@@ -293,35 +295,10 @@ function grupoDaLinha(p: Processo): Grupo {
   return "Outros";
 }
 
-// Advogados "fixados" na busca do DJEN -- fica salvo no navegador (não é
-// dado do escritório, é só conveniência de quem está usando essa tela)
-// pra não precisar redigitar nome/OAB toda vez.
-const CHAVE_ADVOGADOS_FIXADOS = "farolex.publicacoes.advogadosFixadosDjen";
-
+// Advogados "fixados" na busca do DJEN -- vinculado à conta (não ao
+// navegador), pra não precisar redigitar nome/OAB toda vez e sobreviver a
+// troca de navegador/dispositivo ou preview em iframe do Lovable.
 type AdvogadoDjenRow = AdvogadoFiltro & { fixado: boolean };
-
-function carregarAdvogadosFixados(): AdvogadoDjenRow[] {
-  try {
-    const bruto = localStorage.getItem(CHAVE_ADVOGADOS_FIXADOS);
-    const lista = bruto ? (JSON.parse(bruto) as AdvogadoFiltro[]) : [];
-    if (!Array.isArray(lista) || lista.length === 0) return [];
-    return lista.map((a) => ({ ...a, fixado: true }));
-  } catch {
-    return [];
-  }
-}
-
-function salvarAdvogadosFixados(linhas: AdvogadoDjenRow[]) {
-  try {
-    const fixados = linhas
-      .filter((a) => a.fixado)
-      .map(({ nome, numeroOab, ufOab }) => ({ nome, numeroOab, ufOab }));
-    localStorage.setItem(CHAVE_ADVOGADOS_FIXADOS, JSON.stringify(fixados));
-  } catch {
-    // Sem localStorage (aba anônima, storage bloqueado etc.) -- não é
-    // crítico, só perde a conveniência de lembrar pra próxima visita.
-  }
-}
 
 function saudacaoAgora() {
   const hora = new Date().getHours();
@@ -737,11 +714,44 @@ function PublicacoesPage() {
   const [selecionadas, setSelecionadas] = useState<Set<number>>(new Set());
   const [importando, setImportando] = useState(false);
   const [dataPlanilha, setDataPlanilha] = useState(() => new Date().toISOString().slice(0, 10));
-  const [advogadosDjen, setAdvogadosDjen] = useState<AdvogadoDjenRow[]>(() => {
-    const fixados = carregarAdvogadosFixados();
-    return fixados.length > 0 ? fixados : [{ nome: "", numeroOab: "", ufOab: "", fixado: false }];
+  const [advogadosDjen, setAdvogadosDjen] = useState<AdvogadoDjenRow[]>([
+    { nome: "", numeroOab: "", ufOab: "", fixado: false },
+  ]);
+  // Carrega os advogados fixados da conta uma única vez (não fica
+  // reaplicando sobre o que a BDR já está editando na tela).
+  const [advogadosFixadosCarregados, setAdvogadosFixadosCarregados] = useState(false);
+  const advogadosFixadosQuery = useQuery({
+    queryKey: ["advogadosFixadosDjen"],
+    queryFn: listarAdvogadosFixados,
   });
-  useEffect(() => salvarAdvogadosFixados(advogadosDjen), [advogadosDjen]);
+  useEffect(() => {
+    if (advogadosFixadosCarregados) return;
+    if (advogadosFixadosQuery.isSuccess) {
+      if (advogadosFixadosQuery.data.length > 0) {
+        setAdvogadosDjen(advogadosFixadosQuery.data.map((a) => ({ ...a, fixado: true })));
+      }
+      setAdvogadosFixadosCarregados(true);
+    } else if (advogadosFixadosQuery.isError) {
+      setAdvogadosFixadosCarregados(true);
+    }
+  }, [
+    advogadosFixadosQuery.isSuccess,
+    advogadosFixadosQuery.isError,
+    advogadosFixadosQuery.data,
+    advogadosFixadosCarregados,
+  ]);
+  // Só salva depois que os fixados da conta já carregaram (senão a
+  // primeira renderização, ainda vazia, apagaria o que já estava salvo).
+  useEffect(() => {
+    if (!advogadosFixadosCarregados) return;
+    const fixados = advogadosDjen.filter((a) => a.fixado);
+    const timer = setTimeout(() => {
+      salvarAdvogadosFixados(fixados).catch(() =>
+        toast.error("Não foi possível salvar os advogados fixados na sua conta."),
+      );
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [advogadosDjen, advogadosFixadosCarregados]);
   const [periodoDjen, setPeriodoDjen] = useState(() => {
     const hoje = new Date().toISOString().slice(0, 10);
     return { siglaTribunal: "", dataInicio: hoje, dataFim: hoje };
