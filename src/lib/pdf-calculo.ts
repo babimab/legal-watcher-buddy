@@ -327,30 +327,50 @@ export async function exportarCalculoPdfDireto(
     ["Principal", resultado.principal],
     ["Correção monetária", resultado.correcao],
     ["Juros", resultado.juros],
-    ["Multa de execução", resultado.multaExecucao],
-    ["Honorários de execução", resultado.honorariosExecucao],
-    ["Honorários sucumbenciais", resultado.honorariosSucumbenciais],
-    ["Abatimentos", -resultado.abatimentos],
+    ["Subtotal das verbas", resultado.subtotal],
   ] as const;
   const cardGap = 7;
   const cardW = (A4_W - MARGIN * 2 - cardGap * 3) / 4;
   comps.forEach(([rotulo, valor], i) => {
-    const col = i % 4;
-    const linha = Math.floor(i / 4);
-    const x = MARGIN + col * (cardW + cardGap);
-    const yy = y + linha * 52;
-    p.fill(COLORS.light);
-    p.stroke(COLORS.border);
-    p.rect(x, yy, cardW, 45, true, true);
-    p.text(rotulo.toUpperCase(), x + 7, yy + 13, 6.3, { color: COLORS.muted });
-    p.text(moeda(valor), x + 7, yy + 31, 10.5, { bold: true, color: COLORS.blue });
+    const destaque = i === comps.length - 1;
+    const x = MARGIN + i * (cardW + cardGap);
+    p.fill(destaque ? [226, 240, 247] : COLORS.light);
+    p.stroke(destaque ? COLORS.accent : COLORS.border);
+    p.rect(x, y, cardW, 45, true, true);
+    p.text(rotulo.toUpperCase(), x + 7, y + 13, 6.3, { color: COLORS.muted });
+    p.text(moeda(valor), x + 7, y + 31, 10.5, { bold: true, color: destaque ? COLORS.navy : COLORS.blue });
   });
-  y += Math.ceil(comps.length / 4) * 52 + 3;
+  y += 45 + 22;
+
+  tituloSecao(p, "Fechamento do cálculo", y);
+  y += 18;
+  const fechamento = [
+    ["Multa de execução", resultado.multaExecucao],
+    ["Honorários de execução", resultado.honorariosExecucao],
+    ["Honorários sucumbenciais", resultado.honorariosSucumbenciais],
+    ["Pagamentos/abatimentos", -resultado.abatimentos],
+  ] as const;
+  const fechH = 20;
+  p.fill(COLORS.lighter);
+  p.stroke(COLORS.border);
+  p.rect(MARGIN, y, A4_W - MARGIN * 2, fechH * fechamento.length + 8, true, true);
+  fechamento.forEach(([rotulo, valor], i) => {
+    const yy = y + 8 + i * fechH;
+    p.text(rotulo, MARGIN + 12, yy + 9, 8.5, { color: COLORS.text });
+    p.text(moeda(valor), A4_W - MARGIN - 12, yy + 9, 8.5, { bold: true, color: COLORS.blue, align: "right" });
+    if (i < fechamento.length - 1) {
+      p.stroke([223, 235, 242]);
+      p.line(MARGIN + 12, yy + 15, A4_W - MARGIN - 12, yy + 15);
+    }
+  });
+  y += fechH * fechamento.length + 8 + 12;
+
   p.fill(COLORS.blue);
   p.rect(MARGIN, y, A4_W - MARGIN * 2, 49);
   p.text("TOTAL ATUALIZADO", MARGIN + 13, y + 29, 8, { color: [216, 235, 244] });
   p.text(moeda(resultado.total), A4_W - MARGIN - 13, y + 31, 18, { bold: true, color: COLORS.white, align: "right" });
   y += 72;
+
 
   tituloSecao(p, "Memória de cálculo", y);
   y += 15;
