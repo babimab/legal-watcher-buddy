@@ -36,6 +36,7 @@ import {
   exibir,
   formatarCNJ,
   listarProcessos,
+  NOMES_CLIENTES_CONHECIDOS,
   type Processo,
 } from "@/lib/processos";
 import { classificarPublicacoes, type ClassificacaoPublicacao } from "@/lib/publicacoes-regras";
@@ -832,9 +833,18 @@ function PublicacoesPage() {
   // da planilha do TI -- as duas trazem um número de processo de verdade)
   // mas que não bateram com nenhum processo cadastrado no FaroLex. Sem
   // isso essas linhas ficavam completamente invisíveis (diferente das
-  // abas "Não Localizada", que já tinham uma seção própria).
+  // abas "Não Localizada", que já tinham uma seção própria). A busca do
+  // DJEN é por advogado, então traz qualquer caso dele -- filtra pelos
+  // clientes conhecidos do escritório pra não virar uma lista de
+  // publicações aleatórias sem relação nenhuma. Exceção: a Eliane Leve
+  // (ELV) fica geral, sem esse filtro -- o próprio pedido da BDR.
   const semProcessoCadastrado = useMemo(
-    () => semProcesso.filter((l) => l.origem === "DJEN" || l.origem === "Localizada"),
+    () =>
+      semProcesso.filter(
+        (l) =>
+          (l.origem === "DJEN" || l.origem === "Localizada") &&
+          (mencionaTermos(l, ["Eliane Leve"]) || mencionaTermos(l, NOMES_CLIENTES_CONHECIDOS)),
+      ),
     [semProcesso],
   );
 
@@ -1620,10 +1630,11 @@ function PublicacoesPage() {
                 </CardTitle>
                 <CardDescription>
                   Publicações com número de processo reconhecido (vindas da busca no DJEN ou da aba
-                  "Localizada" da planilha) que não batem com nenhum processo cadastrado no FaroLex
-                  — nem toda uma é ruído, então marque as que valem a pena incluir na planilha e/ou
-                  no e-mail (podem ser conjuntos diferentes). Se for um processo de verdade do
-                  escritório, considere cadastrá-lo no FaroLex.
+                  "Localizada" da planilha), mencionando algum cliente do escritório — ou da Eliane
+                  Leve, que fica sem esse filtro —, que não batem com nenhum processo cadastrado no
+                  FaroLex. Nem toda uma é ruído, então marque as que valem a pena incluir na
+                  planilha e/ou no e-mail (podem ser conjuntos diferentes). Se for um processo de
+                  verdade do escritório, considere cadastrá-lo no FaroLex.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
