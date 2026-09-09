@@ -779,6 +779,10 @@ function PublicacoesPage() {
     };
   });
   const [buscandoDjen, setBuscandoDjen] = useState(false);
+  // Diagnóstico temporário: guarda a resposta crua da última busca (antes
+  // do mapeamento) pra poder baixar e conferir contra o que a API do DJEN
+  // realmente devolveu, sem precisar confiar só no que o app já filtrou.
+  const [ultimaBuscaDjenBruta, setUltimaBuscaDjenBruta] = useState<unknown[] | null>(null);
   const [baixandoDocx, setBaixandoDocx] = useState(false);
   const [baixandoPlanilha, setBaixandoPlanilha] = useState(false);
   // Nem toda publicação do DJEN sem processo cadastrado é ruído -- a BDR
@@ -957,10 +961,11 @@ function PublicacoesPage() {
     }
     setBuscandoDjen(true);
     try {
-      const { comunicacoes, totalRecebido, totalComCnj } = await buscarDjen({
+      const { comunicacoes, totalRecebido, totalComCnj, itensBrutos } = await buscarDjen({
         advogados: advogadosValidos,
         ...periodoDjen,
       });
+      setUltimaBuscaDjenBruta(itensBrutos);
       if (totalRecebido === 0) {
         toast.warning("Nenhuma publicação encontrada no DJEN para esses filtros.");
         return;
@@ -985,9 +990,12 @@ function PublicacoesPage() {
         return novo;
       });
       if (novas.length > 0) {
-        toast.success(`${novas.length} publicação(ões) do DJEN adicionada(s) à lista abaixo.`);
+        toast.success(
+          `Recebi ${totalRecebido} do DJEN — ${novas.length} publicação(ões) nova(s) ` +
+            "adicionada(s) à lista abaixo.",
+        );
       } else {
-        toast.info("Nenhuma publicação nova (todas já estavam na lista).");
+        toast.info(`Recebi ${totalRecebido} do DJEN — nenhuma nova (todas já estavam na lista).`);
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não consegui buscar no DJEN.");
@@ -1344,6 +1352,23 @@ function PublicacoesPage() {
               <Search className="size-4" />
               {buscandoDjen ? "Buscando..." : "Buscar no DJEN"}
             </Button>
+            {ultimaBuscaDjenBruta ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  baixarBlob(
+                    new Blob([JSON.stringify(ultimaBuscaDjenBruta, null, 2)], {
+                      type: "application/json",
+                    }),
+                    `djen-bruto-${new Date().toISOString().slice(0, 10)}.json`,
+                  )
+                }
+              >
+                <FileDown className="size-4" />
+                Baixar resposta bruta do DJEN ({ultimaBuscaDjenBruta.length})
+              </Button>
+            ) : null}
           </div>
         </CardContent>
       </Card>

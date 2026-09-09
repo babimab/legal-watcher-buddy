@@ -199,9 +199,15 @@ export async function salvarAdvogadosFixados(advogados: AdvogadoFiltro[]): Promi
   if (insError) throw insError;
 }
 
-export async function buscarDjen(
-  filtros: FiltrosDjen,
-): Promise<{ comunicacoes: ComunicacaoDjen[]; totalRecebido: number; totalComCnj: number }> {
+export async function buscarDjen(filtros: FiltrosDjen): Promise<{
+  comunicacoes: ComunicacaoDjen[];
+  totalRecebido: number;
+  totalComCnj: number;
+  // Itens exatamente como vieram do DJEN, antes do mapeamento -- só pra
+  // poder baixar/depurar quando o mapeamento parecer estar perdendo ou
+  // errando algum campo (ver botão "Baixar resposta bruta do DJEN").
+  itensBrutos: unknown[];
+}> {
   const { data, error } = await supabase.functions.invoke<{
     itens?: unknown[];
     error?: string;
@@ -213,5 +219,5 @@ export async function buscarDjen(
   const comunicacoes = itensCrus.map(mapearItem).filter((c): c is ComunicacaoDjen => c != null);
   const totalComCnj = comunicacoes.filter((c) => c.cnjDigits).length;
 
-  return { comunicacoes, totalRecebido: itensCrus.length, totalComCnj };
+  return { comunicacoes, totalRecebido: itensCrus.length, totalComCnj, itensBrutos: itensCrus };
 }
