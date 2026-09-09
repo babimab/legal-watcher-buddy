@@ -132,7 +132,13 @@ function mapearItem(itemBruto: unknown): ComunicacaoDjen | null {
   const partesRaw = pegar(obj, "destinatarios", "partes") ?? pegarFuzzy(obj, "parte");
 
   return {
-    cnjDigits: cnjDigits.length >= 15 ? cnjDigits : "",
+    // Usa os dígitos como vierem pro cruzamento com processo cadastrado
+    // -- tribunais superiores (STJ, STF, TST...) numeram diferente do
+    // CNJ de 20 dígitos (ex. "2.200.810/SC", só 7 dígitos), então exigir
+    // >=15 aqui fazia essas publicações nunca casarem com o processo,
+    // mesmo cadastrado certinho. Só o formato de exibição (cnjTexto)
+    // continua distinguindo CNJ completo de número curto.
+    cnjDigits,
     cnjTexto: cnjDigits.length >= 15 ? formatarCNJ(cnjDigits) : (numeroProcesso ?? "—"),
     tribunal: comoTexto(
       pegar(obj, "siglaTribunal", "sigla_tribunal", "tribunal") ?? pegarFuzzy(obj, "tribunal"),
@@ -161,7 +167,11 @@ export async function listarAdvogadosFixados(): Promise<AdvogadoFiltro[]> {
     .select("nome, numero_oab, uf_oab")
     .order("ordem");
   if (error) throw error;
-  return (data ?? []).map((r) => ({ nome: r.nome, numeroOab: r.numero_oab ?? "", ufOab: r.uf_oab ?? "" }));
+  return (data ?? []).map((r) => ({
+    nome: r.nome,
+    numeroOab: r.numero_oab ?? "",
+    ufOab: r.uf_oab ?? "",
+  }));
 }
 
 export async function salvarAdvogadosFixados(advogados: AdvogadoFiltro[]): Promise<void> {

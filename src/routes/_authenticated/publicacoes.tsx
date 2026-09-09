@@ -235,13 +235,17 @@ function montarLinhas(linhas: LinhaLida[]): LinhaPublicacao[] {
     const cnjDigits = cnjBruto ? cnjBruto.replace(/\D/g, "") : "";
     // Nas abas "Não Localizada" é normal não ter um CNJ reconhecível --
     // ainda assim a linha entra, só não vai casar com processo nenhum.
-    if (linha.origem === "Localizada" && cnjDigits.length < 15) continue;
+    // Na "Localizada" exige ALGUM número de processo, mas não precisa
+    // ser CNJ completo de 20 dígitos: tribunais superiores (STJ, STF,
+    // TST...) numeram diferente (ex. "2.200.810/SC", só 7 dígitos) e
+    // esses processos também podem estar cadastrados no FaroLex.
+    if (linha.origem === "Localizada" && !cnjDigits) continue;
 
     resultado.push({
       idx: resultado.length,
       linha: linha.numero,
       origem: linha.origem,
-      cnjDigits: cnjDigits.length >= 15 ? cnjDigits : "",
+      cnjDigits,
       cnjTexto: cnjDigits.length >= 15 ? formatarCNJ(cnjDigits) : (cnjBruto ?? "—"),
       clientePlanilha: texto(l.cliente),
       coord: texto(l.coord),
