@@ -708,10 +708,17 @@ function badgeUrgencia(urgencia: Urgencia) {
 // prompt da BDR (busca por termos / cliente Souza Cruz ou Merck).
 // Bate por palavra inteira (não por pedaço de palavra) -- com termo curto
 // tipo "BAT" ou "PRC", um includes() cru pegaria "debate"/"combate" à toa.
-function mencionaTermos(l: LinhaPublicacao, termos: string[]) {
-  const alvo = ` ${normalizar(
-    [l.andamento, l.autor, l.reu, l.advg, l.clientePlanilha].filter(Boolean).join(" "),
-  )} `;
+// "incluirAdvg" fica desligado pra checar cliente/parte -- o campo advg
+// é sobre QUEM REPRESENTA o caso, não sobre quem é o cliente, e algumas
+// pessoas (sócio do escritório) são cliente em processos próprios E
+// advogado em processos de terceiros; incluir o campo advg faria o nome
+// dela bater à toa sempre que ela mesma aparecesse como destinatária,
+// mesmo em caso de outro cliente qualquer.
+function mencionaTermos(l: LinhaPublicacao, termos: string[], incluirAdvg = true) {
+  const campos = incluirAdvg
+    ? [l.andamento, l.autor, l.reu, l.advg, l.clientePlanilha]
+    : [l.andamento, l.autor, l.reu, l.clientePlanilha];
+  const alvo = ` ${normalizar(campos.filter(Boolean).join(" "))} `;
   return termos.some((t) => alvo.includes(` ${normalizar(t)} `));
 }
 
@@ -857,7 +864,8 @@ function PublicacoesPage() {
       semProcesso.filter(
         (l) =>
           (l.origem === "DJEN" || l.origem === "Localizada") &&
-          (mencionaTermos(l, ["Eliane Leve"]) || mencionaTermos(l, NOMES_CLIENTES_CONHECIDOS)),
+          (mencionaTermos(l, ["Eliane Leve"]) ||
+            mencionaTermos(l, NOMES_CLIENTES_CONHECIDOS, false)),
       ),
     [semProcesso],
   );
