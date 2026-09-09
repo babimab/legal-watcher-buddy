@@ -334,13 +334,17 @@ const CLIENTES_CONHECIDOS: { padrao: RegExp; nome: string }[] = [
 // vir "Souza Cruz S/A" ou só "Souza Cruz"). Merck e PRC não têm padrão de
 // autor/réu próprio (só batem por numero_cliente/carteira em
 // categoriaCliente), por isso entram aqui à parte.
+// "Paulo Rogério" fica de fora de propósito: são só duas palavras (nome
+// bem comum em português), então bate à toa com qualquer "Paulo Rogério
+// de Fulano de Tal" que nem é o cliente -- já aconteceu (publicação de
+// um Paulo Rogério de Araújo Brandão Couto, ligado à Naturgy, sem
+// relação nenhuma com o cliente do escritório).
 export const NOMES_CLIENTES_CONHECIDOS = [
   "Souza Cruz",
   "BAT",
   "Astro",
   "FASC",
   "Eduardo de Souza Campos",
-  "Paulo Rogério",
   "Ian de Porto Alegre Muniz",
   "Merck",
   "PRC",
