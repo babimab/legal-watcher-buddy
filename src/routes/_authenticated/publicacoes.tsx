@@ -702,11 +702,13 @@ function badgeUrgencia(urgencia: Urgencia) {
 
 // Pré-filtro barato antes de gastar chamada de IA -- regra 7/8 do
 // prompt da BDR (busca por termos / cliente Souza Cruz ou Merck).
+// Bate por palavra inteira (não por pedaço de palavra) -- com termo curto
+// tipo "BAT" ou "PRC", um includes() cru pegaria "debate"/"combate" à toa.
 function mencionaTermos(l: LinhaPublicacao, termos: string[]) {
-  const alvo = normalizar(
+  const alvo = ` ${normalizar(
     [l.andamento, l.autor, l.reu, l.advg, l.clientePlanilha].filter(Boolean).join(" "),
-  );
-  return termos.some((t) => alvo.includes(normalizar(t)));
+  )} `;
+  return termos.some((t) => alvo.includes(` ${normalizar(t)} `));
 }
 
 function PublicacoesPage() {

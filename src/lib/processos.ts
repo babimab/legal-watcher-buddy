@@ -325,13 +325,23 @@ const CLIENTES_CONHECIDOS: { padrao: RegExp; nome: string }[] = [
   { padrao: /ian\s+de\s+porto\s+alegre\s+muniz/i, nome: "Ian de Porto Alegre Muniz" },
 ];
 
-// Nomes de cliente conhecidos, pra filtrar publicação por palavra-chave
-// (ex.: descartar resultado do DJEN que não menciona nenhum cliente do
-// escritório) -- Merck e PRC não têm padrão de autor/réu próprio (só
-// batem por numero_cliente/carteira em categoriaCliente), por isso
-// entram aqui à parte.
+// Termos pra filtrar publicação por palavra-chave (ex.: descartar
+// resultado do DJEN que não menciona nenhum cliente do escritório) --
+// tem que ser um pedaço curto que realmente apareça no texto da
+// publicação, por isso NÃO reaproveita o nome de CLIENTES_CONHECIDOS
+// (esse é o nome padronizado pra exibição, tipo "Souza Cruz LTDA.", que
+// quase nunca aparece assim, literalmente, numa publicação -- lá costuma
+// vir "Souza Cruz S/A" ou só "Souza Cruz"). Merck e PRC não têm padrão de
+// autor/réu próprio (só batem por numero_cliente/carteira em
+// categoriaCliente), por isso entram aqui à parte.
 export const NOMES_CLIENTES_CONHECIDOS = [
-  ...CLIENTES_CONHECIDOS.map((c) => c.nome),
+  "Souza Cruz",
+  "BAT",
+  "Astro",
+  "FASC",
+  "Eduardo de Souza Campos",
+  "Paulo Rogério",
+  "Ian de Porto Alegre Muniz",
   "Merck",
   "PRC",
 ];
