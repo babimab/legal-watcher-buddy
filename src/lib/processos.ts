@@ -358,7 +358,13 @@ export const NOMES_CLIENTES_CONHECIDOS = [
   "Associação Brasileira da Indústria da Cerveja",
   "CervBrasil",
   "Mederi",
-  "Merck",
+  // "Merck S.A." (cliente do escritório) precisa do "S.A." pra não
+  // bater à toa com "Merck Sharp & Dohme" (MSD) -- são duas empresas
+  // "Merck" diferentes e sem relação (separação histórica de marca no
+  // setor farmacêutico), e "Merck Sharp & Dohme" aparece o tempo todo
+  // como parte/interessada em processos de terceiros sem relação
+  // nenhuma com a cliente do escritório.
+  "Merck S.A.",
   "PRC",
 ];
 

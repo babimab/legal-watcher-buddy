@@ -436,7 +436,7 @@ function montarSemResultadoGeral(totalCandidatas: number): string | null {
   if (totalCandidatas === 0) return null;
   return (
     `Quanto à aba "Não Localizada – Geral": foram identificadas ${totalCandidatas} ` +
-    `publicação(ões) contendo os termos "Souza Cruz" ou "Merck" como parte, porém em ` +
+    `publicação(ões) contendo os termos "Souza Cruz" ou "Merck S.A." como parte, porém em ` +
     `nenhuma delas a advogada responsável é Eliane Leve.`
   );
 }
@@ -829,7 +829,7 @@ function PublicacoesPage() {
       semProcesso.filter(
         (l) =>
           l.origem === "Não Localizada – Advg" &&
-          mencionaTermos(l, ["Eliane Leve", "Souza Cruz", "Merck"]),
+          mencionaTermos(l, ["Eliane Leve", "Souza Cruz", "Merck S.A."]),
       ),
     [semProcesso],
   );
@@ -840,7 +840,8 @@ function PublicacoesPage() {
   const naoLocalizadaGeralTotalCandidatas = useMemo(
     () =>
       semProcesso.filter(
-        (l) => l.origem === "Não Localizada – Geral" && mencionaTermos(l, ["Souza Cruz", "Merck"]),
+        (l) =>
+          l.origem === "Não Localizada – Geral" && mencionaTermos(l, ["Souza Cruz", "Merck S.A."]),
       ).length,
     [semProcesso],
   );
@@ -849,7 +850,7 @@ function PublicacoesPage() {
       semProcesso.filter(
         (l) =>
           l.origem === "Não Localizada – Geral" &&
-          mencionaTermos(l, ["Souza Cruz", "Merck"]) &&
+          mencionaTermos(l, ["Souza Cruz", "Merck S.A."]) &&
           mencionaTermos(l, ["Eliane Leve"]),
       ),
     [semProcesso],
