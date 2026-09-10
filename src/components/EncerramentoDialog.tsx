@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { supabaseSolto } from "@/lib/supabase-solto";
-import { type Processo } from "@/lib/processos";
+import { FASE_OPCOES, type Processo } from "@/lib/processos";
 
 const RESULTADOS_PROCESSO = [
   "Improcedente",
@@ -64,6 +64,7 @@ export function EncerramentoDialog({
       .replace(/\./g, "")
       .replace(",", ".");
     const resultadoRaw = String(form.get("resultado_encerramento") ?? "");
+    const faseRaw = String(form.get("fase") ?? "");
     setSalvando(true);
     const { error } = await supabaseSolto
       .from("processos")
@@ -73,6 +74,7 @@ export function EncerramentoDialog({
         valor_encerramento: valorRaw ? Number(valorRaw) : null,
         resultado_encerramento: resultadoRaw === "nao-informado" ? null : resultadoRaw || null,
         observacao_encerramento: String(form.get("observacao_encerramento") ?? "").trim() || null,
+        fase: faseRaw === "nenhuma" ? null : faseRaw || null,
       })
       .eq("id", processo.id);
     setSalvando(false);
@@ -103,6 +105,22 @@ export function EncerramentoDialog({
           <DialogDescription>{descricao}</DialogDescription>
         </DialogHeader>
         <form onSubmit={salvar} className="space-y-4">
+          <div className="space-y-2">
+            <Label>Fase</Label>
+            <Select name="fase" defaultValue={processo.fase ?? "nenhuma"}>
+              <SelectTrigger>
+                <SelectValue placeholder="Fase" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nenhuma">Não informada</SelectItem>
+                {FASE_OPCOES.map((f) => (
+                  <SelectItem key={f} value={f}>
+                    {f}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex items-center gap-2">
             <Checkbox id="pronto" checked={pronto} onCheckedChange={(v) => setPronto(v === true)} />
             <Label htmlFor="pronto">Pronto para encerrar</Label>
