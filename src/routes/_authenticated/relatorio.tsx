@@ -595,7 +595,14 @@ function RelatorioPage() {
   const pendencias = useQuery({ queryKey: ["pendencias"], queryFn: listarPendencias });
 
   const processos = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
-  const encerramento = (processos.data ?? []).filter((p) => p.fase === "Encerramento");
+  // Fluxo de encerramento é sobre processo AINDA ativo que chegou na fase
+  // de encerramento (candidato a ser formalmente encerrado) -- um
+  // processo cujo status já virou "encerrado" (ou suspenso/arquivado/
+  // baixado) não deveria mais aparecer aqui, mesmo com a fase ainda
+  // marcada como Encerramento.
+  const encerramento = (processos.data ?? []).filter(
+    (p) => p.fase === "Encerramento" && p.status === "ativo",
+  );
 
   // Encerramento da Astro: somente processos da pasta de cobrança que já
   // estejam efetivamente na fase Encerramento. Instrutória, Recursal,
@@ -611,7 +618,11 @@ function RelatorioPage() {
     return pasta?.id ?? null;
   }, [grupos.data, pastas.data]);
   const encerramentoAstro = (processos.data ?? []).filter(
-    (p) => pastaCobrancaAstroId && p.pasta_id === pastaCobrancaAstroId && p.fase === "Encerramento",
+    (p) =>
+      pastaCobrancaAstroId &&
+      p.pasta_id === pastaCobrancaAstroId &&
+      p.fase === "Encerramento" &&
+      p.status === "ativo",
   );
 
   const [advogado, setAdvogado] = useState(search.advogado ?? "todos");
