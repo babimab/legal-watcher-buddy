@@ -1690,6 +1690,9 @@ function ListaProcessos({
               {formatarCNJ(p.numero_cnj)}
             </Link>
             <span className="font-medium">{exibir(p.cliente)}</span>
+            {p.parte_contraria ? (
+              <span className="text-muted-foreground">x {p.parte_contraria}</span>
+            ) : null}
             {p.comarca || p.uf ? (
               <span className="text-muted-foreground">
                 {[p.comarca, p.uf].filter(Boolean).join(" / ")}
