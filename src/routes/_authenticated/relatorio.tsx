@@ -33,6 +33,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { supabaseSolto } from "@/lib/supabase-solto";
 import {
+  categoriaCliente,
   formatarCNJ,
   listarMovimentacoesDesde,
   listarMovimentacoesPorData,
@@ -599,9 +600,14 @@ function RelatorioPage() {
   // de encerramento (candidato a ser formalmente encerrado) -- um
   // processo cujo status já virou "encerrado" (ou suspenso/arquivado/
   // baixado) não deveria mais aparecer aqui, mesmo com a fase ainda
-  // marcada como Encerramento.
+  // marcada como Encerramento. A Astro tem o fluxo de encerramento
+  // próprio dela (encerramentoAstro, mais abaixo) -- não pode misturar
+  // com essa aba, que é só da Souza Cruz.
   const encerramento = (processos.data ?? []).filter(
-    (p) => p.fase === "Encerramento" && p.status === "ativo",
+    (p) =>
+      p.fase === "Encerramento" &&
+      p.status === "ativo" &&
+      categoriaCliente(p.cliente, p.numero_cliente, p.carteira) !== "Astro",
   );
 
   // Encerramento da Astro: somente processos da pasta de cobrança que já
