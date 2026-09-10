@@ -458,69 +458,6 @@ function ProcessoDetalhe() {
         </CardContent>
       </Card>
 
-      <AcessosProcesso processoId={p.id} />
-
-      <DocumentosProcesso processoId={p.id} />
-
-      <ComunicacoesDecisao processoId={p.id} />
-
-      <RelacionadosProcesso processoId={p.id} />
-
-      <div>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-serif text-xl font-semibold">Desdobramentos</h2>
-          <div className="flex flex-wrap gap-2">
-            <VincularDesdobramentoDialog paiId={p.id} paiPossivelmenteFilhoDe={p.processo_pai_id} />
-            <ProcessoDialog
-              paiId={p.id}
-              iniciais={{
-                cliente: p.cliente,
-                parte_contraria: p.parte_contraria,
-                tribunal: p.tribunal,
-                vara: p.vara,
-                comarca: p.comarca,
-                uf: p.uf,
-                responsavel: p.responsavel,
-                pasta_id: p.pasta_id,
-              }}
-              trigger={
-                <Button variant="outline" size="sm">
-                  <Plus className="size-4" /> Novo desdobramento
-                </Button>
-              }
-            />
-          </div>
-        </div>
-        {desdobramentos.isLoading ? (
-          <p className="text-muted-foreground">Carregando...</p>
-        ) : (desdobramentos.data ?? []).length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              Nenhum recurso, cumprimento de sentença ou outro desdobramento vinculado.
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-3">
-            {(desdobramentos.data ?? []).map((d) => (
-              <Link
-                key={d.id}
-                to="/processos/$id"
-                params={{ id: d.id }}
-                className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary"
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-sm">{formatarCNJ(d.numero_cnj)}</span>
-                  <Badge variant={d.status === "ativo" ? "default" : "secondary"}>{d.status}</Badge>
-                  {d.tipo_desdobramento ? (
-                    <Badge variant="outline">{exibir(d.tipo_desdobramento)}</Badge>
-                  ) : null}
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
-
       <div>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-serif text-xl font-semibold">Movimentações</h2>
@@ -677,6 +614,69 @@ function ProcessoDetalhe() {
               );
             })}
           </ol>
+        )}
+      </div>
+
+      <AcessosProcesso processoId={p.id} />
+
+      <DocumentosProcesso processoId={p.id} />
+
+      <ComunicacoesDecisao processoId={p.id} />
+
+      <RelacionadosProcesso processoId={p.id} />
+
+      <div>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-serif text-xl font-semibold">Desdobramentos</h2>
+          <div className="flex flex-wrap gap-2">
+            <VincularDesdobramentoDialog paiId={p.id} paiPossivelmenteFilhoDe={p.processo_pai_id} />
+            <ProcessoDialog
+              paiId={p.id}
+              iniciais={{
+                cliente: p.cliente,
+                parte_contraria: p.parte_contraria,
+                tribunal: p.tribunal,
+                vara: p.vara,
+                comarca: p.comarca,
+                uf: p.uf,
+                responsavel: p.responsavel,
+                pasta_id: p.pasta_id,
+              }}
+              trigger={
+                <Button variant="outline" size="sm">
+                  <Plus className="size-4" /> Novo desdobramento
+                </Button>
+              }
+            />
+          </div>
+        </div>
+        {desdobramentos.isLoading ? (
+          <p className="text-muted-foreground">Carregando...</p>
+        ) : (desdobramentos.data ?? []).length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              Nenhum recurso, cumprimento de sentença ou outro desdobramento vinculado.
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-3">
+            {(desdobramentos.data ?? []).map((d) => (
+              <Link
+                key={d.id}
+                to="/processos/$id"
+                params={{ id: d.id }}
+                className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-sm">{formatarCNJ(d.numero_cnj)}</span>
+                  <Badge variant={d.status === "ativo" ? "default" : "secondary"}>{d.status}</Badge>
+                  {d.tipo_desdobramento ? (
+                    <Badge variant="outline">{exibir(d.tipo_desdobramento)}</Badge>
+                  ) : null}
+                </div>
+              </Link>
+            ))}
+          </div>
         )}
       </div>
 
