@@ -17,6 +17,7 @@ import ExcelJS from "exceljs";
 import { Button } from "@/components/ui/button";
 import { NovoPrazoDialog } from "@/components/NovoPrazoDialog";
 import { EncerramentoDialog } from "@/components/EncerramentoDialog";
+import { PendenciaBaixaDialog } from "@/components/PendenciaBaixaDialog";
 import { BaixasCliente } from "@/components/BaixasCliente";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1729,6 +1730,8 @@ function ListaBaixaClientePendente({ processos }: { processos: Processo[] }) {
       .update({
         baixa_cliente_pendente: false,
         baixa_cliente_confirmada_em: new Date().toISOString(),
+        baixa_cliente_pendencia_com: null,
+        baixa_cliente_pendencia_descricao: null,
       })
       .eq("id", id);
     setConfirmandoId(null);
@@ -1758,32 +1761,39 @@ function ListaBaixaClientePendente({ processos }: { processos: Processo[] }) {
       </CardDescription>
       <ol className="space-y-3">
         {processos.map((p) => (
-          <li
-            key={p.id}
-            className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-4 text-sm"
-          >
-            <Link
-              to="/processos/$id"
-              params={{ id: p.id }}
-              className="font-mono text-xs underline-offset-4 hover:underline"
-            >
-              {formatarCNJ(p.numero_cnj)}
-            </Link>
-            <span className="font-medium">{exibir(p.cliente)}</span>
-            {p.parte_contraria ? (
-              <span className="text-muted-foreground">x {p.parte_contraria}</span>
+          <li key={p.id} className="rounded-lg border border-border bg-card p-4 text-sm">
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                to="/processos/$id"
+                params={{ id: p.id }}
+                className="font-mono text-xs underline-offset-4 hover:underline"
+              >
+                {formatarCNJ(p.numero_cnj)}
+              </Link>
+              <span className="font-medium">{exibir(p.cliente)}</span>
+              {p.parte_contraria ? (
+                <span className="text-muted-foreground">x {p.parte_contraria}</span>
+              ) : null}
+              {p.responsavel ? <Badge variant="outline">{p.responsavel}</Badge> : null}
+              <div className="ml-auto flex items-center gap-2">
+                <PendenciaBaixaDialog processo={p} />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={confirmandoId === p.id}
+                  onClick={() => void confirmarBaixa(p.id)}
+                >
+                  {confirmandoId === p.id ? "Confirmando..." : "Confirmar baixa"}
+                </Button>
+              </div>
+            </div>
+            {p.baixa_cliente_pendencia_descricao ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                {p.baixa_cliente_pendencia_com ? `${p.baixa_cliente_pendencia_com}: ` : ""}
+                {p.baixa_cliente_pendencia_descricao}
+              </p>
             ) : null}
-            {p.responsavel ? <Badge variant="outline">{p.responsavel}</Badge> : null}
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="ml-auto"
-              disabled={confirmandoId === p.id}
-              onClick={() => void confirmarBaixa(p.id)}
-            >
-              {confirmandoId === p.id ? "Confirmando..." : "Confirmar baixa"}
-            </Button>
           </li>
         ))}
       </ol>
