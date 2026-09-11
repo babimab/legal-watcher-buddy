@@ -657,8 +657,6 @@ export type Database = {
           area_direito: string | null
           autor: string | null
           baixa_cliente_confirmada_em: string | null
-          baixa_cliente_pendencia_com: string | null
-          baixa_cliente_pendencia_descricao: string | null
           baixa_cliente_pendente: boolean
           carteira: string | null
           classe: string | null
@@ -671,7 +669,6 @@ export type Database = {
           criticidade: string | null
           decisoes_no_ld: boolean
           detalhamento_objeto: string | null
-          estagiario: string | null
           fase: string | null
           fonte: string
           id: string
@@ -715,8 +712,6 @@ export type Database = {
           area_direito?: string | null
           autor?: string | null
           baixa_cliente_confirmada_em?: string | null
-          baixa_cliente_pendencia_com?: string | null
-          baixa_cliente_pendencia_descricao?: string | null
           baixa_cliente_pendente?: boolean
           carteira?: string | null
           classe?: string | null
@@ -729,7 +724,6 @@ export type Database = {
           criticidade?: string | null
           decisoes_no_ld?: boolean
           detalhamento_objeto?: string | null
-          estagiario?: string | null
           fase?: string | null
           fonte?: string
           id?: string
@@ -773,8 +767,6 @@ export type Database = {
           area_direito?: string | null
           autor?: string | null
           baixa_cliente_confirmada_em?: string | null
-          baixa_cliente_pendencia_com?: string | null
-          baixa_cliente_pendencia_descricao?: string | null
           baixa_cliente_pendente?: boolean
           carteira?: string | null
           classe?: string | null
@@ -787,7 +779,6 @@ export type Database = {
           criticidade?: string | null
           decisoes_no_ld?: boolean
           detalhamento_objeto?: string | null
-          estagiario?: string | null
           fase?: string | null
           fonte?: string
           id?: string
