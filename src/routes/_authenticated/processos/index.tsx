@@ -761,6 +761,7 @@ function ProcessoCard({
         ) : null}
         {p.socio ? <Badge variant="outline">sócio {p.socio}</Badge> : null}
         {p.coordenador ? <Badge variant="outline">coord. {p.coordenador}</Badge> : null}
+        {p.estagiario ? <Badge variant="outline">estag. {p.estagiario}</Badge> : null}
         {p.fase ? <Badge variant="outline">{p.fase}</Badge> : null}
         {p.criticidade ? (
           <Badge variant={variantCriticidade(p.criticidade)}>{p.criticidade}</Badge>

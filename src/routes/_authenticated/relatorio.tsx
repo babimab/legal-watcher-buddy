@@ -645,6 +645,7 @@ function RelatorioPage() {
   const [socioSelecionado, setSocioSelecionado] = useState(search.socio ?? "todos");
   const [soProntos, setSoProntos] = useState(false);
   const [ufEncerramento, setUfEncerramento] = useState("todos");
+  const [estagiarioEncerramento, setEstagiarioEncerramento] = useState("todos");
   const minhaSigla = useSiglaAtual();
 
   useEffect(() => {
@@ -762,22 +763,43 @@ function RelatorioPage() {
     [encerramento],
   );
 
-  const encerramentoFiltrado =
+  // Estagiária responsável por revisar decisões no LD antes do
+  // encerramento (rotina de sexta) -- filtro só aparece quando há mais de
+  // uma na base, junta as duas abas (Souza Cruz e Astro) pra não deixar
+  // de fora quem só tem processo atribuído numa delas.
+  const estagiariosEncerramento = useMemo(
+    () =>
+      [
+        ...new Set(
+          [...encerramento, ...encerramentoAstro].map((p) => p.estagiario).filter(Boolean),
+        ),
+      ].sort() as string[],
+    [encerramento, encerramentoAstro],
+  );
+
+  const filtrarPorEstagiarioEncerramento = (itens: Processo[]) =>
+    estagiarioEncerramento === "todos"
+      ? itens
+      : itens.filter((p) => p.estagiario === estagiarioEncerramento);
+
+  const encerramentoFiltrado = filtrarPorEstagiarioEncerramento(
     ufEncerramento === "todos"
       ? encerramentoPorAdvogado
-      : encerramentoPorAdvogado.filter((p) => p.uf === ufEncerramento);
+      : encerramentoPorAdvogado.filter((p) => p.uf === ufEncerramento),
+  );
 
   const encerramentoProntos = encerramentoFiltrado.filter((p) => p.pronto_para_encerrar);
   const encerramentoExibido = soProntos ? encerramentoProntos : encerramentoFiltrado;
 
-  const encerramentoAstroPorAdvogado =
+  const encerramentoAstroPorAdvogado = filtrarPorEstagiarioEncerramento(
     advogado === "todos"
       ? encerramentoAstro
       : encerramentoAstro.filter((p) =>
           advogado === "eu"
             ? ehResponsavelDaSigla(p.responsavel, minhaSigla)
             : p.responsavel === advogado,
-        );
+        ),
+  );
   const encerramentoAstroProntos = encerramentoAstroPorAdvogado.filter(
     (p) => p.pronto_para_encerrar,
   );
@@ -1098,6 +1120,22 @@ function RelatorioPage() {
                 {ufsEncerramento.map((uf) => (
                   <SelectItem key={uf} value={uf}>
                     {uf}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
+          {(aba === "encerramento" || aba === "encerramento-astro") &&
+          estagiariosEncerramento.length > 1 ? (
+            <Select value={estagiarioEncerramento} onValueChange={setEstagiarioEncerramento}>
+              <SelectTrigger className="w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas as estagiárias</SelectItem>
+                {estagiariosEncerramento.map((e) => (
+                  <SelectItem key={e} value={e}>
+                    {e}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1837,6 +1875,7 @@ function ListaProcessos({
             ) : null}
             {p.responsavel ? <Badge variant="outline">{p.responsavel}</Badge> : null}
             {p.socio ? <Badge variant="outline">sócio {p.socio}</Badge> : null}
+            {p.estagiario ? <Badge variant="outline">estag. {p.estagiario}</Badge> : null}
             {p.fase ? <Badge variant="secondary">{p.fase}</Badge> : null}
             {mostrarDecisoesNoLd && p.decisoes_no_ld ? (
               <Badge variant="outline">Decisões no LD</Badge>

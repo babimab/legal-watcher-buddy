@@ -32,6 +32,7 @@ export type Processo = {
   responsavel: string | null;
   socio: string | null;
   coordenador: string | null;
+  estagiario: string | null;
   observacoes: string | null;
   pronto_para_encerrar: boolean;
   pronto_para_encerrar_em: string | null;
@@ -437,6 +438,10 @@ export function identificarCliente(
 // Sócios conhecidos, pra já aparecerem no filtro de Sócio mesmo antes de
 // ter processo com esse sócio cadastrado.
 export const SOCIOS_CONHECIDOS = ["ELV", "GFC", "NYM"];
+
+// Estagiárias conhecidas, sugestão no campo Estagiário (responsável por
+// revisar decisões no LD antes do encerramento).
+export const ESTAGIARIOS_CONHECIDOS = ["JUL", "LTV"];
 
 // Carteiras conhecidas, pra já aparecerem como sugestão ao cadastrar um
 // processo mesmo antes de existir algum processo com essa carteira.

@@ -31,6 +31,7 @@ import {
   CRITICIDADE_OPCOES,
   SOCIOS_CONHECIDOS,
   COORDENADORES_CONHECIDOS,
+  ESTAGIARIOS_CONHECIDOS,
   CARTEIRAS_CONHECIDAS,
   listarProcessos,
   exibir,
@@ -113,6 +114,7 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
       responsavel: String(form.get("responsavel") ?? "").trim() || null,
       socio: String(form.get("socio") ?? "").trim() || null,
       coordenador: String(form.get("coordenador") ?? "").trim() || null,
+      estagiario: String(form.get("estagiario") ?? "").trim() || null,
       carteira: String(form.get("carteira") ?? "").trim() || null,
       status: String(form.get("status") ?? "ativo"),
       valor_causa: valor ? Number(valor) : null,
@@ -300,6 +302,20 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
             <datalist id="coordenadores-sugeridos">
               {COORDENADORES_CONHECIDOS.map((c) => (
                 <option key={c} value={c} />
+              ))}
+            </datalist>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="estagiario">Estagiário</Label>
+            <Input
+              id="estagiario"
+              name="estagiario"
+              list="estagiarios-sugeridos"
+              defaultValue={processo?.estagiario ?? iniciais?.estagiario ?? ""}
+            />
+            <datalist id="estagiarios-sugeridos">
+              {ESTAGIARIOS_CONHECIDOS.map((e) => (
+                <option key={e} value={e} />
               ))}
             </datalist>
           </div>

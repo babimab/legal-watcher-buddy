@@ -671,6 +671,7 @@ export type Database = {
           criticidade: string | null
           decisoes_no_ld: boolean
           detalhamento_objeto: string | null
+          estagiario: string | null
           fase: string | null
           fonte: string
           id: string
@@ -728,6 +729,7 @@ export type Database = {
           criticidade?: string | null
           decisoes_no_ld?: boolean
           detalhamento_objeto?: string | null
+          estagiario?: string | null
           fase?: string | null
           fonte?: string
           id?: string
@@ -785,6 +787,7 @@ export type Database = {
           criticidade?: string | null
           decisoes_no_ld?: boolean
           detalhamento_objeto?: string | null
+          estagiario?: string | null
           fase?: string | null
           fonte?: string
           id?: string
