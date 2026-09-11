@@ -1878,7 +1878,12 @@ function ListaProcessos({
             {p.estagiario ? <Badge variant="outline">estag. {p.estagiario}</Badge> : null}
             {p.fase ? <Badge variant="secondary">{p.fase}</Badge> : null}
             {mostrarDecisoesNoLd && p.decisoes_no_ld ? (
-              <Badge variant="outline">Decisões no LD</Badge>
+              <Badge variant="outline">
+                Decisões no LD
+                {p.decisoes_no_ld_em
+                  ? ` (${new Date(p.decisoes_no_ld_em).toLocaleDateString("pt-BR")})`
+                  : ""}
+              </Badge>
             ) : null}
             <span className="ml-auto flex items-center gap-3">
               {p.valor_encerramento != null ? (

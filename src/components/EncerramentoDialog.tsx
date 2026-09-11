@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { supabaseSolto } from "@/lib/supabase-solto";
-import { FASE_OPCOES, type Processo } from "@/lib/processos";
+import { FASE_OPCOES, siglaOuEmailAtual, type Processo } from "@/lib/processos";
 
 const RESULTADOS_PROCESSO = [
   "Improcedente",
@@ -88,11 +88,24 @@ export function EncerramentoDialog({
     const resultadoRaw = String(form.get("resultado_encerramento") ?? "");
     const faseRaw = String(form.get("fase") ?? "");
     setSalvando(true);
+    // Só recarimba quem/quando quando o valor do checkbox de fato muda --
+    // reabrir e salvar de novo com "Decisões no LD" já marcada não deve
+    // apagar o carimbo de quem checou primeiro.
+    const carimboDecisoesNoLd =
+      decisoesNoLd === processo.decisoes_no_ld
+        ? {}
+        : decisoesNoLd
+          ? {
+              decisoes_no_ld_por: await siglaOuEmailAtual(),
+              decisoes_no_ld_em: new Date().toISOString(),
+            }
+          : { decisoes_no_ld_por: null, decisoes_no_ld_em: null };
     const { error } = await supabaseSolto
       .from("processos")
       .update({
         pronto_para_encerrar: pronto,
         decisoes_no_ld: decisoesNoLd,
+        ...carimboDecisoesNoLd,
         valor_encerramento: valorRaw ? Number(valorRaw) : null,
         resultado_encerramento: resultadoRaw === "nao-informado" ? null : resultadoRaw || null,
         observacao_encerramento: String(form.get("observacao_encerramento") ?? "").trim() || null,
@@ -148,13 +161,23 @@ export function EncerramentoDialog({
             <Label htmlFor="pronto">Pronto para encerrar</Label>
           </div>
           {mostrarDecisoesNoLd ? (
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="decisoes_no_ld"
-                checked={decisoesNoLd}
-                onCheckedChange={(v) => setDecisoesNoLd(v === true)}
-              />
-              <Label htmlFor="decisoes_no_ld">Preenchida Decisões no LD</Label>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="decisoes_no_ld"
+                  checked={decisoesNoLd}
+                  onCheckedChange={(v) => setDecisoesNoLd(v === true)}
+                />
+                <Label htmlFor="decisoes_no_ld">Preenchida Decisões no LD</Label>
+              </div>
+              {processo.decisoes_no_ld_por ? (
+                <p className="pl-6 text-xs text-muted-foreground">
+                  Checado por {processo.decisoes_no_ld_por}
+                  {processo.decisoes_no_ld_em
+                    ? ` em ${new Date(processo.decisoes_no_ld_em).toLocaleDateString("pt-BR")}`
+                    : ""}
+                </p>
+              ) : null}
             </div>
           ) : null}
           <div className="space-y-2">

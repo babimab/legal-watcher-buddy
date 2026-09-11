@@ -670,6 +670,8 @@ export type Database = {
           created_by: string | null
           criticidade: string | null
           decisoes_no_ld: boolean
+          decisoes_no_ld_em: string | null
+          decisoes_no_ld_por: string | null
           detalhamento_objeto: string | null
           estagiario: string | null
           fase: string | null
@@ -728,6 +730,8 @@ export type Database = {
           created_by?: string | null
           criticidade?: string | null
           decisoes_no_ld?: boolean
+          decisoes_no_ld_em?: string | null
+          decisoes_no_ld_por?: string | null
           detalhamento_objeto?: string | null
           estagiario?: string | null
           fase?: string | null
@@ -786,6 +790,8 @@ export type Database = {
           created_by?: string | null
           criticidade?: string | null
           decisoes_no_ld?: boolean
+          decisoes_no_ld_em?: string | null
+          decisoes_no_ld_por?: string | null
           detalhamento_objeto?: string | null
           estagiario?: string | null
           fase?: string | null

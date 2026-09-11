@@ -44,6 +44,8 @@ export type Processo = {
   baixa_cliente_pendencia_com: string | null;
   baixa_cliente_pendencia_descricao: string | null;
   decisoes_no_ld: boolean;
+  decisoes_no_ld_por: string | null;
+  decisoes_no_ld_em: string | null;
   ultima_verificacao_em: string | null;
   fonte: string;
   monitorar: boolean;
