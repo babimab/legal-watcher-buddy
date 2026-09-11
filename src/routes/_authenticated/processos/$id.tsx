@@ -42,6 +42,7 @@ import { consultarProcessoJudit, type ResultadoConsultaJudit } from "@/lib/judit
 import { AcessosProcesso } from "@/components/AcessosProcesso";
 import { DocumentosProcesso } from "@/components/DocumentosProcesso";
 import { ComunicacoesDecisao } from "@/components/ComunicacoesDecisao";
+import { DecisoesProcesso } from "@/components/DecisoesProcesso";
 import { RelacionadosProcesso } from "@/components/RelacionadosProcesso";
 import { HistoricoProcesso } from "@/components/HistoricoProcesso";
 import { ExcluirProcessoDialog } from "@/components/ExcluirProcessoDialog";
@@ -622,6 +623,8 @@ function ProcessoDetalhe() {
       <DocumentosProcesso processoId={p.id} />
 
       <ComunicacoesDecisao processoId={p.id} />
+
+      <DecisoesProcesso processoId={p.id} />
 
       <RelacionadosProcesso processoId={p.id} />
 

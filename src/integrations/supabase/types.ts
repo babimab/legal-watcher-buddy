@@ -335,6 +335,53 @@ export type Database = {
           },
         ]
       }
+      decisoes_processo: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          data_decisao: string | null
+          decisao: string | null
+          detalhamento: string | null
+          houve_decisao: boolean
+          id: string
+          juiz: string | null
+          processo_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          data_decisao?: string | null
+          decisao?: string | null
+          detalhamento?: string | null
+          houve_decisao?: boolean
+          id?: string
+          juiz?: string | null
+          processo_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          data_decisao?: string | null
+          decisao?: string | null
+          detalhamento?: string | null
+          houve_decisao?: boolean
+          id?: string
+          juiz?: string | null
+          processo_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decisoes_processo_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       grupo_membros: {
         Row: {
           created_at: string

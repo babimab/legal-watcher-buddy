@@ -24,20 +24,12 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { supabaseSolto } from "@/lib/supabase-solto";
-import { FASE_OPCOES, siglaOuEmailAtual, type Processo } from "@/lib/processos";
-
-const RESULTADOS_PROCESSO = [
-  "Improcedente",
-  "Procedente",
-  "Parcialmente procedente",
-  "Extinção por prescrição/decadência",
-  "Extinção sem resolução do mérito",
-  "Extinção por desistência",
-  "Extinção por perda superveniente do objeto",
-  "Sentença homologatória de acordo",
-  "Arquivamento administrativo/processual",
-  "Outro",
-] as const;
+import {
+  FASE_OPCOES,
+  RESULTADOS_PROCESSO,
+  siglaOuEmailAtual,
+  type Processo,
+} from "@/lib/processos";
 
 type ProcessoComResultado = Processo & { resultado_encerramento?: string | null };
 

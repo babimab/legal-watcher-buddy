@@ -97,6 +97,22 @@ export const STATUS_OPCOES = ["ativo", "suspenso", "arquivado", "baixado", "ence
 
 export const FASE_OPCOES = ["Instrutória", "Recursal", "Encerramento", "Execução"] as const;
 
+// Mesma lista usada no cadastro de Encerramento e agora no campo "Decisão"
+// da seção Decisões do processo -- reaproveitada pra não ter dois
+// vocabulários diferentes pro mesmo tipo de resultado.
+export const RESULTADOS_PROCESSO = [
+  "Improcedente",
+  "Procedente",
+  "Parcialmente procedente",
+  "Extinção por prescrição/decadência",
+  "Extinção sem resolução do mérito",
+  "Extinção por desistência",
+  "Extinção por perda superveniente do objeto",
+  "Sentença homologatória de acordo",
+  "Arquivamento administrativo/processual",
+  "Outro",
+] as const;
+
 export const CRITICIDADE_OPCOES = ["Alta", "Média", "Baixa"] as const;
 
 // Variante do Badge pra cada nível de criticidade — "Alta" chama mais
