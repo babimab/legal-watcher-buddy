@@ -18,7 +18,6 @@ import { Button } from "@/components/ui/button";
 import { NovoPrazoDialog } from "@/components/NovoPrazoDialog";
 import { EncerramentoDialog } from "@/components/EncerramentoDialog";
 import { PendenciaBaixaDialog } from "@/components/PendenciaBaixaDialog";
-import { BaixasCliente } from "@/components/BaixasCliente";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -812,7 +811,7 @@ function RelatorioPage() {
             ? ultimosFiltrados
             : aba === "pendencias"
               ? pendenciasFiltradas
-              : aba === "encerramento" || aba === "encerramento-astro" || aba === "baixas"
+              : aba === "encerramento" || aba === "encerramento-astro" || aba === "baixa-pendente"
                 ? []
                 : novidadesFiltradas;
 
@@ -1008,12 +1007,11 @@ function RelatorioPage() {
   };
 
   const ehAbaEncerramento = aba === "encerramento" || aba === "encerramento-astro";
-  const ehModoEncerramentos = ehAbaEncerramento || aba === "baixas" || aba === "baixa-pendente";
+  const ehModoEncerramentos = ehAbaEncerramento || aba === "baixa-pendente";
 
   const abasEncerramento: Array<{ chave: string; rotulo: string }> = [
     { chave: "encerramento", rotulo: "Souza Cruz" },
     { chave: "encerramento-astro", rotulo: "Astro" },
-    { chave: "baixas", rotulo: "Baixa na Astro" },
     { chave: "baixa-pendente", rotulo: `Baixa na Souza Cruz (${baixaClientePendente.length})` },
   ];
 
@@ -1030,7 +1028,7 @@ function RelatorioPage() {
               : "Nenhuma verificação registrada ainda."}
           </p>
         </div>
-        <div className={`flex flex-wrap gap-2 ${aba === "baixas" ? "hidden" : ""}`}>
+        <div className={`flex flex-wrap gap-2 ${aba === "baixa-pendente" ? "hidden" : ""}`}>
           {advogados.temMeus || advogados.outros.length > 0 ? (
             <Select value={advogado} onValueChange={setAdvogado}>
               <SelectTrigger className="w-52">
@@ -1190,9 +1188,7 @@ function RelatorioPage() {
         </div>
       ) : null}
 
-      {aba === "baixas" ? (
-        <BaixasCliente />
-      ) : aba === "baixa-pendente" ? (
+      {aba === "baixa-pendente" ? (
         <ListaBaixaClientePendente processos={baixaClientePendente} />
       ) : aba === "pendencias" ? (
         <>
