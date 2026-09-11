@@ -657,6 +657,8 @@ export type Database = {
           area_direito: string | null
           autor: string | null
           baixa_cliente_confirmada_em: string | null
+          baixa_cliente_pendencia_com: string | null
+          baixa_cliente_pendencia_descricao: string | null
           baixa_cliente_pendente: boolean
           carteira: string | null
           classe: string | null
@@ -713,6 +715,8 @@ export type Database = {
           area_direito?: string | null
           autor?: string | null
           baixa_cliente_confirmada_em?: string | null
+          baixa_cliente_pendencia_com?: string | null
+          baixa_cliente_pendencia_descricao?: string | null
           baixa_cliente_pendente?: boolean
           carteira?: string | null
           classe?: string | null
@@ -769,6 +773,8 @@ export type Database = {
           area_direito?: string | null
           autor?: string | null
           baixa_cliente_confirmada_em?: string | null
+          baixa_cliente_pendencia_com?: string | null
+          baixa_cliente_pendencia_descricao?: string | null
           baixa_cliente_pendente?: boolean
           carteira?: string | null
           classe?: string | null
