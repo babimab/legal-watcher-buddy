@@ -918,6 +918,37 @@ function RelatorioPage() {
     toast.success("Relatório baixado: Excel completo + Word com o texto do e-mail.");
   };
 
+  // Encerra em lote todos os processos já marcados "pronto para encerrar"
+  // na aba Souza Cruz, e já deixa todos na fila de "Baixa na Souza Cruz"
+  // -- evita abrir o diálogo um por um quando são vários de uma vez.
+  const [encerrandoTodos, setEncerrandoTodos] = useState(false);
+  const encerrarTodosProntos = async () => {
+    if (encerramentoProntos.length === 0) return;
+    if (
+      !window.confirm(
+        `Marcar ${encerramentoProntos.length} processo(s) como encerrado e mandar pra fila de baixa no cliente?`,
+      )
+    )
+      return;
+    setEncerrandoTodos(true);
+    const { error } = await supabaseSolto
+      .from("processos")
+      .update({ status: "encerrado", baixa_cliente_pendente: true })
+      .in(
+        "id",
+        encerramentoProntos.map((p) => p.id),
+      );
+    setEncerrandoTodos(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(
+      `${encerramentoProntos.length} processo(s) encerrado(s) — foram pra fila de baixa na Souza Cruz.`,
+    );
+    await queryClient.invalidateQueries({ queryKey: ["processos"] });
+  };
+
   // Alternativa ao "Exportar relatório": em vez de uma planilha só com os
   // andamentos novos, exporta a base completa do advogado/pasta/sócio
   // selecionado, com as linhas dos processos que têm item na aba atual
@@ -1276,6 +1307,16 @@ function RelatorioPage() {
               onClick={() => void abrirEmail()}
             >
               <Mail className="size-4" /> Mandar prontos pra Eliane ({encerramentoProntos.length})
+            </Button>
+            <Button
+              variant="outline"
+              disabled={encerramentoProntos.length === 0 || encerrandoTodos}
+              onClick={() => void encerrarTodosProntos()}
+            >
+              <CheckCircle2 className="size-4" />
+              {encerrandoTodos
+                ? "Encerrando..."
+                : `Encerrar todos os prontos (${encerramentoProntos.length})`}
             </Button>
           </div>
           <ListaProcessos
