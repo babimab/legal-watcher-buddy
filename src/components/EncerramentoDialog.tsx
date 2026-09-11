@@ -55,7 +55,29 @@ export function EncerramentoDialog({
   const [pronto, setPronto] = useState(processo.pronto_para_encerrar);
   const [decisoesNoLd, setDecisoesNoLd] = useState(processo.decisoes_no_ld);
   const [salvando, setSalvando] = useState(false);
+  const [encerrando, setEncerrando] = useState(false);
   const queryClient = useQueryClient();
+
+  // Muda o status pra "encerrado" e cria a pendência de baixa no sistema
+  // do cliente (aba "Baixa no cliente pendente") -- ação separada de
+  // "Salvar" porque é uma mudança de status, não só os dados do
+  // encerramento em si.
+  const marcarEncerrado = async () => {
+    setEncerrando(true);
+    const { error } = await supabaseSolto
+      .from("processos")
+      .update({ status: "encerrado", baixa_cliente_pendente: true })
+      .eq("id", processo.id);
+    setEncerrando(false);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Processo marcado como encerrado — foi pra fila de baixa no cliente.");
+    await queryClient.invalidateQueries();
+    setAberto(false);
+  };
 
   const salvar = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -178,8 +200,20 @@ export function EncerramentoDialog({
               defaultValue={processo.observacao_encerramento ?? ""}
             />
           </div>
-          <DialogFooter>
-            <Button type="submit" disabled={salvando}>
+          <DialogFooter className="sm:justify-between">
+            {processo.status !== "encerrado" ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={encerrando || salvando}
+                onClick={() => void marcarEncerrado()}
+              >
+                {encerrando ? "Marcando..." : "Marcar como encerrado"}
+              </Button>
+            ) : (
+              <p className="text-sm text-muted-foreground">Já está com status encerrado.</p>
+            )}
+            <Button type="submit" disabled={salvando || encerrando}>
               {salvando ? "Salvando..." : "Salvar"}
             </Button>
           </DialogFooter>

@@ -656,6 +656,8 @@ export type Database = {
         Row: {
           area_direito: string | null
           autor: string | null
+          baixa_cliente_confirmada_em: string | null
+          baixa_cliente_pendente: boolean
           carteira: string | null
           classe: string | null
           cliente: string
@@ -709,6 +711,8 @@ export type Database = {
         Insert: {
           area_direito?: string | null
           autor?: string | null
+          baixa_cliente_confirmada_em?: string | null
+          baixa_cliente_pendente?: boolean
           carteira?: string | null
           classe?: string | null
           cliente: string
@@ -762,6 +766,8 @@ export type Database = {
         Update: {
           area_direito?: string | null
           autor?: string | null
+          baixa_cliente_confirmada_em?: string | null
+          baixa_cliente_pendente?: boolean
           carteira?: string | null
           classe?: string | null
           cliente?: string

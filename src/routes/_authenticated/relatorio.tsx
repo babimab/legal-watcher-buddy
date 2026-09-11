@@ -631,6 +631,14 @@ function RelatorioPage() {
       p.status === "ativo",
   );
 
+  // Processo que acabou de virar status "encerrado" mas ainda não foi
+  // formalmente comunicado/baixado no sistema do próprio cliente
+  // (LegalDesk etc.) -- checklist manual, diferente da tabela
+  // baixas_cliente (fluxo de cobrança específico da Astro).
+  const baixaClientePendente = (processos.data ?? []).filter(
+    (p) => p.status === "encerrado" && p.baixa_cliente_pendente,
+  );
+
   const [advogado, setAdvogado] = useState(search.advogado ?? "todos");
   const [urgencia, setUrgencia] = useState(search.urgencia ?? "todos");
   const [pastaSelecionada, setPastaSelecionada] = useState(search.pasta ?? "todas");
@@ -968,12 +976,13 @@ function RelatorioPage() {
   };
 
   const ehAbaEncerramento = aba === "encerramento" || aba === "encerramento-astro";
-  const ehModoEncerramentos = ehAbaEncerramento || aba === "baixas";
+  const ehModoEncerramentos = ehAbaEncerramento || aba === "baixas" || aba === "baixa-pendente";
 
   const abasEncerramento: Array<{ chave: string; rotulo: string }> = [
     { chave: "encerramento", rotulo: "Souza Cruz" },
     { chave: "encerramento-astro", rotulo: "Astro" },
-    { chave: "baixas", rotulo: "Baixas no cliente" },
+    { chave: "baixas", rotulo: "Baixa na Astro" },
+    { chave: "baixa-pendente", rotulo: `Baixa na Souza Cruz (${baixaClientePendente.length})` },
   ];
 
   return (
@@ -1151,6 +1160,8 @@ function RelatorioPage() {
 
       {aba === "baixas" ? (
         <BaixasCliente />
+      ) : aba === "baixa-pendente" ? (
+        <ListaBaixaClientePendente processos={baixaClientePendente} />
       ) : aba === "pendencias" ? (
         <>
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1663,6 +1674,79 @@ function Lista({
         </li>
       ))}
     </ol>
+  );
+}
+
+function ListaBaixaClientePendente({ processos }: { processos: Processo[] }) {
+  const queryClient = useQueryClient();
+  const [confirmandoId, setConfirmandoId] = useState<string | null>(null);
+
+  const confirmarBaixa = async (id: string) => {
+    setConfirmandoId(id);
+    const { error } = await supabaseSolto
+      .from("processos")
+      .update({
+        baixa_cliente_pendente: false,
+        baixa_cliente_confirmada_em: new Date().toISOString(),
+      })
+      .eq("id", id);
+    setConfirmandoId(null);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Baixa no cliente confirmada.");
+    await queryClient.invalidateQueries({ queryKey: ["processos"] });
+  };
+
+  if (processos.length === 0)
+    return (
+      <Card>
+        <CardContent className="py-10 text-center text-muted-foreground">
+          Nenhum processo encerrado aguardando baixa no sistema do cliente.
+        </CardContent>
+      </Card>
+    );
+
+  return (
+    <div className="space-y-4">
+      <CardDescription>
+        Processos já com status "encerrado" que ainda não foram formalmente comunicados/baixados no
+        sistema do cliente (LegalDesk etc.). Confirma aqui quando terminar essa parte
+        administrativa.
+      </CardDescription>
+      <ol className="space-y-3">
+        {processos.map((p) => (
+          <li
+            key={p.id}
+            className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-4 text-sm"
+          >
+            <Link
+              to="/processos/$id"
+              params={{ id: p.id }}
+              className="font-mono text-xs underline-offset-4 hover:underline"
+            >
+              {formatarCNJ(p.numero_cnj)}
+            </Link>
+            <span className="font-medium">{exibir(p.cliente)}</span>
+            {p.parte_contraria ? (
+              <span className="text-muted-foreground">x {p.parte_contraria}</span>
+            ) : null}
+            {p.responsavel ? <Badge variant="outline">{p.responsavel}</Badge> : null}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="ml-auto"
+              disabled={confirmandoId === p.id}
+              onClick={() => void confirmarBaixa(p.id)}
+            >
+              {confirmandoId === p.id ? "Confirmando..." : "Confirmar baixa"}
+            </Button>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 
