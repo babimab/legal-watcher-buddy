@@ -11,7 +11,7 @@ import {
 
 export type ParcelaCalculo = { id: string; valor: number; data: string };
 export type AbatimentoCalculo = { id: string; valor: number; data: string; descricao?: string };
-export type TipoIndice = "nenhum" | "ipca" | "manual";
+export type TipoIndice = "nenhum" | "ipca" | "igpm" | "manual";
 export type TipoJuros = "nenhum" | "mensal" | "anual" | "selic" | "taxa_legal";
 
 export type IdentificacaoCalculo = {
@@ -200,6 +200,27 @@ async function fatorSelic(de: string, ate: string): Promise<number> {
   }, 1);
 }
 
+// IGP-M é calculado pela FGV, não pelo IBGE -- por isso não sai do
+// IBGE/SIDRA (mesma fonte do IPCA acima), mas o Banco Central espelha a
+// série mensal dele no SGS (série 189), mesma API já usada pra SELIC.
+async function obterIgpmMensal(de: string, ate: string): Promise<number[]> {
+  const br = (s: string) => {
+    const [a, m, d] = s.split("-");
+    return `${d}/${m}/${a}`;
+  };
+  const url = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.189/dados?formato=json&dataInicial=${encodeURIComponent(br(de))}&dataFinal=${encodeURIComponent(br(ate))}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("Não foi possível consultar o IGP-M no Banco Central.");
+  const json = (await r.json()) as Array<{ valor: string }>;
+  return json.map((item) => Number(item.valor.replace(",", "."))).filter((x) => Number.isFinite(x));
+}
+
+async function fatorIgpm(de: string, ate: string): Promise<number> {
+  if (!de || de >= ate) return 1;
+  const taxas = await obterIgpmMensal(de, ate);
+  return taxas.reduce((f, taxa) => f * (1 + taxa / 100), 1);
+}
+
 async function calcularTaxaLegalTransicao(
   base: number,
   inicio: string,
@@ -265,6 +286,10 @@ export async function calcularJudicial(
         fatorCorrecao = await fatorIpca(inicioCorrecao, dataBase);
         fonteCorrecao = "Fonte oficial: IBGE/SIDRA - IPCA, tabela 1737";
         fontes.add(fonteCorrecao);
+      } else if (verba.indice === "igpm") {
+        fatorCorrecao = await fatorIgpm(inicioCorrecao, dataBase);
+        fonteCorrecao = "Fonte oficial: Banco Central do Brasil - SGS série 189 (IGP-M/FGV)";
+        fontes.add(fonteCorrecao);
       } else if (verba.indice === "manual") {
         fatorCorrecao = Math.max(0, Number(verba.fatorManual) || 1);
         fonteCorrecao = "Fator de correção informado manualmente";
@@ -282,7 +307,8 @@ export async function calcularJudicial(
         fonteJuros = `Juros simples manuais de ${Number(verba.taxa) || 0}% ao mês`;
         fontes.add(fonteJuros);
       } else if (verba.juros === "anual") {
-        juros = corrigido * ((Number(verba.taxa) || 0) / 100) * (diasEntre(inicioJuros, dataBase) / 365);
+        juros =
+          corrigido * ((Number(verba.taxa) || 0) / 100) * (diasEntre(inicioJuros, dataBase) / 365);
         fonteJuros = `Juros simples manuais de ${Number(verba.taxa) || 0}% ao ano`;
         fontes.add(fonteJuros);
       } else if (verba.juros === "selic") {
@@ -329,7 +355,8 @@ export async function calcularJudicial(
   const honorariosExecucao = valorEncargo(criterios.honorariosExecucao);
   const honorariosSucumbenciais = valorEncargo(criterios.honorariosSucumbenciais);
   const abatimentos = criterios.abatimentos.reduce((s, a) => s + (Number(a.valor) || 0), 0);
-  const total = subtotal + multaExecucao + honorariosExecucao + honorariosSucumbenciais - abatimentos;
+  const total =
+    subtotal + multaExecucao + honorariosExecucao + honorariosSucumbenciais - abatimentos;
 
   return {
     principal,
@@ -479,8 +506,10 @@ function linhasIdentificacao(identificacao?: IdentificacaoCalculo) {
   if (identificacao.clienteCaso) linhas.push(["Cliente/Caso", identificacao.clienteCaso]);
   if (identificacao.parteAutora) linhas.push(["Parte autora", identificacao.parteAutora]);
   if (identificacao.parteRe) linhas.push(["Parte ré", identificacao.parteRe]);
-  if (!identificacao.parteAutora && identificacao.cliente) linhas.push(["Cliente", identificacao.cliente]);
-  if (!identificacao.parteRe && identificacao.parteContraria) linhas.push(["Parte contrária", identificacao.parteContraria]);
+  if (!identificacao.parteAutora && identificacao.cliente)
+    linhas.push(["Cliente", identificacao.cliente]);
+  if (!identificacao.parteRe && identificacao.parteContraria)
+    linhas.push(["Parte contrária", identificacao.parteContraria]);
   return linhas;
 }
 
@@ -508,7 +537,9 @@ export async function exportarCalculoExcel(
   ];
   const identificacaoFinal = identificacao ?? criterios.identificacao;
   resumo.addRow({ campo: "Cálculo", valor: nome });
-  linhasIdentificacao(identificacaoFinal).forEach(([campo, valor]) => resumo.addRow({ campo, valor }));
+  linhasIdentificacao(identificacaoFinal).forEach(([campo, valor]) =>
+    resumo.addRow({ campo, valor }),
+  );
   resumo.addRow({ campo: "Data-base do cálculo", valor: isoBR(dataBase) });
   resumo.addRow({ campo: "" });
 
@@ -519,20 +550,30 @@ export async function exportarCalculoExcel(
     ["Juros", resultado.juros],
     ["SUBTOTAL DAS VERBAS", resultado.subtotal],
     [descricaoEncargo("Multa de execução", criterios.multaExecucao), resultado.multaExecucao],
-    [descricaoEncargo("Honorários de execução", criterios.honorariosExecucao), resultado.honorariosExecucao],
-    [descricaoEncargo("Honorários sucumbenciais", criterios.honorariosSucumbenciais), resultado.honorariosSucumbenciais],
+    [
+      descricaoEncargo("Honorários de execução", criterios.honorariosExecucao),
+      resultado.honorariosExecucao,
+    ],
+    [
+      descricaoEncargo("Honorários sucumbenciais", criterios.honorariosSucumbenciais),
+      resultado.honorariosSucumbenciais,
+    ],
     ["Pagamentos / abatimentos", -resultado.abatimentos],
     ["TOTAL ATUALIZADO", resultado.total],
   ].forEach(([campo, valor]) => resumo.addRow({ campo, valor }));
   const ultimaLinhaValor = resumo.rowCount;
-  for (let i = primeiraLinhaValor; i <= ultimaLinhaValor; i++) resumo.getCell(i, 2).numFmt = 'R$ #,##0.00';
+  for (let i = primeiraLinhaValor; i <= ultimaLinhaValor; i++)
+    resumo.getCell(i, 2).numFmt = "R$ #,##0.00";
   resumo.getRow(primeiraLinhaValor + 3).font = { bold: true };
   resumo.getRow(ultimaLinhaValor).font = { bold: true };
 
   resumo.addRow({ campo: "" });
   resultado.fontes.forEach((f) => resumo.addRow({ campo: "Fonte/critério", valor: f }));
   if (criterios.observacoes) resumo.addRow({ campo: "Observações", valor: criterios.observacoes });
-  resumo.addRow({ campo: "Aviso", valor: "Confira os critérios jurídicos antes de utilizar a memória em juízo." });
+  resumo.addRow({
+    campo: "Aviso",
+    valor: "Confira os critérios jurídicos antes de utilizar a memória em juízo.",
+  });
   estilizarCabecalho(resumo);
   centralizarLinhas(resumo, new Set(["valor"]));
   finalizarPlanilha(resumo);
@@ -549,18 +590,22 @@ export async function exportarCalculoExcel(
     { header: "Fonte correção", key: "fonteCorrecao", width: 42 },
     { header: "Fonte juros", key: "fonteJuros", width: 58 },
   ];
-  resultado.memoria.forEach((x) => mem.addRow({
-    verba: x.verba,
-    data: isoBR(x.data),
-    principal: x.principal,
-    fator: x.fatorCorrecao,
-    correcao: x.correcao,
-    juros: x.juros,
-    atualizado: x.atualizado,
-    fonteCorrecao: x.fonteCorrecao,
-    fonteJuros: x.fonteJuros,
-  }));
-  ["principal", "correcao", "juros", "atualizado"].forEach((k) => (mem.getColumn(k).numFmt = 'R$ #,##0.00'));
+  resultado.memoria.forEach((x) =>
+    mem.addRow({
+      verba: x.verba,
+      data: isoBR(x.data),
+      principal: x.principal,
+      fator: x.fatorCorrecao,
+      correcao: x.correcao,
+      juros: x.juros,
+      atualizado: x.atualizado,
+      fonteCorrecao: x.fonteCorrecao,
+      fonteJuros: x.fonteJuros,
+    }),
+  );
+  ["principal", "correcao", "juros", "atualizado"].forEach(
+    (k) => (mem.getColumn(k).numFmt = "R$ #,##0.00"),
+  );
   mem.getColumn("fator").numFmt = "0.000000";
   estilizarCabecalho(mem);
   centralizarLinhas(mem, new Set(["verba", "fonteCorrecao", "fonteJuros"]));
@@ -580,21 +625,29 @@ export async function exportarCalculoExcel(
       { header: "Juros", key: "juros", width: 18 },
       { header: "Fonte / metodologia", key: "fonte", width: 56 },
     ];
-    periodos.forEach(({ linha, periodo }) => jurosPeriodo.addRow({
-      verba: linha.verba,
-      parcela: linha.parcela,
-      de: isoBR(periodo.de),
-      ate: isoBR(periodo.ate),
-      criterio: periodo.descricao,
-      juros: periodo.juros,
-      fonte: periodo.fonte,
-    }));
-    jurosPeriodo.getColumn("juros").numFmt = 'R$ #,##0.00';
+    periodos.forEach(({ linha, periodo }) =>
+      jurosPeriodo.addRow({
+        verba: linha.verba,
+        parcela: linha.parcela,
+        de: isoBR(periodo.de),
+        ate: isoBR(periodo.ate),
+        criterio: periodo.descricao,
+        juros: periodo.juros,
+        fonte: periodo.fonte,
+      }),
+    );
+    jurosPeriodo.getColumn("juros").numFmt = "R$ #,##0.00";
     estilizarCabecalho(jurosPeriodo);
     centralizarLinhas(jurosPeriodo, new Set(["verba", "parcela", "criterio", "fonte"]));
     finalizarPlanilha(jurosPeriodo);
   }
 
-  const nomeSeguro = nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "judicial";
+  const nomeSeguro =
+    nome
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") || "judicial";
   await baixarPlanilha(wb, `calculo-${nomeSeguro}`);
 }

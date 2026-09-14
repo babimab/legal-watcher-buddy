@@ -820,6 +820,7 @@ function VerbaCard({
               <SelectContent>
                 <SelectItem value="nenhum">Sem correção</SelectItem>
                 <SelectItem value="ipca">IPCA — IBGE/SIDRA</SelectItem>
+                <SelectItem value="igpm">IGP-M — Banco Central (FGV)</SelectItem>
                 <SelectItem value="manual">Manual / outro índice</SelectItem>
               </SelectContent>
             </Select>
