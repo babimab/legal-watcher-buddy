@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
 import { toast } from "sonner";
@@ -738,6 +738,14 @@ function PublicacoesPage() {
     queryKey: ["advogadosFixadosDjen"],
     queryFn: listarAdvogadosFixados,
   });
+  // Se der erro pra carregar, NÃO libera advogadosFixadosCarregados --
+  // liberar deixaria o efeito de salvar (logo abaixo) rodar achando que a
+  // lista real é vazia, e ele apagaria o que já estava salvo na conta.
+  // Fica bloqueado (com aviso visível) até a consulta funcionar de
+  // verdade -- foi exatamente a falta desse trava que fez a lista sumir
+  // antes (a tabela nem existia, então todo carregamento dava erro e
+  // ainda assim liberava o salvamento, que sobrescrevia com vazio).
+  const avisouErroFixadosRef = useRef(false);
   useEffect(() => {
     if (advogadosFixadosCarregados) return;
     if (advogadosFixadosQuery.isSuccess) {
@@ -745,8 +753,11 @@ function PublicacoesPage() {
         setAdvogadosDjen(advogadosFixadosQuery.data.map((a) => ({ ...a, fixado: true })));
       }
       setAdvogadosFixadosCarregados(true);
-    } else if (advogadosFixadosQuery.isError) {
-      setAdvogadosFixadosCarregados(true);
+    } else if (advogadosFixadosQuery.isError && !avisouErroFixadosRef.current) {
+      avisouErroFixadosRef.current = true;
+      toast.error(
+        "Não consegui carregar os advogados fixados salvos. Pra não apagar o que já está gravado, nada aqui vai ser salvo nesta sessão -- recarregue a página.",
+      );
     }
   }, [
     advogadosFixadosQuery.isSuccess,
