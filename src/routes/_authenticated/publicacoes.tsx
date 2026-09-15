@@ -15,6 +15,7 @@ import {
   Search,
   Trash2,
   Upload,
+  UserRound,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -1016,6 +1017,58 @@ function PublicacoesPage() {
     }
   };
 
+  // "Publicações BDR" -- busca independente da lista de advogados/grupo
+  // de cima: roda só com o nome/OAB da própria BDR e mostra tudo que
+  // vier, sem filtrar por cliente conhecido (Souza Cruz, Astro etc.) --
+  // ela decide publicação por publicação se é relevante. Fica numa lista
+  // própria, sem entrar na pipeline principal (sem cálculo de prazo,
+  // sem entrar no e-mail do grupo).
+  const meuPerfil = useQuery({
+    queryKey: ["meu-perfil-nome"],
+    queryFn: async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) return null;
+      const { data } = await supabase
+        .from("profiles")
+        .select("nome")
+        .eq("id", auth.user.id)
+        .maybeSingle();
+      return data?.nome ?? null;
+    },
+  });
+  const [bdrNome, setBdrNome] = useState("");
+  const [bdrOab, setBdrOab] = useState("");
+  const [bdrUf, setBdrUf] = useState("");
+  useEffect(() => {
+    if (meuPerfil.data && !bdrNome) setBdrNome(meuPerfil.data);
+  }, [meuPerfil.data, bdrNome]);
+  const [linhasBdr, setLinhasBdr] = useState<LinhaPublicacao[]>([]);
+  const [buscandoBdr, setBuscandoBdr] = useState(false);
+
+  const buscarPublicacoesBdr = async () => {
+    if (!bdrNome.trim() && !(bdrOab.trim() && bdrUf.trim())) {
+      toast.error("Informe seu nome, ou OAB com a UF.");
+      return;
+    }
+    setBuscandoBdr(true);
+    try {
+      const { comunicacoes, totalRecebido } = await buscarDjen({
+        advogados: [{ nome: bdrNome.trim(), numeroOab: bdrOab.trim(), ufOab: bdrUf.trim() }],
+        ...periodoDjen,
+      });
+      setLinhasBdr(linhasDeDjen(comunicacoes, 0));
+      if (totalRecebido === 0) {
+        toast.warning("Nenhuma publicação encontrada no DJEN pra esses dados.");
+      } else {
+        toast.success(`${totalRecebido} publicação(ões) encontrada(s).`);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não consegui buscar no DJEN.");
+    } finally {
+      setBuscandoBdr(false);
+    }
+  };
+
   const enviarEmailDoGrupo = () => {
     if (gruposAtivos.size === 0) {
       toast.error("Escolha ao menos um grupo (ELV, GFC, Astro ou Outros) pra montar o e-mail.");
@@ -1382,6 +1435,69 @@ function PublicacoesPage() {
               </Button>
             ) : null}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 font-serif text-lg">
+            <UserRound className="size-4" /> Publicações BDR
+          </CardTitle>
+          <CardDescription>
+            Busca independente do grupo/cliente escolhido acima — roda só com o seu nome/OAB e
+            mostra tudo que aparecer, mesmo de outros clientes do escritório. Você decide publicação
+            por publicação se é relevante.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-2 sm:grid-cols-[2fr_1fr_5rem]">
+            <Input
+              aria-label="Seu nome"
+              placeholder="Nome"
+              value={bdrNome}
+              onChange={(e) => setBdrNome(e.target.value)}
+            />
+            <Input
+              aria-label="Sua OAB nº"
+              placeholder="OAB nº"
+              value={bdrOab}
+              onChange={(e) => setBdrOab(e.target.value)}
+            />
+            <Input
+              aria-label="UF da sua OAB"
+              placeholder="UF"
+              maxLength={2}
+              value={bdrUf}
+              onChange={(e) => setBdrUf(e.target.value.toUpperCase())}
+            />
+          </div>
+          <Button type="button" onClick={() => void buscarPublicacoesBdr()} disabled={buscandoBdr}>
+            <Search className="size-4" />
+            {buscandoBdr ? "Buscando..." : "Buscar publicações BDR"}
+          </Button>
+          {linhasBdr.length > 0 ? (
+            <ol className="space-y-2">
+              {linhasBdr.map((l) => (
+                <li key={l.idx} className="rounded-lg border border-border p-3 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-xs">{l.cnjTexto}</span>
+                    {l.fase ? <span className="text-muted-foreground">{l.fase}</span> : null}
+                    {l.dataPublicacao ? (
+                      <span className="text-muted-foreground">
+                        {l.dataPublicacao.split("-").reverse().join("/")}
+                      </span>
+                    ) : null}
+                  </div>
+                  {l.autor || l.reu ? (
+                    <p className="mt-1 text-muted-foreground">
+                      {[l.autor, l.reu].filter(Boolean).join(" x ")}
+                    </p>
+                  ) : null}
+                  {l.andamento ? <p className="mt-1">{l.andamento}</p> : null}
+                </li>
+              ))}
+            </ol>
+          ) : null}
         </CardContent>
       </Card>
 
