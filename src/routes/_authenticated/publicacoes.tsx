@@ -1039,6 +1039,11 @@ function PublicacoesPage() {
   const [bdrNome, setBdrNome] = useState("");
   const [bdrOab, setBdrOab] = useState("");
   const [bdrUf, setBdrUf] = useState("");
+  // Segunda pessoa, opcional -- pra buscar junto com a BDR sem precisar
+  // usar a lista de advogados/grupo lá de cima (que é outro fluxo).
+  const [bdrNome2, setBdrNome2] = useState("");
+  const [bdrOab2, setBdrOab2] = useState("");
+  const [bdrUf2, setBdrUf2] = useState("");
   useEffect(() => {
     if (meuPerfil.data && !bdrNome) setBdrNome(meuPerfil.data);
   }, [meuPerfil.data, bdrNome]);
@@ -1046,14 +1051,18 @@ function PublicacoesPage() {
   const [buscandoBdr, setBuscandoBdr] = useState(false);
 
   const buscarPublicacoesBdr = async () => {
-    if (!bdrNome.trim() && !(bdrOab.trim() && bdrUf.trim())) {
-      toast.error("Informe seu nome, ou OAB com a UF.");
+    const advogadosBdr = [
+      { nome: bdrNome.trim(), numeroOab: bdrOab.trim(), ufOab: bdrUf.trim() },
+      { nome: bdrNome2.trim(), numeroOab: bdrOab2.trim(), ufOab: bdrUf2.trim() },
+    ].filter((a) => a.nome || (a.numeroOab && a.ufOab));
+    if (advogadosBdr.length === 0) {
+      toast.error("Informe pelo menos um nome, ou OAB com a UF.");
       return;
     }
     setBuscandoBdr(true);
     try {
       const { comunicacoes, totalRecebido } = await buscarDjen({
-        advogados: [{ nome: bdrNome.trim(), numeroOab: bdrOab.trim(), ufOab: bdrUf.trim() }],
+        advogados: advogadosBdr,
         ...periodoDjen,
       });
       setLinhasBdr(linhasDeDjen(comunicacoes, 0));
@@ -1470,6 +1479,30 @@ function PublicacoesPage() {
               value={bdrUf}
               onChange={(e) => setBdrUf(e.target.value.toUpperCase())}
             />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Outra pessoa (opcional)</Label>
+            <div className="grid gap-2 sm:grid-cols-[2fr_1fr_5rem]">
+              <Input
+                aria-label="Nome da outra pessoa"
+                placeholder="Nome"
+                value={bdrNome2}
+                onChange={(e) => setBdrNome2(e.target.value)}
+              />
+              <Input
+                aria-label="OAB nº da outra pessoa"
+                placeholder="OAB nº"
+                value={bdrOab2}
+                onChange={(e) => setBdrOab2(e.target.value)}
+              />
+              <Input
+                aria-label="UF da OAB da outra pessoa"
+                placeholder="UF"
+                maxLength={2}
+                value={bdrUf2}
+                onChange={(e) => setBdrUf2(e.target.value.toUpperCase())}
+              />
+            </div>
           </div>
           <Button type="button" onClick={() => void buscarPublicacoesBdr()} disabled={buscandoBdr}>
             <Search className="size-4" />
