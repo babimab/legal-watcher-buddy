@@ -1916,6 +1916,11 @@ function PublicacoesPage() {
                           </span>
                         ) : null}
                       </div>
+                      {l.autor || l.reu ? (
+                        <p className="mb-1 text-xs text-muted-foreground">
+                          {[l.autor, l.reu].filter(Boolean).join(" x ")}
+                        </p>
+                      ) : null}
                       <p className="mb-2 line-clamp-2 text-xs text-muted-foreground">
                         {l.andamento ?? "—"}
                       </p>
