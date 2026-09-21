@@ -158,13 +158,20 @@ function mapearItem(itemBruto: unknown): ComunicacaoDjen | null {
   };
 }
 
-// Advogados que o usuário fixou na busca do DJEN, vinculados à conta (não
-// ao navegador) -- pra sobreviver a troca de navegador/dispositivo e ao
-// preview em iframe do Lovable, onde localStorage pode não persistir.
-export async function listarAdvogadosFixados(): Promise<AdvogadoFiltro[]> {
+export type ContextoAdvogadosFixados = "busca" | "bdr";
+
+// Advogados que o usuário fixou, vinculados à conta (não ao navegador)
+// -- pra sobreviver a troca de navegador/dispositivo e ao preview em
+// iframe do Lovable, onde localStorage pode não persistir. "contexto"
+// separa a lista da busca principal ("busca") da lista do card
+// Publicações BDR ("bdr") -- mesma tabela, duas listas independentes.
+export async function listarAdvogadosFixados(
+  contexto: ContextoAdvogadosFixados = "busca",
+): Promise<AdvogadoFiltro[]> {
   const { data, error } = await supabase
     .from("advogados_fixados_djen")
     .select("nome, numero_oab, uf_oab")
+    .eq("contexto", contexto)
     .order("ordem");
   if (error) throw error;
   return (data ?? []).map((r) => ({
@@ -174,7 +181,10 @@ export async function listarAdvogadosFixados(): Promise<AdvogadoFiltro[]> {
   }));
 }
 
-export async function salvarAdvogadosFixados(advogados: AdvogadoFiltro[]): Promise<void> {
+export async function salvarAdvogadosFixados(
+  advogados: AdvogadoFiltro[],
+  contexto: ContextoAdvogadosFixados = "busca",
+): Promise<void> {
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError) throw userError;
   const userId = userData.user?.id;
@@ -183,13 +193,15 @@ export async function salvarAdvogadosFixados(advogados: AdvogadoFiltro[]): Promi
   const { error: delError } = await supabase
     .from("advogados_fixados_djen")
     .delete()
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .eq("contexto", contexto);
   if (delError) throw delError;
   if (advogados.length === 0) return;
 
   const { error: insError } = await supabase.from("advogados_fixados_djen").insert(
     advogados.map((a, i) => ({
       user_id: userId,
+      contexto,
       nome: a.nome,
       numero_oab: a.numeroOab,
       uf_oab: a.ufOab,

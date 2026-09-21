@@ -736,8 +736,8 @@ function PublicacoesPage() {
   // reaplicando sobre o que a BDR já está editando na tela).
   const [advogadosFixadosCarregados, setAdvogadosFixadosCarregados] = useState(false);
   const advogadosFixadosQuery = useQuery({
-    queryKey: ["advogadosFixadosDjen"],
-    queryFn: listarAdvogadosFixados,
+    queryKey: ["advogadosFixadosDjen", "busca"],
+    queryFn: () => listarAdvogadosFixados("busca"),
   });
   // Se der erro pra carregar, NÃO libera advogadosFixadosCarregados --
   // liberar deixaria o efeito de salvar (logo abaixo) rodar achando que a
@@ -772,7 +772,7 @@ function PublicacoesPage() {
     if (!advogadosFixadosCarregados) return;
     const fixados = advogadosDjen.filter((a) => a.fixado);
     const timer = setTimeout(() => {
-      salvarAdvogadosFixados(fixados).catch(() =>
+      salvarAdvogadosFixados(fixados, "busca").catch(() =>
         toast.error("Não foi possível salvar os advogados fixados na sua conta."),
       );
     }, 600);
@@ -1044,9 +1044,63 @@ function PublicacoesPage() {
   const [bdrNome2, setBdrNome2] = useState("");
   const [bdrOab2, setBdrOab2] = useState("");
   const [bdrUf2, setBdrUf2] = useState("");
+
+  // Fixados do card BDR (contexto "bdr"), independentes da lista fixada
+  // da busca de cima (contexto "busca") -- mesma trava contra apagar sem
+  // querer: só libera o salvamento depois que o carregamento funcionar.
+  const [bdrFixadosCarregados, setBdrFixadosCarregados] = useState(false);
+  const bdrFixadosQuery = useQuery({
+    queryKey: ["advogadosFixadosDjen", "bdr"],
+    queryFn: () => listarAdvogadosFixados("bdr"),
+  });
+  const avisouErroBdrRef = useRef(false);
   useEffect(() => {
-    if (meuPerfil.data && !bdrNome) setBdrNome(meuPerfil.data);
-  }, [meuPerfil.data, bdrNome]);
+    if (bdrFixadosCarregados) return;
+    if (bdrFixadosQuery.isSuccess) {
+      const [primeiro, segundo] = bdrFixadosQuery.data;
+      if (primeiro) {
+        setBdrNome(primeiro.nome);
+        setBdrOab(primeiro.numeroOab);
+        setBdrUf(primeiro.ufOab);
+      }
+      if (segundo) {
+        setBdrNome2(segundo.nome);
+        setBdrOab2(segundo.numeroOab);
+        setBdrUf2(segundo.ufOab);
+      }
+      setBdrFixadosCarregados(true);
+    } else if (bdrFixadosQuery.isError && !avisouErroBdrRef.current) {
+      avisouErroBdrRef.current = true;
+      toast.error(
+        "Não consegui carregar as pessoas fixadas em Publicações BDR. Pra não apagar o que já está gravado, nada aqui vai ser salvo nesta sessão -- recarregue a página.",
+      );
+    }
+  }, [
+    bdrFixadosQuery.isSuccess,
+    bdrFixadosQuery.isError,
+    bdrFixadosQuery.data,
+    bdrFixadosCarregados,
+  ]);
+  // Só usa o nome do perfil como sugestão se nada foi carregado salvo.
+  useEffect(() => {
+    if (bdrFixadosCarregados && meuPerfil.data && !bdrNome) setBdrNome(meuPerfil.data);
+  }, [meuPerfil.data, bdrNome, bdrFixadosCarregados]);
+  // Só salva depois que os fixados da conta já carregaram (senão a
+  // primeira renderização, ainda vazia, apagaria o que já estava salvo).
+  useEffect(() => {
+    if (!bdrFixadosCarregados) return;
+    const timer = setTimeout(() => {
+      salvarAdvogadosFixados(
+        [
+          { nome: bdrNome.trim(), numeroOab: bdrOab.trim(), ufOab: bdrUf.trim() },
+          { nome: bdrNome2.trim(), numeroOab: bdrOab2.trim(), ufOab: bdrUf2.trim() },
+        ],
+        "bdr",
+      ).catch(() => toast.error("Não foi possível salvar as pessoas fixadas em Publicações BDR."));
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [bdrNome, bdrOab, bdrUf, bdrNome2, bdrOab2, bdrUf2, bdrFixadosCarregados]);
+
   const [linhasBdr, setLinhasBdr] = useState<LinhaPublicacao[]>([]);
   const [buscandoBdr, setBuscandoBdr] = useState(false);
 

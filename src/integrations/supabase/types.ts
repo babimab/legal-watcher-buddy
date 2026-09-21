@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       advogados_fixados_djen: {
         Row: {
+          contexto: string
           created_at: string
           id: string
           nome: string
@@ -25,6 +26,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          contexto?: string
           created_at?: string
           id?: string
           nome: string
@@ -34,6 +36,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          contexto?: string
           created_at?: string
           id?: string
           nome?: string
