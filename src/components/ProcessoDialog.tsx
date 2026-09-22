@@ -46,9 +46,11 @@ type Props = {
   paiId?: string;
   /** Valores para pré-preencher um desdobramento novo (partes, vara, comarca...). */
   iniciais?: Partial<Processo>;
+  /** Chamado com o processo salvo (criado ou atualizado), depois de fechar o diálogo. */
+  onSalvo?: (processo: Processo) => void;
 };
 
-export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
+export function ProcessoDialog({ processo, trigger, paiId, iniciais, onSalvo }: Props) {
   const [aberto, setAberto] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [grupoId, setGrupoId] = useState<string>("");
@@ -130,11 +132,13 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
 
     setSalvando(true);
     const { data: userData } = await supabase.auth.getUser();
-    const { error } = processo
-      ? await supabase.from("processos").update(payload).eq("id", processo.id)
+    const { data: salvo, error } = processo
+      ? await supabase.from("processos").update(payload).eq("id", processo.id).select().single()
       : await supabase
           .from("processos")
-          .insert({ ...payload, created_by: userData.user?.id ?? null });
+          .insert({ ...payload, created_by: userData.user?.id ?? null })
+          .select()
+          .single();
     setSalvando(false);
 
     if (error) {
@@ -145,6 +149,7 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais }: Props) {
     }
     toast.success(processo ? "Processo atualizado." : "Processo cadastrado.");
     await queryClient.invalidateQueries();
+    if (salvo) onSalvo?.(salvo as Processo);
     setAberto(false);
   };
 

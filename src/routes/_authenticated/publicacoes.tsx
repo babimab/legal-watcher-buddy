@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ProcessoDialog } from "@/components/ProcessoDialog";
 import {
   Dialog,
   DialogContent,
@@ -1358,6 +1359,50 @@ function PublicacoesPage() {
     }
   };
 
+  // Traz uma publicação "Sem processo cadastrado" pro processo (recém-
+  // criado ou já existente) como andamento -- mesma regra de tipo/prazo
+  // já usada em importar() pra publicações casadas: se a regra achou uma
+  // data, o andamento já nasce com exige_acao=true e o prazo sugerido
+  // (aparece direto em Prazos), sem precisar de um segundo fluxo
+  // separado. Ela confere/ajusta esse prazo depois pela tela do
+  // processo, igual já faz com qualquer outro andamento.
+  const registrarAndamentoAvulso = async (processo: Processo, l: LinhaPublicacao) => {
+    if (!l.andamento || !l.dataPublicacao) {
+      toast.error("Essa publicação não tem data ou andamento reconhecido.");
+      return;
+    }
+    const { data: userData } = await supabase.auth.getUser();
+    const criador = userData.user?.id;
+    if (!criador) {
+      toast.error("Sessão expirada. Entre novamente.");
+      return;
+    }
+    const c = classificacoes.get(l.idx);
+    const { error } = await supabase.from("movimentacoes").insert({
+      processo_id: processo.id,
+      data_movimentacao: l.dataPublicacao,
+      descricao: l.andamento,
+      tipo: c?.tipoAto ?? "Publicação",
+      exige_acao: !!c?.dataVencimento,
+      prazo: c?.dataVencimento ?? null,
+      prazo_revisar: c?.revisar ?? false,
+      observacao: c?.resumo ?? null,
+      fonte: "publicacoes",
+      validado: false,
+      created_by: criador,
+    });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(
+      c?.dataVencimento
+        ? `Andamento registrado com sugestão de prazo (${dataBR(c.dataVencimento)}) — confira em Relatórios/Prazos.`
+        : "Andamento registrado no processo.",
+    );
+    await queryClient.invalidateQueries();
+  };
+
   const totalSelecionadas = casadas.filter((l) => selecionadas.has(l.idx)).length;
 
   return (
@@ -1903,6 +1948,12 @@ function PublicacoesPage() {
                 {semProcessoCadastrado.map((l) => {
                   const sel = selecaoAvulsa.get(l.idx);
                   const c = classificacoes.get(l.idx);
+                  const processoExistente = l.cnjDigits
+                    ? processoPorCnj.get(l.cnjDigits)
+                    : undefined;
+                  const rotuloRegistrar = c?.dataVencimento
+                    ? `Registrar andamento + prazo (sugestão: ${dataBR(c.dataVencimento)})`
+                    : "Registrar andamento";
                   return (
                     <div key={l.idx} className="rounded-md border border-border p-3 text-sm">
                       <div className="mb-1 flex flex-wrap items-center gap-2">
@@ -1939,6 +1990,33 @@ function PublicacoesPage() {
                           />
                           Incluir no e-mail
                         </label>
+                        <span className="ml-auto">
+                          {processoExistente ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => void registrarAndamentoAvulso(processoExistente, l)}
+                            >
+                              {rotuloRegistrar}
+                            </Button>
+                          ) : (
+                            <ProcessoDialog
+                              iniciais={{
+                                numero_cnj: l.cnjDigits || l.cnjTexto,
+                                autor: l.autor,
+                                reu: l.reu,
+                                parte_contraria: l.autor ?? l.reu,
+                              }}
+                              onSalvo={(novo) => void registrarAndamentoAvulso(novo, l)}
+                              trigger={
+                                <Button type="button" variant="outline" size="sm">
+                                  Cadastrar processo e {rotuloRegistrar.toLowerCase()}
+                                </Button>
+                              }
+                            />
+                          )}
+                        </span>
                       </div>
                     </div>
                   );
