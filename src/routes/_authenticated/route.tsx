@@ -12,6 +12,7 @@ import {
   LineChart,
   LogOut,
   Newspaper,
+  Phone,
   Plug,
   RadioTower,
   ShieldCheck,
@@ -27,6 +28,7 @@ import { GuiaRapido } from "@/components/GuiaRapido";
 import { supabase } from "@/integrations/supabase/client";
 import { listarBaixasCliente } from "@/lib/baixas-cliente";
 import { listarCaixaEntrada } from "@/lib/caixa-entrada";
+import { listarPainelAdministrativos } from "@/lib/acompanhamentos";
 import {
   listarPendencias,
   ehResponsavelDaSigla,
@@ -50,6 +52,10 @@ function AppLayout() {
   const pendencias = useQuery({ queryKey: ["pendencias"], queryFn: listarPendencias });
   const baixasCliente = useQuery({ queryKey: ["baixas-cliente"], queryFn: listarBaixasCliente });
   const caixaEntrada = useQuery({ queryKey: ["caixa-entrada"], queryFn: listarCaixaEntrada });
+  const painelAdministrativos = useQuery({
+    queryKey: ["painel-administrativos"],
+    queryFn: listarPainelAdministrativos,
+  });
   const minhaSigla = useSiglaAtual();
   const ehEstagiaria = useCargoAtual() === "Estagiário";
   const emSeteDias = new Date();
@@ -60,6 +66,9 @@ function AppLayout() {
   ).length;
   const baixasAbertas = (baixasCliente.data ?? []).filter((b) => b.status !== "encerrado").length;
   const itensCaixaEntrada = caixaEntrada.data?.length ?? 0;
+  const administrativosAtrasados = (painelAdministrativos.data ?? []).filter(
+    (i) => i.atrasado,
+  ).length;
   const meusPrazosUrgentes = (pendencias.data ?? []).filter(
     (m) =>
       m.prazo &&
@@ -162,6 +171,13 @@ function AppLayout() {
         icon={<Gavel className="size-4" />}
         label="Citações"
         tourId="nav-citacoes"
+      />
+      <NavItem
+        to="/administrativos"
+        icon={<Phone className="size-4" />}
+        label="Administrativos"
+        contador={administrativosAtrasados}
+        tourId="nav-administrativos"
       />
       <NavItem
         to="/monitoramento"

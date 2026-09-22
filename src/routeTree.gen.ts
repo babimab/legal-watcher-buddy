@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedAdministrativosRouteImport } from './routes/_authenticated/administrativos'
 import { Route as AuthenticatedBaixasClienteRouteImport } from './routes/_authenticated/baixas-cliente'
 import { Route as AuthenticatedCaixaEntradaRouteImport } from './routes/_authenticated/caixa-entrada'
 import { Route as AuthenticatedCalculosRouteImport } from './routes/_authenticated/calculos'
@@ -42,6 +43,12 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAdministrativosRoute =
+  AuthenticatedAdministrativosRouteImport.update({
+    id: '/administrativos',
+    path: '/administrativos',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedBaixasClienteRoute =
   AuthenticatedBaixasClienteRouteImport.update({
     id: '/baixas-cliente',
@@ -128,6 +135,7 @@ const AuthenticatedProcessosIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/administrativos': typeof AuthenticatedAdministrativosRoute
   '/baixas-cliente': typeof AuthenticatedBaixasClienteRoute
   '/caixa-entrada': typeof AuthenticatedCaixaEntradaRoute
   '/calculos': typeof AuthenticatedCalculosRoute
@@ -147,6 +155,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/administrativos': typeof AuthenticatedAdministrativosRoute
   '/baixas-cliente': typeof AuthenticatedBaixasClienteRoute
   '/caixa-entrada': typeof AuthenticatedCaixaEntradaRoute
   '/calculos': typeof AuthenticatedCalculosRoute
@@ -168,6 +177,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/administrativos': typeof AuthenticatedAdministrativosRoute
   '/_authenticated/baixas-cliente': typeof AuthenticatedBaixasClienteRoute
   '/_authenticated/caixa-entrada': typeof AuthenticatedCaixaEntradaRoute
   '/_authenticated/calculos': typeof AuthenticatedCalculosRoute
@@ -189,6 +199,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/administrativos'
     | '/baixas-cliente'
     | '/caixa-entrada'
     | '/calculos'
@@ -208,6 +219,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/administrativos'
     | '/baixas-cliente'
     | '/caixa-entrada'
     | '/calculos'
@@ -228,6 +240,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/administrativos'
     | '/_authenticated/baixas-cliente'
     | '/_authenticated/caixa-entrada'
     | '/_authenticated/calculos'
@@ -273,6 +286,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/administrativos': {
+      id: '/_authenticated/administrativos'
+      path: '/administrativos'
+      fullPath: '/administrativos'
+      preLoaderRoute: typeof AuthenticatedAdministrativosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/baixas-cliente': {
       id: '/_authenticated/baixas-cliente'
@@ -383,6 +403,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdministrativosRoute: typeof AuthenticatedAdministrativosRoute
   AuthenticatedBaixasClienteRoute: typeof AuthenticatedBaixasClienteRoute
   AuthenticatedCaixaEntradaRoute: typeof AuthenticatedCaixaEntradaRoute
   AuthenticatedCalculosRoute: typeof AuthenticatedCalculosRoute
@@ -401,6 +422,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdministrativosRoute: AuthenticatedAdministrativosRoute,
   AuthenticatedBaixasClienteRoute: AuthenticatedBaixasClienteRoute,
   AuthenticatedCaixaEntradaRoute: AuthenticatedCaixaEntradaRoute,
   AuthenticatedCalculosRoute: AuthenticatedCalculosRoute,

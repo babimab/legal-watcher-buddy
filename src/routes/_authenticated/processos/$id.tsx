@@ -43,6 +43,7 @@ import { AcessosProcesso } from "@/components/AcessosProcesso";
 import { DocumentosProcesso } from "@/components/DocumentosProcesso";
 import { ComunicacoesDecisao } from "@/components/ComunicacoesDecisao";
 import { DecisoesProcesso } from "@/components/DecisoesProcesso";
+import { AcompanhamentoAdministrativoProcesso } from "@/components/AcompanhamentoAdministrativoProcesso";
 import { RelacionadosProcesso } from "@/components/RelacionadosProcesso";
 import { HistoricoProcesso } from "@/components/HistoricoProcesso";
 import { ExcluirProcessoDialog } from "@/components/ExcluirProcessoDialog";
@@ -625,6 +626,10 @@ function ProcessoDetalhe() {
       <ComunicacoesDecisao processoId={p.id} />
 
       <DecisoesProcesso processoId={p.id} />
+
+      {p.carteira === "Administrativos" ? (
+        <AcompanhamentoAdministrativoProcesso processoId={p.id} />
+      ) : null}
 
       <RelacionadosProcesso processoId={p.id} />
 

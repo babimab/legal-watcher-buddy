@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      acompanhamentos_administrativos: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          data_ligacao: string
+          estagiario: string | null
+          id: string
+          o_que_fez: string | null
+          processo_id: string
+          proximo_passo: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          data_ligacao?: string
+          estagiario?: string | null
+          id?: string
+          o_que_fez?: string | null
+          processo_id: string
+          proximo_passo?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          data_ligacao?: string
+          estagiario?: string | null
+          id?: string
+          o_que_fez?: string | null
+          processo_id?: string
+          proximo_passo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "acompanhamentos_administrativos_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       advogados_fixados_djen: {
         Row: {
           contexto: string
