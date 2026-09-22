@@ -910,6 +910,16 @@ function PublicacoesPage() {
     return mapa;
   }, [casadas, naoLocalizadaAdvg, naoLocalizadaGeralCandidatas, semProcessoCadastrado]);
 
+  // Classificação já considerando um prazo confirmado/ajustado à mão no
+  // diálogo de detalhe (se houver) -- usada em todo lugar em vez de
+  // classificacoes.get() direto, senão a edição não pega em lugar
+  // nenhum (nem na lista, nem na importação).
+  const classificacaoEfetiva = (idx: number): ClassificacaoPublicacao | undefined => {
+    const base = classificacoes.get(idx);
+    if (!base || !prazosSobrescritos.has(idx)) return base;
+    return { ...base, dataVencimento: prazosSobrescritos.get(idx) ?? null, revisar: false };
+  };
+
   const avulsosParaEmail = useMemo(
     () => semProcessoCadastrado.filter((l) => selecaoAvulsa.get(l.idx)?.email),
     [semProcessoCadastrado, selecaoAvulsa],
@@ -950,6 +960,13 @@ function PublicacoesPage() {
 
   const [emails, setEmails] = useState("");
   const [detalhe, setDetalhe] = useState<LinhaCasada | null>(null);
+  // Prazo confirmado/ajustado à mão no diálogo de detalhe -- sobrepõe o
+  // que a regra calculou (inclusive quando a regra não achou nada, tipo
+  // "5 (cinco) dias" antes do ajuste da regex). idx -> data (ou null pra
+  // limpar o prazo que a regra tinha sugerido).
+  const [prazosSobrescritos, setPrazosSobrescritos] = useState<Map<number, string | null>>(
+    new Map(),
+  );
 
   const adicionarAdvogadoDjen = () =>
     setAdvogadosDjen((atual) => [...atual, { nome: "", numeroOab: "", ufOab: "", fixado: false }]);
@@ -1315,7 +1332,7 @@ function PublicacoesPage() {
         const chave = `${l.processo.id}|${l.dataPublicacao}|${l.andamento}`;
         if (existentes.has(chave)) continue;
         existentes.add(chave);
-        const c = classificacoes.get(l.idx);
+        const c = classificacaoEfetiva(l.idx);
         novas.push({
           processo_id: l.processo.id,
           data_movimentacao: l.dataPublicacao!,
@@ -1819,7 +1836,7 @@ function PublicacoesPage() {
                   </thead>
                   <tbody>
                     {exibidas.map((l) => {
-                      const c = classificacoes.get(l.idx);
+                      const c = classificacaoEfetiva(l.idx);
                       const urgencia = classificarUrgencia(c?.dataVencimento ?? null);
                       const cfgUrgencia = badgeUrgencia(urgencia);
                       return (
@@ -2062,21 +2079,55 @@ function PublicacoesPage() {
                     .join("   ")}
                 </p>
               ) : null}
-              {classificacoes.get(detalhe.idx) ? (
-                <div className="rounded-md border border-border bg-muted/40 p-3">
-                  <p className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">
-                    Prazo calculado
-                  </p>
-                  <p>
-                    {classificacoes.get(detalhe.idx)!.tipoAto} —{" "}
-                    {classificacoes.get(detalhe.idx)!.regraAplicada}
-                  </p>
-                  <p>
-                    Vencimento: {dataBR(classificacoes.get(detalhe.idx)!.dataVencimento)}
-                    {classificacoes.get(detalhe.idx)!.revisar ? " — conferir no sistema" : ""}
-                  </p>
-                </div>
-              ) : null}
+              {(() => {
+                const cDetalhe = classificacaoEfetiva(detalhe.idx);
+                if (!cDetalhe) return null;
+                const idxDetalhe = detalhe.idx;
+                return (
+                  <div className="space-y-2 rounded-md border border-border bg-muted/40 p-3">
+                    <p className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">
+                      Prazo calculado
+                    </p>
+                    <p>
+                      {cDetalhe.tipoAto} — {cDetalhe.regraAplicada}
+                    </p>
+                    <div className="flex flex-wrap items-end gap-2">
+                      <div className="space-y-1">
+                        <Label htmlFor="prazo-confirmado" className="text-xs text-muted-foreground">
+                          Vencimento {cDetalhe.revisar ? "(conferir)" : ""}
+                        </Label>
+                        <Input
+                          id="prazo-confirmado"
+                          type="date"
+                          value={cDetalhe.dataVencimento ?? ""}
+                          onChange={(e) => {
+                            const v = e.target.value || null;
+                            setPrazosSobrescritos((atual) => {
+                              const novo = new Map(atual);
+                              novo.set(idxDetalhe, v);
+                              return novo;
+                            });
+                          }}
+                          className="w-40"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          setSelecionadas((atual) => new Set(atual).add(idxDetalhe));
+                          toast.success(
+                            'Prazo confirmado e marcado pra importar — clique em "Sugerir andamentos" pra efetivar.',
+                          );
+                          setDetalhe(null);
+                        }}
+                      >
+                        Confirmar prazo
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })()}
               <div>
                 <p className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">
                   Teor da publicação

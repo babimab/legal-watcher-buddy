@@ -62,7 +62,10 @@ function classificarTipoAto(alvo: string): string {
   return "Outro";
 }
 
-const REGEX_PRAZO_EXPLICITO = /prazo\s+de\s+(\d{1,3})\s*\(?\s*dias?/i;
+// Aceita o número por extenso entre parênteses, que é como a maioria das
+// decisões escreve o prazo ("no prazo de 5 (cinco) dias") -- sem isso,
+// esse padrão de redação (muito comum) nunca batia com a regra.
+const REGEX_PRAZO_EXPLICITO = /prazo\s+de\s+(\d{1,3})\s*(?:\([^)]*\))?\s*dias?/i;
 const TERMOS_MANIFESTACAO = ["manifeste-se", "manifestacao", "intime-se", "manifestar-se"];
 
 function classificarPrazo(alvo: string): {
