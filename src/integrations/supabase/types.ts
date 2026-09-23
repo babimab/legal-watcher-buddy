@@ -426,47 +426,6 @@ export type Database = {
           },
         ]
       }
-      documentos: {
-        Row: {
-          caminho: string
-          created_at: string
-          created_by: string | null
-          id: string
-          nome_arquivo: string
-          processo_id: string
-          tamanho: number | null
-          tipo: string | null
-        }
-        Insert: {
-          caminho: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          nome_arquivo: string
-          processo_id: string
-          tamanho?: number | null
-          tipo?: string | null
-        }
-        Update: {
-          caminho?: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          nome_arquivo?: string
-          processo_id?: string
-          tamanho?: number | null
-          tipo?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "documentos_processo_id_fkey"
-            columns: ["processo_id"]
-            isOneToOne: false
-            referencedRelation: "processos"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       grupo_membros: {
         Row: {
           created_at: string
