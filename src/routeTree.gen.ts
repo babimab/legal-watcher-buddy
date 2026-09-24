@@ -28,6 +28,7 @@ import { Route as AuthenticatedQualidadeDadosRouteImport } from './routes/_authe
 import { Route as AuthenticatedRelatorioRouteImport } from './routes/_authenticated/relatorio'
 import { Route as AuthenticatedProcessosIndexRouteImport } from './routes/_authenticated/processos/index'
 import { Route as AuthenticatedProcessosIdRouteImport } from './routes/_authenticated/processos/$id'
+import { Route as ApiPublicIntegracaoProcessosRouteImport } from './routes/api/public/integracao-processos'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -131,6 +132,12 @@ const AuthenticatedProcessosIdRoute =
     path: '/processos/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicIntegracaoProcessosRoute =
+  ApiPublicIntegracaoProcessosRouteImport.update({
+    id: '/api/public/integracao-processos',
+    path: '/api/public/integracao-processos',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -150,6 +157,7 @@ export interface FileRoutesByFullPath {
   '/qualidade-dados': typeof AuthenticatedQualidadeDadosRoute
   '/relatorio': typeof AuthenticatedRelatorioRoute
   '/processos/$id': typeof AuthenticatedProcessosIdRoute
+  '/api/public/integracao-processos': typeof ApiPublicIntegracaoProcessosRoute
   '/processos/': typeof AuthenticatedProcessosIndexRoute
 }
 export interface FileRoutesByTo {
@@ -170,6 +178,7 @@ export interface FileRoutesByTo {
   '/qualidade-dados': typeof AuthenticatedQualidadeDadosRoute
   '/relatorio': typeof AuthenticatedRelatorioRoute
   '/processos/$id': typeof AuthenticatedProcessosIdRoute
+  '/api/public/integracao-processos': typeof ApiPublicIntegracaoProcessosRoute
   '/processos': typeof AuthenticatedProcessosIndexRoute
 }
 export interface FileRoutesById {
@@ -192,6 +201,7 @@ export interface FileRoutesById {
   '/_authenticated/qualidade-dados': typeof AuthenticatedQualidadeDadosRoute
   '/_authenticated/relatorio': typeof AuthenticatedRelatorioRoute
   '/_authenticated/processos/$id': typeof AuthenticatedProcessosIdRoute
+  '/api/public/integracao-processos': typeof ApiPublicIntegracaoProcessosRoute
   '/_authenticated/processos/': typeof AuthenticatedProcessosIndexRoute
 }
 export interface FileRouteTypes {
@@ -214,6 +224,7 @@ export interface FileRouteTypes {
     | '/qualidade-dados'
     | '/relatorio'
     | '/processos/$id'
+    | '/api/public/integracao-processos'
     | '/processos/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -234,6 +245,7 @@ export interface FileRouteTypes {
     | '/qualidade-dados'
     | '/relatorio'
     | '/processos/$id'
+    | '/api/public/integracao-processos'
     | '/processos'
   id:
     | '__root__'
@@ -255,6 +267,7 @@ export interface FileRouteTypes {
     | '/_authenticated/qualidade-dados'
     | '/_authenticated/relatorio'
     | '/_authenticated/processos/$id'
+    | '/api/public/integracao-processos'
     | '/_authenticated/processos/'
   fileRoutesById: FileRoutesById
 }
@@ -262,6 +275,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicIntegracaoProcessosRoute: typeof ApiPublicIntegracaoProcessosRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -399,6 +413,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProcessosIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/integracao-processos': {
+      id: '/api/public/integracao-processos'
+      path: '/api/public/integracao-processos'
+      fullPath: '/api/public/integracao-processos'
+      preLoaderRoute: typeof ApiPublicIntegracaoProcessosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -447,6 +468,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicIntegracaoProcessosRoute: ApiPublicIntegracaoProcessosRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
