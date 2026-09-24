@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.integracao-encerramentos]
 verify_jwt = false
+
+[functions.integracao-processos]
+verify_jwt = false
