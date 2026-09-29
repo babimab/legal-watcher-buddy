@@ -233,6 +233,7 @@ const COR_ABA_POR_CATEGORIA: Record<(typeof CATEGORIAS_CLIENTE)[number], string>
   Consultoria: "FFC00000",
   Merck: "FFED7D31",
   FASC: "FF7030A0",
+  PLL: "FF1F4E79",
   PRC: "FF2E9B9B",
   Outros: "FF9E9E9E",
 };
