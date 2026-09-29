@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { mensagemErroEdgeFunction } from "@/lib/edge-functions";
 import { formatarCNJ } from "@/lib/processos";
 
 // Mapeamento tolerante do retorno do DJEN pra um formato normalizado. Os
@@ -224,7 +225,7 @@ export async function buscarDjen(filtros: FiltrosDjen): Promise<{
     itens?: unknown[];
     error?: string;
   }>("buscar-djen", { body: filtros });
-  if (error) throw error;
+  if (error) throw new Error(await mensagemErroEdgeFunction(error, "Não consegui buscar no DJEN."));
   if (data?.error) throw new Error(data.error);
 
   const itensCrus = data?.itens ?? [];

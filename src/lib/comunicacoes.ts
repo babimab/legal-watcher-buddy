@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { mensagemErroEdgeFunction } from "@/lib/edge-functions";
 
 export type ComunicacaoDecisao = {
   id: string;
@@ -34,7 +35,7 @@ export async function gerarComunicacaoDecisao(arquivo: File): Promise<string> {
     "gerar-comunicacao-decisao",
     { body: { pdfBase64 } },
   );
-  if (error) throw error;
+  if (error) throw new Error(await mensagemErroEdgeFunction(error, "A IA não respondeu."));
   if (data?.error) throw new Error(data.error);
   if (!data?.texto) throw new Error("A IA não retornou nenhum texto.");
   return data.texto;

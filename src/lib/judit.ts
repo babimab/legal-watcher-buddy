@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { mensagemErroEdgeFunction } from "@/lib/edge-functions";
 
 export type ResultadoConsultaJudit = {
   processados?: number;
@@ -24,7 +25,7 @@ export async function consultarProcessoJudit(processoId: string): Promise<Result
     "consultar-processo-judit",
     { body: { processoId } },
   );
-  if (error) throw error;
+  if (error) throw new Error(await mensagemErroEdgeFunction(error, "A Judit não respondeu."));
   if (data?.error) throw new Error(data.error);
   if (!data) throw new Error("A Judit não retornou nada.");
   return data;
@@ -59,7 +60,7 @@ export async function rodarMonitoramentoJudit(): Promise<ResultadoMonitoramentoJ
     "monitorar-processos-judit",
     { body: {} },
   );
-  if (error) throw error;
+  if (error) throw new Error(await mensagemErroEdgeFunction(error, "A Judit não respondeu."));
   if (data?.error) throw new Error(data.error);
   if (!data) throw new Error("A Judit não retornou nada.");
   return data;
