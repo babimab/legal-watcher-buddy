@@ -46,7 +46,10 @@ import { classificarUrgencia, type Urgencia } from "@/lib/dias-uteis";
 import {
   buscarDjen,
   listarAdvogadosFixados,
+  listarNomesOcultosPublicacoesBdr,
+  partesContemNomeOculto,
   salvarAdvogadosFixados,
+  salvarNomesOcultosPublicacoesBdr,
   type AdvogadoFiltro,
   type ComunicacaoDjen,
   type FiltrosDjen,
@@ -1119,6 +1122,44 @@ function PublicacoesPage() {
     return () => clearTimeout(timer);
   }, [bdrNome, bdrOab, bdrUf, bdrNome2, bdrOab2, bdrUf2, bdrFixadosCarregados]);
 
+  // Nomes de parte/cliente pra esconder dos resultados de Publicações BDR
+  // (ex.: cliente do escritório que não é da equipe dela) -- mesma trava
+  // contra apagar sem querer que o resto desse card usa: só libera
+  // salvar depois que o carregamento funcionar.
+  const [nomesOcultosBdr, setNomesOcultosBdr] = useState<string[]>([""]);
+  const [nomesOcultosBdrCarregados, setNomesOcultosBdrCarregados] = useState(false);
+  const nomesOcultosBdrQuery = useQuery({
+    queryKey: ["nomesOcultosPublicacoesBdr"],
+    queryFn: listarNomesOcultosPublicacoesBdr,
+  });
+  const avisouErroNomesOcultosRef = useRef(false);
+  useEffect(() => {
+    if (nomesOcultosBdrCarregados) return;
+    if (nomesOcultosBdrQuery.isSuccess) {
+      if (nomesOcultosBdrQuery.data.length > 0) setNomesOcultosBdr(nomesOcultosBdrQuery.data);
+      setNomesOcultosBdrCarregados(true);
+    } else if (nomesOcultosBdrQuery.isError && !avisouErroNomesOcultosRef.current) {
+      avisouErroNomesOcultosRef.current = true;
+      toast.error(
+        "Não consegui carregar os nomes ocultados de Publicações BDR. Pra não apagar o que já está gravado, nada aqui vai ser salvo nesta sessão -- recarregue a página.",
+      );
+    }
+  }, [
+    nomesOcultosBdrQuery.isSuccess,
+    nomesOcultosBdrQuery.isError,
+    nomesOcultosBdrQuery.data,
+    nomesOcultosBdrCarregados,
+  ]);
+  useEffect(() => {
+    if (!nomesOcultosBdrCarregados) return;
+    const timer = setTimeout(() => {
+      salvarNomesOcultosPublicacoesBdr(nomesOcultosBdr.map((n) => n.trim()).filter(Boolean)).catch(
+        () => toast.error("Não foi possível salvar os nomes ocultados de Publicações BDR."),
+      );
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [nomesOcultosBdr, nomesOcultosBdrCarregados]);
+
   const [linhasBdr, setLinhasBdr] = useState<LinhaPublicacao[]>([]);
   const [buscandoBdr, setBuscandoBdr] = useState(false);
 
@@ -1137,9 +1178,20 @@ function PublicacoesPage() {
         advogados: advogadosBdr,
         ...periodoDjen,
       });
-      setLinhasBdr(linhasDeDjen(comunicacoes, 0));
+      const nomesOcultos = nomesOcultosBdr.map((n) => n.trim()).filter(Boolean);
+      const todasLinhas = linhasDeDjen(comunicacoes, 0);
+      const linhasVisiveis =
+        nomesOcultos.length > 0
+          ? todasLinhas.filter((l) => !partesContemNomeOculto(l, nomesOcultos))
+          : todasLinhas;
+      setLinhasBdr(linhasVisiveis);
+      const ocultadas = todasLinhas.length - linhasVisiveis.length;
       if (totalRecebido === 0) {
         toast.warning("Nenhuma publicação encontrada no DJEN pra esses dados.");
+      } else if (ocultadas > 0) {
+        toast.success(
+          `${linhasVisiveis.length} publicação(ões) encontrada(s) (${ocultadas} ocultada(s)).`,
+        );
       } else {
         toast.success(`${totalRecebido} publicação(ões) encontrada(s).`);
       }
@@ -1619,6 +1671,48 @@ function PublicacoesPage() {
                 onChange={(e) => setBdrUf2(e.target.value.toUpperCase())}
               />
             </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">
+              Ocultar partes/clientes — some da lista se aparecer como autor ou réu (ex.: cliente do
+              escritório que não é da sua equipe)
+            </Label>
+            {nomesOcultosBdr.map((nome, i) => (
+              <div key={i} className="flex gap-2">
+                <Input
+                  aria-label="Nome a ocultar"
+                  placeholder="Ex.: Aerolineas Argentinas"
+                  value={nome}
+                  onChange={(e) =>
+                    setNomesOcultosBdr((atual) =>
+                      atual.map((n, idx) => (idx === i ? e.target.value : n)),
+                    )
+                  }
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() =>
+                    setNomesOcultosBdr((atual) =>
+                      atual.length <= 1 ? [""] : atual.filter((_, idx) => idx !== i),
+                    )
+                  }
+                  aria-label="Remover nome ocultado"
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setNomesOcultosBdr((atual) => [...atual, ""])}
+            >
+              <Plus className="size-4" />
+              Adicionar nome
+            </Button>
           </div>
           <Button type="button" onClick={() => void buscarPublicacoesBdr()} disabled={buscandoBdr}>
             <Search className="size-4" />

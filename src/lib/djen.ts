@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { mensagemErroEdgeFunction } from "@/lib/edge-functions";
-import { formatarCNJ } from "@/lib/processos";
+import { formatarCNJ, normalizarNome } from "@/lib/processos";
+import { supabaseSolto } from "@/lib/supabase-solto";
 
 // Mapeamento tolerante do retorno do DJEN pra um formato normalizado. Os
 // nomes de campo abaixo são os documentados publicamente pra API do DJEN,
@@ -210,6 +211,54 @@ export async function salvarAdvogadosFixados(
     })),
   );
   if (insError) throw insError;
+}
+
+// Nomes de parte/cliente que a BDR quer esconder dos resultados de
+// "Publicações BDR" -- a busca ali é só por nome/OAB dela, então traz
+// publicação de qualquer processo onde ela aparece, mesmo os que não são
+// da equipe dela. Tabela própria (nomes_ocultos_publicacoes_bdr), sem
+// nenhuma relação com advogados_fixados_djen.
+export async function listarNomesOcultosPublicacoesBdr(): Promise<string[]> {
+  const { data, error } = await supabaseSolto
+    .from("nomes_ocultos_publicacoes_bdr")
+    .select("nome")
+    .order("ordem");
+  if (error) throw error;
+  return (data ?? []).map((r: { nome: string }) => r.nome);
+}
+
+export async function salvarNomesOcultosPublicacoesBdr(nomes: string[]): Promise<void> {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+  const userId = userData.user?.id;
+  if (!userId) return;
+
+  const { error: delError } = await supabaseSolto
+    .from("nomes_ocultos_publicacoes_bdr")
+    .delete()
+    .eq("user_id", userId);
+  if (delError) throw delError;
+  if (nomes.length === 0) return;
+
+  const { error: insError } = await supabaseSolto.from("nomes_ocultos_publicacoes_bdr").insert(
+    nomes.map((nome, i) => ({
+      user_id: userId,
+      nome,
+      ordem: i,
+    })),
+  );
+  if (insError) throw insError;
+}
+
+// Publicação some da lista se o nome ocultado aparecer contido no autor
+// ou no réu (comparação sem acento/maiúscula, então "aerolineas" bate
+// com "AEROLINEAS ARGENTINAS SA").
+export function partesContemNomeOculto(
+  linha: { autor?: string | null; reu?: string | null },
+  nomesOcultos: string[],
+): boolean {
+  const alvo = normalizarNome(`${linha.autor ?? ""} ${linha.reu ?? ""}`);
+  return nomesOcultos.some((n) => n.trim() && alvo.includes(normalizarNome(n)));
 }
 
 export async function buscarDjen(filtros: FiltrosDjen): Promise<{
