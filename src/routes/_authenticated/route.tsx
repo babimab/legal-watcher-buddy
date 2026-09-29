@@ -183,14 +183,12 @@ function AppLayout() {
         label="Monitoramento"
         tourId="nav-monitoramento"
       />
-      {ehEstagiaria ? null : (
-        <NavItem
-          to="/importar"
-          icon={<Upload className="size-4" />}
-          label="Importar"
-          tourId="nav-importar"
-        />
-      )}
+      <NavItem
+        to="/importar"
+        icon={<Upload className="size-4" />}
+        label="Importar"
+        tourId="nav-importar"
+      />
       {ehEstagiaria ? null : (
         <NavItem
           to="/qualidade-dados"
