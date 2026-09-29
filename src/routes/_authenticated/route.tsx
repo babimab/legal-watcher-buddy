@@ -150,16 +150,14 @@ function AppLayout() {
           tourId="nav-grupos"
         />
       )}
-      {ehEstagiaria ? null : (
-        <NavItem
-          to="/relatorio"
-          icon={<Archive className="size-4" />}
-          label="Encerramentos"
-          search={{ aba: "encerramento" }}
-          contador={baixasAbertas}
-          tourId="nav-encerramento"
-        />
-      )}
+      <NavItem
+        to="/relatorio"
+        icon={<Archive className="size-4" />}
+        label="Encerramentos"
+        search={{ aba: "encerramento" }}
+        contador={baixasAbertas}
+        tourId="nav-encerramento"
+      />
       <NavItem
         to="/publicacoes"
         icon={<Newspaper className="size-4" />}
