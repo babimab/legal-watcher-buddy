@@ -708,6 +708,15 @@ function ProcessoCard({
       to="/processos/$id"
       params={{ id: p.id }}
       target="_blank"
+      onClick={(e) => {
+        // Clique normal abre como janela separada (com tamanho definido),
+        // não só mais uma aba -- assim dá pra deixar fixa na segunda
+        // tela. Ctrl/Cmd/Shift+clique fica com o comportamento padrão
+        // (abrir em aba), pra quem usa esse atalho de propósito.
+        if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+        e.preventDefault();
+        window.open(e.currentTarget.href, "_blank", "noopener,noreferrer,width=1280,height=900");
+      }}
       className={`block rounded-lg border border-border p-4 transition-colors hover:border-primary ${
         corAtual
           ? `border-l-4 ${CORES_BORDA_CLASSES[corAtual]} ${CORES_FUNDO_CLASSES[corAtual]}`
