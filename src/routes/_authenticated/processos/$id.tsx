@@ -334,10 +334,14 @@ function ProcessoDetalhe() {
           ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" asChild>
-            <a href={link.url} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="size-4" /> {link.rotulo}
-            </a>
+          <Button
+            variant="outline"
+            type="button"
+            onClick={() =>
+              window.open(link.url, "_blank", "noopener,noreferrer,width=1280,height=900")
+            }
+          >
+            <ExternalLink className="size-4" /> {link.rotulo}
           </Button>
           <EditarLinkTribunalDialog processoId={p.id} linkAtual={p.link_tribunal_manual} />
 

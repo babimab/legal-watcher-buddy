@@ -1,3 +1,4 @@
+import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
@@ -32,6 +33,7 @@ export function BuscaGlobal({
 }: BuscaGlobalProps) {
   const [aberto, setAberto] = useState(false);
   const [busca, setBusca] = useState("");
+  const navigate = useNavigate();
 
   const processos = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
 
@@ -79,10 +81,7 @@ export function BuscaGlobal({
   const ir = (id: string) => {
     setAberto(false);
     setBusca("");
-    // Abre numa janela separada (com tamanho definido, não só uma aba)
-    // em vez de navegar na tela atual -- pedido de quem trabalha com
-    // duas telas, pra poder deixar o resultado da busca fixo numa delas.
-    window.open(`/processos/${id}`, "_blank", "noopener,noreferrer,width=1280,height=900");
+    navigate({ to: "/processos/$id", params: { id } });
   };
 
   const classeBotao = barraSuperior
