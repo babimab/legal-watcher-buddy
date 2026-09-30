@@ -707,6 +707,7 @@ function ProcessoCard({
     <Link
       to="/processos/$id"
       params={{ id: p.id }}
+      target="_blank"
       className={`block rounded-lg border border-border p-4 transition-colors hover:border-primary ${
         corAtual
           ? `border-l-4 ${CORES_BORDA_CLASSES[corAtual]} ${CORES_FUNDO_CLASSES[corAtual]}`
