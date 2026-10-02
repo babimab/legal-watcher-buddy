@@ -42,7 +42,7 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
   p.image("ImLogo", MARGIN, 26, logoW, logoH);
 
   const xDireita = A4_W - MARGIN;
-  p.text("NOTA DE HONORÁRIOS", xDireita, 38, 17, {
+  p.text("NOTA DE HONORÁRIOS", xDireita, 38, 15, {
     bold: true,
     color: CORES.blue,
     align: "right",
@@ -66,43 +66,47 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
   const colDireitaW = larguraUtil - colEsquerdaW - gap;
 
   let yEsq = 124;
-  p.text("DESTINATÁRIO", MARGIN, yEsq, 7.5, { color: CORES.muted });
-  yEsq += 14;
+  p.text("DESTINATÁRIO", MARGIN, yEsq, 7, { color: CORES.muted });
+  yEsq += 13;
   const linhasDestinatario = quebrarTexto(
     `Aos Resseguradores / Seguradores da ${nota.reu ?? "—"}`,
     colEsquerdaW,
-    12,
+    11,
+    true,
   );
   linhasDestinatario.forEach((linha, i) => {
-    p.text(linha, MARGIN, yEsq + i * 15, 12, { bold: true, color: CORES.navy });
+    p.text(linha, MARGIN, yEsq + i * 14, 11, { bold: true, color: CORES.navy });
   });
-  yEsq += linhasDestinatario.length * 15;
+  yEsq += linhasDestinatario.length * 14;
   if (nota.correspondente) {
     yEsq += 4;
-    const linhasCorr = quebrarTexto(`A/C: ${nota.correspondente}`, colEsquerdaW, 8.5);
+    const linhasCorr = quebrarTexto(`A/C: ${nota.correspondente}`, colEsquerdaW, 8);
     linhasCorr.forEach((linha, i) => {
-      p.text(linha, MARGIN, yEsq + i * 11, 8.5, { color: CORES.muted });
+      p.text(linha, MARGIN, yEsq + i * 10, 8, { color: CORES.muted });
     });
-    yEsq += linhasCorr.length * 11;
+    yEsq += linhasCorr.length * 10;
   }
 
   // Direita: rótulo e valor na MESMA linha, com divisória fina embaixo.
+  // Reserva 2pt de folga no fim da linha (a largura agora é medida com a
+  // métrica real da Helvetica, então isso é só uma margem de segurança,
+  // não um ajuste pra compensar estimativa errada).
   let yDir = 124;
   const linhaMeta = (rotulo: string, valor: string | null) => {
     if (!valor) return;
-    const linhas = quebrarTexto(valor, colDireitaW, 9.5);
-    p.text(rotulo, colDireitaX, yDir, 8.5, { color: CORES.muted });
+    const linhas = quebrarTexto(valor, colDireitaW - 2, 9, true);
+    p.text(rotulo, colDireitaX, yDir, 8, { color: CORES.muted });
     linhas.forEach((linha, i) => {
-      p.text(linha, colDireitaX + colDireitaW, yDir + i * 12, 9.5, {
+      p.text(linha, colDireitaX + colDireitaW, yDir + i * 11, 9, {
         bold: true,
         color: CORES.text,
         align: "right",
       });
     });
-    yDir += Math.max(12, linhas.length * 12) + 6;
+    yDir += Math.max(11, linhas.length * 11) + 6;
     p.stroke(CORES.border);
     p.line(colDireitaX, yDir, colDireitaX + colDireitaW, yDir);
-    yDir += 11;
+    yDir += 10;
   };
 
   linhaMeta("Emissão", nota.invoiceData ? isoBR(nota.invoiceData) : null);
@@ -138,13 +142,16 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
   y += 22;
 
   nota.itens.forEach((item) => {
-    const linhas = quebrarTexto(item.paragrafo, colDescW - 20, 9);
-    const alturaLinha = Math.max(28, linhas.length * 13 + 14);
-    p.text(item.tipo, tableX + 10, y + 16, 8.5, { bold: true, color: CORES.text });
-    linhas.forEach((linha, i) => {
+    const linhasTipo = quebrarTexto(item.tipo, colTipoW - 20, 8.5, true);
+    const linhasDesc = quebrarTexto(item.paragrafo, colDescW - 20, 9);
+    const alturaLinha = Math.max(28, Math.max(linhasTipo.length, linhasDesc.length) * 13 + 14);
+    linhasTipo.forEach((linha, i) => {
+      p.text(linha, tableX + 10, y + 16 + i * 12, 8.5, { bold: true, color: CORES.text });
+    });
+    linhasDesc.forEach((linha, i) => {
       p.text(linha, colDescX + 10, y + 13 + i * 13, 9, { color: CORES.text });
     });
-    p.text(formatarMoeda(item.valor, nota.moeda), colValX + colValW - 10, y + 16, 9.5, {
+    p.text(formatarMoeda(item.valor, nota.moeda), colValX + colValW - 10, y + 16, 9, {
       bold: true,
       color: CORES.navy,
       align: "right",

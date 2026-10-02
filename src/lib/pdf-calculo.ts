@@ -128,7 +128,7 @@ export async function exportarCalculoPdfDireto(
     const x = MARGIN + col * colW + 10;
     const yy = y + linha * 34 + 12;
     p.text(rotulo.toUpperCase(), x, yy, 6.5, { color: COLORS.muted });
-    const linhas = quebrarTexto(valor, colW - 20, 9);
+    const linhas = quebrarTexto(valor, colW - 20, 9, true);
     p.text(linhas[0] ?? "", x, yy + 13, 9, { bold: true, color: COLORS.text });
   });
   y += metaH + 22;
