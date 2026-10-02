@@ -115,18 +115,22 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
 
   let y = Math.max(yEsq, yDir) + 26;
 
-  // Tabela da descrição: cabeçalho navy, linhas lisas com divisória (sem
-  // caixa colorida nenhuma) -- o total vem depois, igual ao "Total do
-  // invoice" do modelo antigo.
+  // Tabela da descrição: 3 colunas (Tipo / Descrição / Valor), cabeçalho
+  // navy, linhas lisas com divisória (sem caixa colorida) -- o total vem
+  // depois, igual ao "Total do invoice" do modelo antigo.
   const tableX = MARGIN;
   const tableW = larguraUtil;
+  const colTipoW = 110;
   const colValW = 90;
-  const colDescW = tableW - colValW;
+  const colDescW = tableW - colTipoW - colValW;
+  const colDescX = tableX + colTipoW;
+  const colValX = colDescX + colDescW;
 
   p.fill(CORES.blue);
   p.rect(tableX, y, tableW, 22);
-  p.text("DESCRIÇÃO", tableX + 10, y + 14, 8, { bold: true, color: CORES.white });
-  p.text("VALOR", tableX + tableW - 10, y + 14, 8, {
+  p.text("TIPO", tableX + 10, y + 14, 8, { bold: true, color: CORES.white });
+  p.text("DESCRIÇÃO", colDescX + 10, y + 14, 8, { bold: true, color: CORES.white });
+  p.text("VALOR", colValX + colValW - 10, y + 14, 8, {
     bold: true,
     color: CORES.white,
     align: "right",
@@ -134,16 +138,18 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
   y += 22;
 
   nota.itens.forEach((item) => {
-    const linhas = quebrarTexto(`${item.tipo}: ${item.paragrafo}`, colDescW - 20, 9);
+    const linhas = quebrarTexto(item.paragrafo, colDescW - 20, 9);
+    const alturaLinha = Math.max(28, linhas.length * 13 + 14);
+    p.text(item.tipo, tableX + 10, y + 16, 8.5, { bold: true, color: CORES.text });
     linhas.forEach((linha, i) => {
-      p.text(linha, tableX + 10, y + 13 + i * 13, 9, { color: CORES.text });
+      p.text(linha, colDescX + 10, y + 13 + i * 13, 9, { color: CORES.text });
     });
-    p.text(formatarMoeda(item.valor, nota.moeda), tableX + tableW - 10, y + 13, 9.5, {
+    p.text(formatarMoeda(item.valor, nota.moeda), colValX + colValW - 10, y + 16, 9.5, {
       bold: true,
       color: CORES.navy,
       align: "right",
     });
-    y += linhas.length * 13 + 12;
+    y += alturaLinha;
     p.stroke(CORES.border);
     p.line(tableX, y, tableX + tableW, y);
   });
