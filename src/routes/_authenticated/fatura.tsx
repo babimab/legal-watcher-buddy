@@ -2,17 +2,39 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import JSZip from "jszip";
 import { toast } from "sonner";
-import { Download, FileDown, Receipt, Upload } from "lucide-react";
+import { Download, FileDown, Pencil, Receipt, Trash2, Upload, X } from "lucide-react";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
   formatarMoeda,
   lerPlanilhaFatura,
   nomeArquivoFatura,
   SIGLAS_PERMITIDAS_FATURA,
+  type ItemFatura,
   type NotaFatura,
 } from "@/lib/fatura";
 import { gerarPdfNota, gerarEBaixarPdfNota } from "@/lib/pdf-fatura";
@@ -54,6 +76,8 @@ function FaturaPage() {
   const [lendo, setLendo] = useState(false);
   const [gerando, setGerando] = useState(false);
   const [gerandoIdx, setGerandoIdx] = useState<number | null>(null);
+  const [editando, setEditando] = useState<NotaFatura | null>(null);
+  const [apagando, setApagando] = useState<NotaFatura | null>(null);
 
   const ler = async (arquivo: File) => {
     const nome = arquivo.name.toLowerCase();
@@ -98,6 +122,24 @@ function FaturaPage() {
 
   const marcarTodos = (marcar: boolean) => {
     setSelecionados(marcar ? new Set(notas.map((n) => n.idx)) : new Set());
+  };
+
+  const salvarEdicao = (nota: NotaFatura) => {
+    setNotas((atual) => atual.map((n) => (n.idx === nota.idx ? nota : n)));
+    setEditando(null);
+    toast.success("Nota atualizada.");
+  };
+
+  const apagar = () => {
+    if (!apagando) return;
+    setNotas((atual) => atual.filter((n) => n.idx !== apagando.idx));
+    setSelecionados((atual) => {
+      const novo = new Set(atual);
+      novo.delete(apagando.idx);
+      return novo;
+    });
+    setApagando(null);
+    toast.success("Nota removida da lista.");
   };
 
   const baixarUma = async (nota: NotaFatura) => {
@@ -261,16 +303,36 @@ function FaturaPage() {
                         {formatarMoeda(nota.valorTotal, nota.moeda)}
                       </td>
                       <td className="p-2">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Baixar nota do caso ${nota.casoInterno ?? nota.idx + 1}`}
-                          onClick={() => void baixarUma(nota)}
-                          disabled={gerandoIdx === nota.idx}
-                        >
-                          <Download className="size-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Editar nota do caso ${nota.casoInterno ?? nota.idx + 1}`}
+                            onClick={() => setEditando(nota)}
+                          >
+                            <Pencil className="size-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Apagar nota do caso ${nota.casoInterno ?? nota.idx + 1}`}
+                            onClick={() => setApagando(nota)}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Baixar nota do caso ${nota.casoInterno ?? nota.idx + 1}`}
+                            onClick={() => void baixarUma(nota)}
+                            disabled={gerandoIdx === nota.idx}
+                          >
+                            <Download className="size-4" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -293,6 +355,162 @@ function FaturaPage() {
           {gerando ? "Gerando..." : `Gerar Fatura (${selecionados.size})`}
         </Button>
       ) : null}
+
+      <Dialog open={editando != null} onOpenChange={(aberto) => !aberto && setEditando(null)}>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+          {editando ? (
+            <EditorNota
+              nota={editando}
+              onSalvar={salvarEdicao}
+              onCancelar={() => setEditando(null)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={apagando != null} onOpenChange={(aberto) => !aberto && setApagando(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar essa nota?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A nota do caso {apagando?.casoInterno ?? `#${(apagando?.idx ?? 0) + 1}`} sai da lista
+              (não mexe em nada do sistema, só tira ela daqui antes de gerar a fatura).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={apagar}>Apagar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+  );
+}
+
+function EditorNota({
+  nota,
+  onSalvar,
+  onCancelar,
+}: {
+  nota: NotaFatura;
+  onSalvar: (nota: NotaFatura) => void;
+  onCancelar: () => void;
+}) {
+  const [form, setForm] = useState<NotaFatura>(nota);
+
+  const campo = (rotulo: string, chave: keyof NotaFatura) => (
+    <div className="space-y-1">
+      <Label htmlFor={`fatura-${chave}`}>{rotulo}</Label>
+      <Input
+        id={`fatura-${chave}`}
+        value={(form[chave] as string | null) ?? ""}
+        onChange={(e) => setForm((atual) => ({ ...atual, [chave]: e.target.value || null }))}
+      />
+    </div>
+  );
+
+  const atualizarItem = (i: number, parcial: Partial<ItemFatura>) => {
+    setForm((atual) => {
+      const itens = atual.itens.map((item, j) => (j === i ? { ...item, ...parcial } : item));
+      return { ...atual, itens, valorTotal: itens.reduce((s, it) => s + it.valor, 0) };
+    });
+  };
+
+  const removerItem = (i: number) => {
+    setForm((atual) => {
+      const itens = atual.itens.filter((_, j) => j !== i);
+      return { ...atual, itens, valorTotal: itens.reduce((s, it) => s + it.valor, 0) };
+    });
+  };
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>Editar nota</DialogTitle>
+        <DialogDescription>
+          Ajusta os dados antes de gerar a fatura. Isso não altera a planilha original.
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {campo("Caso Interno", "casoInterno")}
+        {campo("Reclamante", "autor")}
+        {campo("Réu", "reu")}
+        {campo("Processo", "processo")}
+        {campo("Juízo", "juizo")}
+        {campo("Ref. B&S", "bsRef")}
+        {campo("Correspondente", "correspondente")}
+        {campo("Período de referência", "invoicePeriodo")}
+        <div className="space-y-1">
+          <Label htmlFor="fatura-invoiceData">Emissão</Label>
+          <Input
+            id="fatura-invoiceData"
+            type="date"
+            value={form.invoiceData ?? ""}
+            onChange={(e) =>
+              setForm((atual) => ({ ...atual, invoiceData: e.target.value || null }))
+            }
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="fatura-moeda">Moeda</Label>
+          <Input
+            id="fatura-moeda"
+            value={form.moeda}
+            onChange={(e) =>
+              setForm((atual) => ({ ...atual, moeda: e.target.value.toUpperCase() }))
+            }
+          />
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <Label>Itens da descrição</Label>
+        {form.itens.map((item, i) => (
+          <div key={i} className="space-y-2 rounded-md border border-border p-3">
+            <div className="flex items-center justify-between gap-2">
+              <Badge variant="outline">{item.tipo}</Badge>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  step="0.01"
+                  className="w-32"
+                  value={item.valor}
+                  onChange={(e) => atualizarItem(i, { valor: Number(e.target.value) || 0 })}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Remover item"
+                  onClick={() => removerItem(i)}
+                >
+                  <X className="size-4" />
+                </Button>
+              </div>
+            </div>
+            <Textarea
+              value={item.paragrafo}
+              onChange={(e) => atualizarItem(i, { paragrafo: e.target.value })}
+              rows={2}
+            />
+          </div>
+        ))}
+        {form.itens.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Sem itens -- essa nota não vai gerar descrição nenhuma.
+          </p>
+        ) : null}
+      </div>
+
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onCancelar}>
+          Cancelar
+        </Button>
+        <Button type="button" onClick={() => onSalvar(form)}>
+          Salvar
+        </Button>
+      </DialogFooter>
+    </>
   );
 }
