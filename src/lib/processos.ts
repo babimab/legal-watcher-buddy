@@ -186,7 +186,7 @@ export function ehResponsavelDaSigla(responsavel: string | null | undefined, sig
   return (APELIDOS_ANTIGOS[sigla] ?? []).some((a) => normalizarNome(a) === respNormalizado);
 }
 
-async function carregarUsuarioAtual() {
+export async function carregarUsuarioAtual() {
   const { data } = await supabase.auth.getUser();
   if (!data.user) return { sigla: null, cargo: null, email: null };
   const { data: perfil } = await supabase

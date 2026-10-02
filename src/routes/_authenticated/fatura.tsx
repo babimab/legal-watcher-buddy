@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import JSZip from "jszip";
 import { toast } from "sonner";
@@ -9,11 +9,28 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { lerPlanilhaFatura, numeroInvoice, nomeArquivoFatura, type AtoFatura } from "@/lib/fatura";
+import {
+  lerPlanilhaFatura,
+  numeroInvoice,
+  nomeArquivoFatura,
+  SIGLAS_PERMITIDAS_FATURA,
+  type AtoFatura,
+} from "@/lib/fatura";
 import { gerarPdfAto, gerarEBaixarPdfAto } from "@/lib/pdf-fatura";
 import { baixarBlob } from "@/lib/pdf-base";
+import { carregarUsuarioAtual, siglaDoEmail } from "@/lib/processos";
 
 export const Route = createFileRoute("/_authenticated/fatura")({
+  // Dado confidencial de fatura de cliente -- só essas siglas podem
+  // entrar, mesmo digitando a URL direto (esconder o item do menu em
+  // route.tsx não bastaria sozinho).
+  beforeLoad: async () => {
+    const usuario = await carregarUsuarioAtual();
+    const sigla = (usuario.sigla || siglaDoEmail(usuario.email) || "").toUpperCase();
+    if (!SIGLAS_PERMITIDAS_FATURA.includes(sigla)) {
+      throw redirect({ to: "/painel" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Fatura | FaroLex" },

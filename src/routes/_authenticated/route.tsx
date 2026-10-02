@@ -30,6 +30,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { listarBaixasCliente } from "@/lib/baixas-cliente";
 import { listarCaixaEntrada } from "@/lib/caixa-entrada";
 import { listarPainelAdministrativos } from "@/lib/acompanhamentos";
+import { SIGLAS_PERMITIDAS_FATURA } from "@/lib/fatura";
 import {
   listarPendencias,
   ehResponsavelDaSigla,
@@ -59,6 +60,7 @@ function AppLayout() {
   });
   const minhaSigla = useSiglaAtual();
   const ehEstagiaria = useCargoAtual() === "Estagiário";
+  const podeVerFatura = SIGLAS_PERMITIDAS_FATURA.includes((minhaSigla ?? "").toUpperCase());
   const emSeteDias = new Date();
   emSeteDias.setDate(emSeteDias.getDate() + 7);
   const emSeteDiasISO = emSeteDias.toISOString().slice(0, 10);
@@ -136,12 +138,14 @@ function AppLayout() {
         label="Cálculos"
         tourId="nav-calculos"
       />
-      <NavItem
-        to="/fatura"
-        icon={<Receipt className="size-4" />}
-        label="Fatura"
-        tourId="nav-fatura"
-      />
+      {podeVerFatura ? (
+        <NavItem
+          to="/fatura"
+          icon={<Receipt className="size-4" />}
+          label="Fatura"
+          tourId="nav-fatura"
+        />
+      ) : null}
       <NavItem
         to="/relatorio"
         icon={<LineChart className="size-4" />}
