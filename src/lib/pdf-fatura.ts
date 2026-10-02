@@ -97,12 +97,17 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
     ["Ref. B&S", nota.bsRef, null],
     ["Moeda", nota.moeda, null],
   ];
-  // Espaço do divisor até a linha de base do texto (13 em cima, 8 embaixo)
-  // -- não é pra ser igual: a parte do caractere ACIMA da linha de base
-  // (ascendente) é bem mais alta que a de baixo (descendente), então
-  // precisa de mais espaço em cima pra parecer centralizado de verdade.
+  // Espaço do divisor até a linha de base do texto. Numa linha só (rótulo
+  // e valor lado a lado), 13 em cima e 8 embaixo -- não é pra ser igual:
+  // a parte do caractere ACIMA da linha de base (ascendente) é bem mais
+  // alta que a de baixo (descendente), então precisa de mais espaço em
+  // cima pra parecer centralizado de verdade. Quando quebra (rótulo numa
+  // linha, valor embaixo), esse desbalanço já é absorvido pela linha do
+  // próprio rótulo entre os dois, então o espaço antes/depois do bloco
+  // inteiro fica igual (11 dos dois lados).
   const PAD_TOPO = 13;
   const PAD_BASE = 8;
+  const PAD_BLOCO = 11;
   // Rótulo e valor dividem a mesma linha (rótulo à esquerda, valor à
   // direita) só quando os dois cabem lado a lado com folga -- não basta o
   // valor caber na largura da coluna, porque mesmo sem quebrar ele pode
@@ -113,7 +118,9 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
   const medirCampo = (rotulo: string, valor: string, partesForcadas: string[] | null) => {
     const cabeNaMesmaLinha =
       estimarLargura(rotulo, 8) + GAP_ROTULO + estimarLargura(valor, 9, true) <= colDireitaW;
-    if (cabeNaMesmaLinha) return { cabeNaMesmaLinha, linhas: [valor], extra: 0 };
+    if (cabeNaMesmaLinha) {
+      return { cabeNaMesmaLinha, linhas: [valor], padTopo: PAD_TOPO, padBase: PAD_BASE, extra: 0 };
+    }
     // Rótulo já foi pra linha própria, então o valor não concorre mais
     // com ele -- usa a largura inteira da página (não só a da coluna) pra
     // evitar quebra feia no meio de nome de comarca/vara, já que a essa
@@ -123,16 +130,27 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
     const linhas = (partesForcadas ?? [valor]).flatMap((parte) =>
       quebrarTexto(parte, larguraUtil - 2, 9, true),
     );
-    return { cabeNaMesmaLinha, linhas, extra: linhas.length * 11 };
+    return {
+      cabeNaMesmaLinha,
+      linhas,
+      padTopo: PAD_BLOCO,
+      padBase: PAD_BLOCO,
+      extra: linhas.length * 11,
+    };
   };
   const alturaDir = camposMeta.reduce((soma, [rotulo, valor, partesForcadas]) => {
     if (!valor) return soma;
-    return soma + medirCampo(rotulo, valor, partesForcadas).extra + PAD_BASE + PAD_TOPO;
+    const m = medirCampo(rotulo, valor, partesForcadas);
+    return soma + m.extra + m.padBase + m.padTopo;
   }, 0);
 
   const topo = 124;
   let yEsq = topo + Math.max(0, (alturaDir - alturaEsq) / 2);
-  let yDir = topo + Math.max(0, (alturaEsq - alturaDir) / 2);
+  // Cada linha da direita soma o próprio espaço de cima antes de
+  // desenhar (pra poder ser simétrico quando quebra), então o ponto de
+  // partida sobe o espaço da primeira linha pra ela continuar caindo
+  // exatamente em 124 como antes.
+  let yDir = topo - PAD_TOPO + Math.max(0, (alturaEsq - alturaDir) / 2);
 
   p.text("DESTINATÁRIO", MARGIN, yEsq, 7, { color: CORES.muted });
   yEsq += 13;
@@ -154,7 +172,12 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
   // segurança, não um ajuste pra compensar estimativa errada).
   const linhaMeta = (rotulo: string, valor: string | null, partesForcadas: string[] | null) => {
     if (!valor) return;
-    const { cabeNaMesmaLinha, linhas, extra } = medirCampo(rotulo, valor, partesForcadas);
+    const { cabeNaMesmaLinha, linhas, padTopo, padBase, extra } = medirCampo(
+      rotulo,
+      valor,
+      partesForcadas,
+    );
+    yDir += padTopo;
     p.text(rotulo, colDireitaX, yDir, 8, { color: CORES.muted });
     if (cabeNaMesmaLinha) {
       p.text(linhas[0]!, colDireitaX + colDireitaW, yDir, 9, {
@@ -172,10 +195,9 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
         });
       });
     }
-    yDir += extra + PAD_BASE;
+    yDir += extra + padBase;
     p.stroke(CORES.border);
     p.line(colDireitaX, yDir, colDireitaX + colDireitaW, yDir);
-    yDir += PAD_TOPO;
   };
 
   camposMeta.forEach(([rotulo, valor, partesForcadas]) => linhaMeta(rotulo, valor, partesForcadas));
