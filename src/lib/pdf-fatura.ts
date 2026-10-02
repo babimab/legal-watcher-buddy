@@ -93,7 +93,7 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
   const alturaDir = camposMeta.reduce((soma, [, valor]) => {
     if (!valor) return soma;
     const linhas = quebrarTexto(valor, colDireitaW - 2, 9, true);
-    return soma + Math.max(11, linhas.length * 11) + 6 + 10;
+    return soma + Math.max(11, linhas.length * 11) + 9 + 9;
   }, 0);
 
   const topo = 124;
@@ -129,10 +129,10 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
         align: "right",
       });
     });
-    yDir += Math.max(11, linhas.length * 11) + 6;
+    yDir += Math.max(11, linhas.length * 11) + 9;
     p.stroke(CORES.border);
     p.line(colDireitaX, yDir, colDireitaX + colDireitaW, yDir);
-    yDir += 10;
+    yDir += 9;
   };
 
   camposMeta.forEach(([rotulo, valor]) => linhaMeta(rotulo, valor));
