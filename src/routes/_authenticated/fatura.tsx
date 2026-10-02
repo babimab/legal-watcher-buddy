@@ -1,14 +1,13 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import JSZip from "jszip";
 import { toast } from "sonner";
-import { Download, FileDown, Receipt } from "lucide-react";
+import { Download, FileDown, Receipt, Upload } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
   formatarMoeda,
   lerPlanilhaFatura,
@@ -48,7 +47,9 @@ const TAMANHO_MAX = 20 * 1024 * 1024;
 const EXTENSOES = [".xlsx", ".xls", ".xlsm"];
 
 function FaturaPage() {
+  const inputRef = useRef<HTMLInputElement>(null);
   const [notas, setNotas] = useState<NotaFatura[]>([]);
+  const [nomeArquivo, setNomeArquivo] = useState<string | null>(null);
   const [selecionados, setSelecionados] = useState<Set<number>>(new Set());
   const [lendo, setLendo] = useState(false);
   const [gerando, setGerando] = useState(false);
@@ -74,6 +75,7 @@ function FaturaPage() {
         return;
       }
       setNotas(lidas);
+      setNomeArquivo(arquivo.name);
       setSelecionados(new Set(lidas.map((n) => n.idx)));
       toast.success(`${lidas.length} nota(s) de honorários montada(s).`);
     } catch (e) {
@@ -156,15 +158,40 @@ function FaturaPage() {
           <CardDescription>Formatos aceitos: .xlsx, .xls e .xlsm (até 20 MB).</CardDescription>
         </CardHeader>
         <CardContent>
-          <Input
-            type="file"
-            accept=".xlsx,.xls,.xlsm"
-            disabled={lendo}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void ler(f);
-            }}
-          />
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".xlsx,.xls,.xlsm"
+              disabled={lendo}
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void ler(f);
+                e.target.value = "";
+              }}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => inputRef.current?.click()}
+              disabled={lendo}
+            >
+              <Upload className="size-4" />
+              {lendo ? "Lendo..." : "Subir planilha"}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void gerarSelecionadas()}
+              disabled={gerando || notas.length === 0}
+            >
+              <FileDown className="size-4" />
+              {gerando ? "Gerando..." : "Gerar Fatura"}
+            </Button>
+            {nomeArquivo ? (
+              <span className="text-sm text-muted-foreground">{nomeArquivo}</span>
+            ) : null}
+          </div>
         </CardContent>
       </Card>
 
@@ -189,10 +216,6 @@ function FaturaPage() {
                   onClick={() => marcarTodos(false)}
                 >
                   Desmarcar todas
-                </Button>
-                <Button type="button" onClick={() => void gerarSelecionadas()} disabled={gerando}>
-                  <FileDown className="size-4" />
-                  {gerando ? "Gerando..." : "Gerar Fatura"}
                 </Button>
               </div>
             </div>
