@@ -192,14 +192,14 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
   p.line(tableX, y, tableX + tableW, y);
   y += 18;
   p.text("Total", tableX, y, 10, { color: CORES.muted });
-  p.text(formatarMoeda(nota.valorTotal, nota.moeda), tableX + tableW, y, 13, {
-    bold: true,
-    color: CORES.navy,
-    align: "right",
-  });
-  y += 14;
-  p.text(`(${valorPorExtenso(nota.valorTotal, nota.moeda)})`, tableX, y, 8, {
-    color: CORES.muted,
+  const textoTotal = `${formatarMoeda(nota.valorTotal, nota.moeda)} (${valorPorExtenso(nota.valorTotal, nota.moeda)})`;
+  const linhasTotal = quebrarTexto(textoTotal, tableW - 50, 10, true);
+  linhasTotal.forEach((linha, i) => {
+    p.text(linha, tableX + tableW, y + i * 13, 10, {
+      bold: true,
+      color: CORES.navy,
+      align: "right",
+    });
   });
 
   const rodapeY = 790;
