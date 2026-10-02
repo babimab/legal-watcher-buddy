@@ -10,6 +10,7 @@ import {
   isoBR,
   montarPdf,
   quebrarTexto,
+  tituloSecao,
   type ImagemPdf,
 } from "@/lib/pdf-base";
 
@@ -35,71 +36,137 @@ export async function gerarPdfNota(nota: NotaFatura): Promise<Blob> {
   const larguraUtil = A4_W - MARGIN * 2;
 
   const p = new Pagina();
-  const logoW = 130;
+
+  // Cabeçalho: logo à esquerda, título grande à direita (no estilo do
+  // invoice antigo que a BDR pediu pra manter).
+  const logoW = 110;
   const logoH = logoW / logoRatio;
-  p.image("ImLogo", MARGIN, 40, logoW, logoH);
+  p.image("ImLogo", MARGIN, 26, logoW, logoH);
+
+  const xDireita = A4_W - MARGIN;
+  p.text("NOTA DE HONORÁRIOS", xDireita, 38, 17, {
+    bold: true,
+    color: CORES.blue,
+    align: "right",
+  });
+  if (nota.casoInterno) {
+    p.text(`Nº ${nota.casoInterno}`, xDireita, 56, 9.5, {
+      color: CORES.muted,
+      align: "right",
+    });
+  }
 
   p.stroke(CORES.border);
   p.line(MARGIN, 96, A4_W - MARGIN, 96);
 
-  let y = 130;
-  const linhasEndereco = quebrarTexto(
+  // Duas colunas: destinatário (esquerda, em caixa) e metadados (direita,
+  // linha a linha com divisória), igual ao "FATURADO PARA" x bloco de
+  // dados do invoice antigo.
+  const colEsquerdaW = 260;
+  const gap = 20;
+  const colDireitaX = MARGIN + colEsquerdaW + gap;
+  const colDireitaW = larguraUtil - colEsquerdaW - gap;
+
+  const linhasDestinatario = quebrarTexto(
     `Aos Resseguradores / Seguradores da ${nota.reu ?? "—"}`,
-    larguraUtil,
-    12,
+    colEsquerdaW - 24,
+    11.5,
   );
-  linhasEndereco.forEach((linha, i) => {
-    p.text(linha, MARGIN, y + i * 15, 12, { color: CORES.text });
-  });
-  y += linhasEndereco.length * 15 + 20;
+  const linhasCorrespondente = nota.correspondente
+    ? quebrarTexto(`A/C: ${nota.correspondente}`, colEsquerdaW - 24, 8.5)
+    : [];
+  const alturaCaixa =
+    16 +
+    linhasDestinatario.length * 15 +
+    (linhasCorrespondente.length ? 4 : 0) +
+    linhasCorrespondente.length * 11 +
+    14;
 
-  const emissao = nota.invoiceData ? isoBR(nota.invoiceData) : "—";
-  p.text(`Nota de Honorários — Emissão ${emissao}`, MARGIN, y, 13.5, {
-    bold: true,
-    color: CORES.blue,
-  });
-  y += 24;
-
-  const campo = (rotulo: string, valor: string | null) => {
-    if (!valor) return;
-    const linhas = quebrarTexto(`${rotulo}: ${valor}`, larguraUtil, 9.5);
-    linhas.forEach((linha, i) => {
-      p.text(linha, MARGIN, y + i * 13, 9.5, { color: CORES.text });
-    });
-    y += linhas.length * 13 + 4;
-  };
-
-  campo("Período", nota.invoicePeriodo);
-  campo("Reclamante", nota.autor);
-  campo("Processo", nota.processo);
-  campo("Juízo", nota.juizo);
-  campo("Identificação Beaumont & Son", nota.bsRef);
-  campo("Caso Interno", nota.casoInterno);
-
-  y += 4;
+  const yCaixaTopo = 118;
   p.fill(CORES.light);
   p.stroke(CORES.border);
-  p.rect(MARGIN, y, larguraUtil, 26, true, true);
-  p.text(
-    `Valor total: ${formatarMoeda(nota.valorTotal, nota.moeda)} (${valorPorExtenso(nota.valorTotal, nota.moeda)})`,
-    MARGIN + 10,
-    y + 17,
-    10,
-    { bold: true, color: CORES.blue },
-  );
-  y += 26 + 22;
+  p.rect(MARGIN, yCaixaTopo, colEsquerdaW, alturaCaixa, true, true);
 
-  p.text("Descrição:", MARGIN, y, 10.5, { bold: true, color: CORES.navy });
-  p.stroke(CORES.navy);
-  p.line(MARGIN, y + 3, MARGIN + 52, y + 3);
-  y += 20;
+  let yCaixa = yCaixaTopo + 20;
+  linhasDestinatario.forEach((linha, i) => {
+    p.text(linha, MARGIN + 12, yCaixa + i * 15, 11.5, { bold: true, color: CORES.navy });
+  });
+  yCaixa += linhasDestinatario.length * 15;
+  if (linhasCorrespondente.length) {
+    yCaixa += 4;
+    linhasCorrespondente.forEach((linha, i) => {
+      p.text(linha, MARGIN + 12, yCaixa + i * 11, 8.5, { color: CORES.muted });
+    });
+  }
+
+  let yMeta = yCaixaTopo + 2;
+  const linhaMeta = (rotulo: string, valor: string | null) => {
+    if (!valor) return;
+    p.text(rotulo.toUpperCase(), colDireitaX, yMeta + 8, 7.5, { color: CORES.muted });
+    const linhas = quebrarTexto(valor, colDireitaW, 9.5);
+    linhas.forEach((linha, i) => {
+      p.text(linha, colDireitaX + colDireitaW, yMeta + 21 + i * 12, 9.5, {
+        bold: true,
+        color: CORES.text,
+        align: "right",
+      });
+    });
+    yMeta += 21 + linhas.length * 12;
+    p.stroke(CORES.border);
+    p.line(colDireitaX, yMeta + 4, colDireitaX + colDireitaW, yMeta + 4);
+    yMeta += 13;
+  };
+
+  linhaMeta("Emissão", nota.invoiceData ? isoBR(nota.invoiceData) : null);
+  linhaMeta("Período de referência", nota.invoicePeriodo);
+  linhaMeta("Reclamante", nota.autor);
+  linhaMeta("Processo", nota.processo);
+  linhaMeta("Juízo", nota.juizo);
+  linhaMeta("Ref. B&S", nota.bsRef);
+  linhaMeta("Moeda", nota.moeda);
+
+  let y = Math.max(yCaixaTopo + alturaCaixa, yMeta) + 24;
+
+  // Total em destaque, no estilo do "Total do invoice" do modelo antigo.
+  p.fill(CORES.light);
+  p.stroke(CORES.accent);
+  p.rect(MARGIN, y, larguraUtil, 36, true, true);
+  p.text("Valor total", MARGIN + 12, y + 16, 9, { color: CORES.muted });
+  p.text(formatarMoeda(nota.valorTotal, nota.moeda), xDireita - 12, y + 17, 14, {
+    bold: true,
+    color: CORES.blue,
+    align: "right",
+  });
+  p.text(`(${valorPorExtenso(nota.valorTotal, nota.moeda)})`, MARGIN + 12, y + 29, 8, {
+    color: CORES.muted,
+  });
+  y += 36 + 24;
+
+  tituloSecao(p, "Descrição", y);
+  y += 24;
 
   for (const item of nota.itens) {
-    const linhas = quebrarTexto(item.paragrafo, larguraUtil, 9.5);
-    linhas.forEach((linha, i) => {
-      p.text(linha, MARGIN, y + i * 13, 9.5, { color: CORES.text });
+    const linhas = quebrarTexto(item.paragrafo, larguraUtil - 24, 9.5);
+    const alturaCard = 20 + linhas.length * 13 + 10;
+
+    p.fill(CORES.lighter);
+    p.stroke(CORES.border);
+    p.rect(MARGIN, y, larguraUtil, alturaCard, true, true);
+
+    p.text(item.tipo.toUpperCase(), MARGIN + 12, y + 16, 8, {
+      bold: true,
+      color: CORES.accent,
     });
-    y += linhas.length * 13 + 8;
+    p.text(formatarMoeda(item.valor, nota.moeda), xDireita - 12, y + 16, 9.5, {
+      bold: true,
+      color: CORES.navy,
+      align: "right",
+    });
+    linhas.forEach((linha, i) => {
+      p.text(linha, MARGIN + 12, y + 30 + i * 13, 9.5, { color: CORES.text });
+    });
+
+    y += alturaCard + 10;
   }
 
   const rodapeY = 790;
