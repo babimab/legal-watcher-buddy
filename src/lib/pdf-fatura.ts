@@ -90,7 +90,7 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
   let yDir = 124;
   const linhaMeta = (rotulo: string, valor: string | null) => {
     if (!valor) return;
-    const linhas = quebrarTexto(valor, colDireitaW - 90, 9.5);
+    const linhas = quebrarTexto(valor, colDireitaW, 9.5);
     p.text(rotulo, colDireitaX, yDir, 8.5, { color: CORES.muted });
     linhas.forEach((linha, i) => {
       p.text(linha, colDireitaX + colDireitaW, yDir + i * 12, 9.5, {
