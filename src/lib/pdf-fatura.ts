@@ -30,8 +30,7 @@ function carregarLogo() {
   return logoCache;
 }
 
-export async function gerarPdfNota(nota: NotaFatura): Promise<Blob> {
-  const logo = await carregarLogo();
+function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
   const logoRatio = logo.width / logo.height;
   const larguraUtil = A4_W - MARGIN * 2;
 
@@ -180,10 +179,23 @@ export async function gerarPdfNota(nota: NotaFatura): Promise<Blob> {
     color: CORES.blue,
   });
 
-  return montarPdf([p], { ImLogo: logo });
+  return p;
+}
+
+export async function gerarPdfNota(nota: NotaFatura): Promise<Blob> {
+  const logo = await carregarLogo();
+  return montarPdf([construirPaginaNota(nota, logo)], { ImLogo: logo });
 }
 
 export async function gerarEBaixarPdfNota(nota: NotaFatura): Promise<void> {
   const blob = await gerarPdfNota(nota);
   baixarBlob(blob, nomeArquivoFatura(nota));
+}
+
+// Junta várias notas num PDF só, multipágina (uma página por nota) -- é o
+// que "Gerar Fatura" baixa quando tem mais de uma nota selecionada.
+export async function gerarPdfNotas(notas: NotaFatura[]): Promise<Blob> {
+  const logo = await carregarLogo();
+  const paginas = notas.map((nota) => construirPaginaNota(nota, logo));
+  return montarPdf(paginas, { ImLogo: logo });
 }

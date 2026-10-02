@@ -1,6 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useRef, useState } from "react";
-import JSZip from "jszip";
 import { toast } from "sonner";
 import { Download, FileDown, Pencil, Receipt, Trash2, Upload, X } from "lucide-react";
 
@@ -32,12 +31,11 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   formatarMoeda,
   lerPlanilhaFatura,
-  nomeArquivoFatura,
   SIGLAS_PERMITIDAS_FATURA,
   type ItemFatura,
   type NotaFatura,
 } from "@/lib/fatura";
-import { gerarPdfNota, gerarEBaixarPdfNota } from "@/lib/pdf-fatura";
+import { gerarEBaixarPdfNota, gerarPdfNotas } from "@/lib/pdf-fatura";
 import { baixarBlob } from "@/lib/pdf-base";
 import { carregarUsuarioAtual, siglaDoEmail } from "@/lib/processos";
 
@@ -161,19 +159,9 @@ function FaturaPage() {
     }
     setGerando(true);
     try {
-      const zip = new JSZip();
-      const nomesUsados = new Map<string, number>();
-      for (const nota of escolhidas) {
-        const blob = await gerarPdfNota(nota);
-        let nome = nomeArquivoFatura(nota);
-        const vezes = nomesUsados.get(nome) ?? 0;
-        nomesUsados.set(nome, vezes + 1);
-        if (vezes > 0) nome = nome.replace(/\.pdf$/, `-${vezes + 1}.pdf`);
-        zip.file(nome, blob);
-      }
-      const blobZip = await zip.generateAsync({ type: "blob" });
-      baixarBlob(blobZip, `notas-honorarios-${new Date().toISOString().slice(0, 10)}.zip`);
-      toast.success(`${escolhidas.length} nota(s) gerada(s).`);
+      const blob = await gerarPdfNotas(escolhidas);
+      baixarBlob(blob, `notas-honorarios-${new Date().toISOString().slice(0, 10)}.pdf`);
+      toast.success(`${escolhidas.length} nota(s) gerada(s) num PDF só.`);
     } catch {
       toast.error("Não consegui gerar as notas.");
     } finally {
