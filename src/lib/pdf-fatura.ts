@@ -6,6 +6,7 @@ import {
   CORES,
   Pagina,
   baixarBlob,
+  estimarLargura,
   imagemComoJpeg,
   isoBR,
   montarPdf,
@@ -96,16 +97,27 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
   // precisa de mais espaço em cima pra parecer centralizado de verdade.
   const PAD_TOPO = 13;
   const PAD_BASE = 8;
-  // Quando o valor cabe numa linha só, rótulo e valor dividem a mesma
-  // linha (rótulo à esquerda, valor à direita). Quando quebra em mais de
-  // uma linha, a primeira linha quebrada fica quase do tamanho da coluna
-  // inteira e esbarraria no rótulo -- nesse caso o rótulo ganha uma linha
-  // própria em cima, e o valor (todas as linhas) fica embaixo.
-  const extraLinhasValor = (linhas: string[]) => (linhas.length > 1 ? linhas.length * 11 : 0);
-  const alturaDir = camposMeta.reduce((soma, [, valor]) => {
+  // Rótulo e valor dividem a mesma linha (rótulo à esquerda, valor à
+  // direita) só quando os dois cabem lado a lado com folga -- não basta o
+  // valor caber na largura da coluna, porque mesmo sem quebrar ele pode
+  // ficar largo o bastante pra encostar no rótulo. Quando não cabe junto,
+  // o rótulo ganha uma linha própria em cima e o valor (podendo quebrar)
+  // desce pra baixo dele, usando a largura inteira da coluna.
+  const GAP_ROTULO = 10;
+  const medirCampo = (rotulo: string, valor: string) => {
+    const cabeNaMesmaLinha =
+      estimarLargura(rotulo, 8) + GAP_ROTULO + estimarLargura(valor, 9, true) <= colDireitaW;
+    if (cabeNaMesmaLinha) return { cabeNaMesmaLinha, linhas: [valor], extra: 0 };
+    // Rótulo já foi pra linha própria, então o valor não concorre mais
+    // com ele -- usa a largura inteira da página (não só a da coluna) pra
+    // evitar quebra feia no meio de nome de comarca/vara, já que a essa
+    // altura o destinatário à esquerda sempre terminou.
+    const linhas = quebrarTexto(valor, larguraUtil - 2, 9, true);
+    return { cabeNaMesmaLinha, linhas, extra: linhas.length * 11 };
+  };
+  const alturaDir = camposMeta.reduce((soma, [rotulo, valor]) => {
     if (!valor) return soma;
-    const linhas = quebrarTexto(valor, colDireitaW - 2, 9, true);
-    return soma + extraLinhasValor(linhas) + PAD_BASE + PAD_TOPO;
+    return soma + medirCampo(rotulo, valor).extra + PAD_BASE + PAD_TOPO;
   }, 0);
 
   const topo = 124;
@@ -132,18 +144,16 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
   // segurança, não um ajuste pra compensar estimativa errada).
   const linhaMeta = (rotulo: string, valor: string | null) => {
     if (!valor) return;
-    const linhas = quebrarTexto(valor, colDireitaW - 2, 9, true);
+    const { cabeNaMesmaLinha, linhas, extra } = medirCampo(rotulo, valor);
     p.text(rotulo, colDireitaX, yDir, 8, { color: CORES.muted });
-    if (linhas.length === 1) {
+    if (cabeNaMesmaLinha) {
       p.text(linhas[0]!, colDireitaX + colDireitaW, yDir, 9, {
         bold: true,
         color: CORES.text,
         align: "right",
       });
     } else {
-      // Não cabe numa linha: a primeira linha quebrada ficaria quase do
-      // tamanho da coluna inteira e esbarraria no rótulo, então o valor
-      // desce pra uma linha própria embaixo do rótulo.
+      // Não cabe junto do rótulo: desce pra uma linha própria embaixo dele.
       linhas.forEach((linha, i) => {
         p.text(linha, colDireitaX + colDireitaW, yDir + 11 + i * 11, 9, {
           bold: true,
@@ -152,7 +162,7 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
         });
       });
     }
-    yDir += extraLinhasValor(linhas) + PAD_BASE;
+    yDir += extra + PAD_BASE;
     p.stroke(CORES.border);
     p.line(colDireitaX, yDir, colDireitaX + colDireitaW, yDir);
     yDir += PAD_TOPO;

@@ -188,10 +188,17 @@ export function numeroPorExtenso(n: number): string {
   return `${segMilhar}${conector}${segResto}`;
 }
 
+const NOMES_MOEDA: Record<string, [string, string]> = {
+  BRL: ["real", "reais"],
+  USD: ["dólar americano", "dólares americanos"],
+  EUR: ["euro", "euros"],
+};
+
 export function valorPorExtenso(valor: number, moeda = "BRL"): string {
   const inteiro = Math.floor(Math.round(valor * 100) / 100);
   const centavos = Math.round((valor - inteiro) * 100);
-  const unidade = moeda === "BRL" ? (inteiro === 1 ? "real" : "reais") : moeda;
+  const nomes = NOMES_MOEDA[moeda];
+  const unidade = nomes ? (inteiro === 1 ? nomes[0] : nomes[1]) : moeda;
   let out = `${numeroPorExtenso(inteiro)} ${unidade}`;
   if (centavos > 0) {
     out += ` e ${numeroPorExtenso(centavos)} centavo${centavos === 1 ? "" : "s"}`;
