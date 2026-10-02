@@ -190,7 +190,7 @@ function FaturaPage() {
                 </Button>
                 <Button type="button" onClick={() => void gerarSelecionadas()} disabled={gerando}>
                   <FileDown className="size-4" />
-                  {gerando ? "Gerando..." : "Gerar notas selecionadas (.zip)"}
+                  {gerando ? "Gerando..." : "Gerar Fatura"}
                 </Button>
               </div>
             </div>
