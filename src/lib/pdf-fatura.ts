@@ -90,10 +90,16 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
     ["Ref. B&S", nota.bsRef],
     ["Moeda", nota.moeda],
   ];
+  // Espaço do divisor até a linha de base do texto (13 em cima, 8 embaixo)
+  // -- não é pra ser igual: a parte do caractere ACIMA da linha de base
+  // (ascendente) é bem mais alta que a de baixo (descendente), então
+  // precisa de mais espaço em cima pra parecer centralizado de verdade.
+  const PAD_TOPO = 13;
+  const PAD_BASE = 8;
   const alturaDir = camposMeta.reduce((soma, [, valor]) => {
     if (!valor) return soma;
     const linhas = quebrarTexto(valor, colDireitaW - 2, 9, true);
-    return soma + Math.max(11, linhas.length * 11) + 9 + 9;
+    return soma + (linhas.length - 1) * 11 + PAD_BASE + PAD_TOPO;
   }, 0);
 
   const topo = 124;
@@ -129,10 +135,10 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
         align: "right",
       });
     });
-    yDir += Math.max(11, linhas.length * 11) + 9;
+    yDir += (linhas.length - 1) * 11 + PAD_BASE;
     p.stroke(CORES.border);
     p.line(colDireitaX, yDir, colDireitaX + colDireitaW, yDir);
-    yDir += 9;
+    yDir += PAD_TOPO;
   };
 
   camposMeta.forEach(([rotulo, valor]) => linhaMeta(rotulo, valor));
