@@ -10,13 +10,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
+  formatarMoeda,
   lerPlanilhaFatura,
-  numeroInvoice,
   nomeArquivoFatura,
   SIGLAS_PERMITIDAS_FATURA,
-  type AtoFatura,
+  type NotaFatura,
 } from "@/lib/fatura";
-import { gerarPdfAto, gerarEBaixarPdfAto } from "@/lib/pdf-fatura";
+import { gerarPdfNota, gerarEBaixarPdfNota } from "@/lib/pdf-fatura";
 import { baixarBlob } from "@/lib/pdf-base";
 import { carregarUsuarioAtual, siglaDoEmail } from "@/lib/processos";
 
@@ -37,7 +37,7 @@ export const Route = createFileRoute("/_authenticated/fatura")({
       {
         name: "description",
         content:
-          "Envie a planilha de faturamento por ato de um cliente (ex.: resseguradora de companhia aérea) e gere um invoice em PDF, no timbrado do escritório, pra cada ato.",
+          "Envie a planilha de faturamento por ato de um cliente (ex.: resseguradora de companhia aérea) e gere a Nota de Honorários em PDF, no timbrado do escritório, pra cada caso.",
       },
     ],
   }),
@@ -48,7 +48,7 @@ const TAMANHO_MAX = 20 * 1024 * 1024;
 const EXTENSOES = [".xlsx", ".xls", ".xlsm"];
 
 function FaturaPage() {
-  const [atos, setAtos] = useState<AtoFatura[]>([]);
+  const [notas, setNotas] = useState<NotaFatura[]>([]);
   const [selecionados, setSelecionados] = useState<Set<number>>(new Set());
   const [lendo, setLendo] = useState(false);
   const [gerando, setGerando] = useState(false);
@@ -66,16 +66,16 @@ function FaturaPage() {
     }
     setLendo(true);
     try {
-      const lidos = lerPlanilhaFatura(await arquivo.arrayBuffer());
-      if (lidos.length === 0) {
+      const lidas = lerPlanilhaFatura(await arquivo.arrayBuffer());
+      if (lidas.length === 0) {
         toast.error(
-          "Não encontrei nenhuma aba de Honorários, Despesas de Preposição ou Outras Despesas nesse arquivo.",
+          "Não encontrei nenhuma aba de Honorários, Preposição ou Outras Despesas nesse arquivo.",
         );
         return;
       }
-      setAtos(lidos);
-      setSelecionados(new Set(lidos.map((a) => a.idx)));
-      toast.success(`${lidos.length} ato(s) encontrado(s).`);
+      setNotas(lidas);
+      setSelecionados(new Set(lidas.map((n) => n.idx)));
+      toast.success(`${lidas.length} nota(s) de honorários montada(s).`);
     } catch {
       toast.error("Não consegui ler o arquivo.");
     } finally {
@@ -93,43 +93,43 @@ function FaturaPage() {
   };
 
   const marcarTodos = (marcar: boolean) => {
-    setSelecionados(marcar ? new Set(atos.map((a) => a.idx)) : new Set());
+    setSelecionados(marcar ? new Set(notas.map((n) => n.idx)) : new Set());
   };
 
-  const baixarUm = async (ato: AtoFatura) => {
-    setGerandoIdx(ato.idx);
+  const baixarUma = async (nota: NotaFatura) => {
+    setGerandoIdx(nota.idx);
     try {
-      await gerarEBaixarPdfAto(ato);
+      await gerarEBaixarPdfNota(nota);
     } catch {
-      toast.error("Não consegui gerar esse invoice.");
+      toast.error("Não consegui gerar essa nota.");
     } finally {
       setGerandoIdx(null);
     }
   };
 
-  const gerarSelecionados = async () => {
-    const escolhidos = atos.filter((a) => selecionados.has(a.idx));
-    if (escolhidos.length === 0) {
-      toast.error("Selecione pelo menos um ato.");
+  const gerarSelecionadas = async () => {
+    const escolhidas = notas.filter((n) => selecionados.has(n.idx));
+    if (escolhidas.length === 0) {
+      toast.error("Selecione pelo menos uma nota.");
       return;
     }
     setGerando(true);
     try {
       const zip = new JSZip();
       const nomesUsados = new Map<string, number>();
-      for (const ato of escolhidos) {
-        const blob = await gerarPdfAto(ato);
-        let nome = nomeArquivoFatura(ato);
+      for (const nota of escolhidas) {
+        const blob = await gerarPdfNota(nota);
+        let nome = nomeArquivoFatura(nota);
         const vezes = nomesUsados.get(nome) ?? 0;
         nomesUsados.set(nome, vezes + 1);
         if (vezes > 0) nome = nome.replace(/\.pdf$/, `-${vezes + 1}.pdf`);
         zip.file(nome, blob);
       }
       const blobZip = await zip.generateAsync({ type: "blob" });
-      baixarBlob(blobZip, `faturas-${new Date().toISOString().slice(0, 10)}.zip`);
-      toast.success(`${escolhidos.length} invoice(s) gerado(s).`);
+      baixarBlob(blobZip, `notas-honorarios-${new Date().toISOString().slice(0, 10)}.zip`);
+      toast.success(`${escolhidas.length} nota(s) gerada(s).`);
     } catch {
-      toast.error("Não consegui gerar as faturas.");
+      toast.error("Não consegui gerar as notas.");
     } finally {
       setGerando(false);
     }
@@ -143,8 +143,8 @@ function FaturaPage() {
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Pra clientes que pagam por ato (ex.: resseguradora de companhia aérea). Envie a planilha
-          com as abas de Honorários, Despesas de Preposição e/ou Outras Despesas e gere um invoice
-          em PDF pra cada ato, no timbrado do escritório.
+          com as abas de Honorários, Preposição e/ou Outras Despesas — quando o mesmo Caso Interno
+          aparece em mais de uma aba, vira uma Nota de Honorários só, com os valores somados.
         </p>
       </div>
 
@@ -166,19 +166,19 @@ function FaturaPage() {
         </CardContent>
       </Card>
 
-      {atos.length > 0 ? (
+      {notas.length > 0 ? (
         <Card>
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <CardTitle className="font-serif text-lg">
-                  {atos.length} ato{atos.length === 1 ? "" : "s"}
+                  {notas.length} nota{notas.length === 1 ? "" : "s"} de honorários
                 </CardTitle>
-                <CardDescription>{selecionados.size} selecionado(s)</CardDescription>
+                <CardDescription>{selecionados.size} selecionada(s)</CardDescription>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button type="button" variant="outline" size="sm" onClick={() => marcarTodos(true)}>
-                  Marcar todos
+                  Marcar todas
                 </Button>
                 <Button
                   type="button"
@@ -186,11 +186,11 @@ function FaturaPage() {
                   size="sm"
                   onClick={() => marcarTodos(false)}
                 >
-                  Desmarcar todos
+                  Desmarcar todas
                 </Button>
-                <Button type="button" onClick={() => void gerarSelecionados()} disabled={gerando}>
+                <Button type="button" onClick={() => void gerarSelecionadas()} disabled={gerando}>
                   <FileDown className="size-4" />
-                  {gerando ? "Gerando..." : "Gerar faturas selecionadas (.zip)"}
+                  {gerando ? "Gerando..." : "Gerar notas selecionadas (.zip)"}
                 </Button>
               </div>
             </div>
@@ -201,49 +201,48 @@ function FaturaPage() {
                 <thead>
                   <tr className="border-b border-border text-left text-xs uppercase text-muted-foreground">
                     <th className="p-2"></th>
-                    <th className="p-2">Tipo</th>
-                    <th className="p-2">Caso</th>
-                    <th className="p-2">Autor</th>
+                    <th className="p-2">Caso Interno</th>
+                    <th className="p-2">Reclamante</th>
                     <th className="p-2">Réu</th>
                     <th className="p-2">Processo</th>
-                    <th className="p-2">Descrição</th>
-                    <th className="p-2 text-right">Valor</th>
+                    <th className="p-2">Itens</th>
+                    <th className="p-2 text-right">Valor total</th>
                     <th className="p-2"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {atos.map((ato) => (
-                    <tr key={ato.idx} className="border-b border-border/60">
+                  {notas.map((nota) => (
+                    <tr key={nota.idx} className="border-b border-border/60">
                       <td className="p-2">
                         <Checkbox
-                          checked={selecionados.has(ato.idx)}
-                          onCheckedChange={() => alternarSelecao(ato.idx)}
+                          checked={selecionados.has(nota.idx)}
+                          onCheckedChange={() => alternarSelecao(nota.idx)}
                         />
                       </td>
+                      <td className="p-2">{nota.casoInterno ?? "—"}</td>
+                      <td className="p-2">{nota.autor ?? "—"}</td>
+                      <td className="p-2">{nota.reu ?? "—"}</td>
+                      <td className="p-2 font-mono text-xs">{nota.processo ?? "—"}</td>
                       <td className="p-2">
-                        <Badge variant="outline">{ato.tipo}</Badge>
+                        <div className="flex flex-wrap gap-1">
+                          {nota.itens.map((item, i) => (
+                            <Badge key={i} variant="outline">
+                              {item.tipo}
+                            </Badge>
+                          ))}
+                        </div>
                       </td>
-                      <td className="p-2">{ato.caso ?? "—"}</td>
-                      <td className="p-2">{ato.autor ?? "—"}</td>
-                      <td className="p-2">{ato.reu ?? "—"}</td>
-                      <td className="p-2 font-mono text-xs">{ato.processo ?? "—"}</td>
-                      <td className="p-2">{ato.descricao ?? "—"}</td>
                       <td className="p-2 text-right">
-                        {ato.valor != null
-                          ? ato.valor.toLocaleString("pt-BR", {
-                              style: "currency",
-                              currency: ato.moeda,
-                            })
-                          : "—"}
+                        {formatarMoeda(nota.valorTotal, nota.moeda)}
                       </td>
                       <td className="p-2">
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          aria-label={`Baixar invoice ${numeroInvoice(ato)}`}
-                          onClick={() => void baixarUm(ato)}
-                          disabled={gerandoIdx === ato.idx}
+                          aria-label={`Baixar nota do caso ${nota.casoInterno ?? nota.idx + 1}`}
+                          onClick={() => void baixarUma(nota)}
+                          disabled={gerandoIdx === nota.idx}
                         >
                           <Download className="size-4" />
                         </Button>
