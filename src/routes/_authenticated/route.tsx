@@ -15,6 +15,7 @@ import {
   Phone,
   Plug,
   RadioTower,
+  Receipt,
   ShieldCheck,
   Upload,
   User,
@@ -134,6 +135,12 @@ function AppLayout() {
         icon={<Calculator className="size-4" />}
         label="Cálculos"
         tourId="nav-calculos"
+      />
+      <NavItem
+        to="/fatura"
+        icon={<Receipt className="size-4" />}
+        label="Fatura"
+        tourId="nav-fatura"
       />
       <NavItem
         to="/relatorio"
