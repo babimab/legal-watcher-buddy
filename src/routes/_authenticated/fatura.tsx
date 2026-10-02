@@ -76,8 +76,10 @@ function FaturaPage() {
       setNotas(lidas);
       setSelecionados(new Set(lidas.map((n) => n.idx)));
       toast.success(`${lidas.length} nota(s) de honorários montada(s).`);
-    } catch {
-      toast.error("Não consegui ler o arquivo.");
+    } catch (e) {
+      console.error("Erro ao ler planilha de fatura:", e);
+      const detalhe = e instanceof Error ? e.message : String(e);
+      toast.error(`Não consegui ler o arquivo: ${detalhe}`);
     } finally {
       setLendo(false);
     }
@@ -254,6 +256,19 @@ function FaturaPage() {
             </div>
           </CardContent>
         </Card>
+      ) : null}
+
+      {notas.length > 0 ? (
+        <Button
+          type="button"
+          onClick={() => void gerarSelecionadas()}
+          disabled={gerando}
+          className="fixed bottom-6 right-6 z-40 shadow-lg"
+          size="lg"
+        >
+          <FileDown className="size-4" />
+          {gerando ? "Gerando..." : `Gerar Fatura (${selecionados.size})`}
+        </Button>
       ) : null}
     </div>
   );
