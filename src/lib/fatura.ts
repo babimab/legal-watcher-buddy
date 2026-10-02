@@ -354,9 +354,31 @@ export function lerPlanilhaFatura(buffer: ArrayBuffer): NotaFatura[] {
     }
   }
 
-  const notas: NotaFatura[] = [];
-  ordemCaso.forEach((chaveCaso, idx) => {
+  // Cada linha de Honorários tem que virar uma nota separada -- não pode
+  // juntar dois atos (ex.: cadastramento + acordo) no mesmo documento,
+  // mesmo que sejam do mesmo caso (confirmado com a BDR, que viu dois
+  // honorários empilhados numa nota só e pediu pra separar). Despesa de
+  // Preposição/Outra Despesa do caso entra junto com o ÚLTIMO Honorários
+  // (o evento mais recente) -- se o caso não tiver nenhum Honorários,
+  // continua tudo junto como antes.
+  const documentos: LinhaBruta[][] = [];
+  ordemCaso.forEach((chaveCaso) => {
     const linhas = porCaso.get(chaveCaso)!;
+    const honorarios = linhas.filter((l) => l.tipo === "Honorários");
+    const outros = linhas.filter((l) => l.tipo !== "Honorários");
+
+    if (honorarios.length <= 1) {
+      documentos.push(linhas);
+      return;
+    }
+    honorarios.forEach((h, i) => {
+      const ultimo = i === honorarios.length - 1;
+      documentos.push(ultimo ? [h, ...outros] : [h]);
+    });
+  });
+
+  const notas: NotaFatura[] = [];
+  documentos.forEach((linhas, idx) => {
     const primeira = linhas[0]!.dados;
     const moeda = moedaValida(texto(primeira.moeda)) ?? "BRL";
 
