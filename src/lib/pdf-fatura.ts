@@ -82,14 +82,20 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
   const alturaEsq =
     13 + linhasDestinatario.length * 14 + (linhasCorr.length ? 4 + linhasCorr.length * 10 : 0);
 
-  const camposMeta: [string, string | null][] = [
-    ["Emissão", nota.invoiceData ? isoBR(nota.invoiceData) : null],
-    ["Período de referência", nota.invoicePeriodo],
-    ["Reclamante", nota.autor],
-    ["Processo", nota.processo],
-    ["Juízo", nota.juizo],
-    ["Ref. B&S", nota.bsRef],
-    ["Moeda", nota.moeda],
+  // Juízo tem um ponto de quebra "certo" (vara em cima, comarca embaixo)
+  // -- quando não cabe numa linha, prefere quebrar aí em vez de deixar a
+  // quebra de palavra genérica cortar o nome da comarca no meio.
+  const juizoPartesForcadas =
+    nota.juizoVara && nota.juizoComarcaUf ? [nota.juizoVara, `de ${nota.juizoComarcaUf}`] : null;
+
+  const camposMeta: [string, string | null, string[] | null][] = [
+    ["Emissão", nota.invoiceData ? isoBR(nota.invoiceData) : null, null],
+    ["Período de referência", nota.invoicePeriodo, null],
+    ["Reclamante", nota.autor, null],
+    ["Processo", nota.processo, null],
+    ["Juízo", nota.juizo, juizoPartesForcadas],
+    ["Ref. B&S", nota.bsRef, null],
+    ["Moeda", nota.moeda, null],
   ];
   // Espaço do divisor até a linha de base do texto (13 em cima, 8 embaixo)
   // -- não é pra ser igual: a parte do caractere ACIMA da linha de base
@@ -104,20 +110,24 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
   // o rótulo ganha uma linha própria em cima e o valor (podendo quebrar)
   // desce pra baixo dele, usando a largura inteira da coluna.
   const GAP_ROTULO = 10;
-  const medirCampo = (rotulo: string, valor: string) => {
+  const medirCampo = (rotulo: string, valor: string, partesForcadas: string[] | null) => {
     const cabeNaMesmaLinha =
       estimarLargura(rotulo, 8) + GAP_ROTULO + estimarLargura(valor, 9, true) <= colDireitaW;
     if (cabeNaMesmaLinha) return { cabeNaMesmaLinha, linhas: [valor], extra: 0 };
     // Rótulo já foi pra linha própria, então o valor não concorre mais
     // com ele -- usa a largura inteira da página (não só a da coluna) pra
     // evitar quebra feia no meio de nome de comarca/vara, já que a essa
-    // altura o destinatário à esquerda sempre terminou.
-    const linhas = quebrarTexto(valor, larguraUtil - 2, 9, true);
+    // altura o destinatário à esquerda sempre terminou. Se tiver um ponto
+    // de quebra certo (Juízo), quebra ali em vez de deixar a quebra de
+    // palavra genérica decidir.
+    const linhas = (partesForcadas ?? [valor]).flatMap((parte) =>
+      quebrarTexto(parte, larguraUtil - 2, 9, true),
+    );
     return { cabeNaMesmaLinha, linhas, extra: linhas.length * 11 };
   };
-  const alturaDir = camposMeta.reduce((soma, [rotulo, valor]) => {
+  const alturaDir = camposMeta.reduce((soma, [rotulo, valor, partesForcadas]) => {
     if (!valor) return soma;
-    return soma + medirCampo(rotulo, valor).extra + PAD_BASE + PAD_TOPO;
+    return soma + medirCampo(rotulo, valor, partesForcadas).extra + PAD_BASE + PAD_TOPO;
   }, 0);
 
   const topo = 124;
@@ -142,9 +152,9 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
   // só. Reserva 2pt de folga no fim da linha (a largura agora é medida
   // com a métrica real da Helvetica, então isso é só uma margem de
   // segurança, não um ajuste pra compensar estimativa errada).
-  const linhaMeta = (rotulo: string, valor: string | null) => {
+  const linhaMeta = (rotulo: string, valor: string | null, partesForcadas: string[] | null) => {
     if (!valor) return;
-    const { cabeNaMesmaLinha, linhas, extra } = medirCampo(rotulo, valor);
+    const { cabeNaMesmaLinha, linhas, extra } = medirCampo(rotulo, valor, partesForcadas);
     p.text(rotulo, colDireitaX, yDir, 8, { color: CORES.muted });
     if (cabeNaMesmaLinha) {
       p.text(linhas[0]!, colDireitaX + colDireitaW, yDir, 9, {
@@ -168,7 +178,7 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
     yDir += PAD_TOPO;
   };
 
-  camposMeta.forEach(([rotulo, valor]) => linhaMeta(rotulo, valor));
+  camposMeta.forEach(([rotulo, valor, partesForcadas]) => linhaMeta(rotulo, valor, partesForcadas));
 
   let y = Math.max(yEsq, yDir) + 26;
 

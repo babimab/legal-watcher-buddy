@@ -34,6 +34,12 @@ export type NotaFatura = {
   reu: string | null;
   processo: string | null;
   juizo: string | null;
+  // Vara e "comarca - UF" separados -- só pra permitir quebrar o Juízo
+  // numa linha previsível (vara em cima, comarca embaixo) no PDF em vez
+  // de uma quebra de palavra qualquer. Fica null se editado manualmente
+  // (ver EditorNota), caindo de volta na quebra genérica.
+  juizoVara: string | null;
+  juizoComarcaUf: string | null;
   bsRef: string | null;
   correspondente: string | null;
   invoicePeriodo: string | null;
@@ -245,18 +251,19 @@ function paragrafoOutraDespesa(valor: number, moeda: string, tipoDespesa: string
 // que vem depois do último " - ". Comarca vem com "(UF)" redundante no
 // fim, que aqui é descartado em favor da coluna UF (mais confiável --
 // vi um erro de UF digitado à mão no invoice real que isso evita).
-function compuserJuizo(
-  foro: string | null,
-  comarca: string | null,
-  uf: string | null,
-): string | null {
+type Juizo = { texto: string | null; vara: string | null; comarcaUf: string | null };
+
+function compuserJuizo(foro: string | null, comarca: string | null, uf: string | null): Juizo {
   const partes = (foro ?? "").split(" - ").map((p) => p.trim());
-  const vara = partes.length > 1 ? partes[partes.length - 1] : foro?.trim();
+  const vara = partes.length > 1 ? partes[partes.length - 1] : (foro?.trim() ?? null);
   const comarcaLimpa = comarca ? comarca.replace(/\s*\([^)]*\)\s*$/, "").trim() : null;
-  if (!vara && !comarcaLimpa) return null;
+  if (!vara && !comarcaLimpa) return { texto: null, vara: null, comarcaUf: null };
   const sufixoUf = uf ? ` - ${uf.toUpperCase()}` : "";
-  if (vara && comarcaLimpa) return `${vara} de ${comarcaLimpa}${sufixoUf}`;
-  return `${vara ?? comarcaLimpa}${sufixoUf}`;
+  const comarcaUf = comarcaLimpa ? `${comarcaLimpa}${sufixoUf}` : null;
+  if (vara && comarcaLimpa) {
+    return { texto: `${vara} de ${comarcaLimpa}${sufixoUf}`, vara, comarcaUf };
+  }
+  return { texto: `${vara ?? comarcaLimpa}${sufixoUf}`, vara: null, comarcaUf: null };
 }
 
 // --- leitura e agrupamento por Caso Interno ---------------------------
@@ -401,13 +408,17 @@ export function lerPlanilhaFatura(buffer: ArrayBuffer): NotaFatura[] {
       return { tipo, valor, paragrafo };
     });
 
+    const juizo = compuserJuizo(texto(primeira.foro), texto(primeira.comarca), texto(primeira.uf));
+
     notas.push({
       idx,
       casoInterno: texto(primeira.caso),
       autor: texto(primeira.autor),
       reu: texto(primeira.reu),
       processo: texto(primeira.processo),
-      juizo: compuserJuizo(texto(primeira.foro), texto(primeira.comarca), texto(primeira.uf)),
+      juizo: juizo.texto,
+      juizoVara: juizo.vara,
+      juizoComarcaUf: juizo.comarcaUf,
       bsRef: texto(primeira.bsRef),
       correspondente: texto(primeira.correspondente),
       invoicePeriodo: texto(primeira.invoicePeriodo),

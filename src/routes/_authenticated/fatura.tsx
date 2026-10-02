@@ -392,7 +392,15 @@ function EditorNota({
       <Input
         id={`fatura-${chave}`}
         value={(form[chave] as string | null) ?? ""}
-        onChange={(e) => setForm((atual) => ({ ...atual, [chave]: e.target.value || null }))}
+        onChange={(e) =>
+          setForm((atual) => ({
+            ...atual,
+            [chave]: e.target.value || null,
+            // Editou o Juízo à mão -- descarta a quebra vara/comarca
+            // calculada da planilha, que não bate mais com o texto novo.
+            ...(chave === "juizo" ? { juizoVara: null, juizoComarcaUf: null } : null),
+          }))
+        }
       />
     </div>
   );
