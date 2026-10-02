@@ -178,8 +178,8 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
       partesForcadas,
     );
     yDir += padTopo;
-    p.text(rotulo, colDireitaX, yDir, 8, { color: CORES.muted });
     if (cabeNaMesmaLinha) {
+      p.text(rotulo, colDireitaX, yDir, 8, { color: CORES.muted });
       p.text(linhas[0]!, colDireitaX + colDireitaW, yDir, 9, {
         bold: true,
         color: CORES.text,
@@ -187,6 +187,11 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
       });
     } else {
       // Não cabe junto do rótulo: desce pra uma linha própria embaixo dele.
+      // O próprio rótulo fica centralizado na vertical em relação às
+      // linhas do valor (não grudado na primeira).
+      p.text(rotulo, colDireitaX, yDir + (11 * (linhas.length + 1)) / 2, 8, {
+        color: CORES.muted,
+      });
       linhas.forEach((linha, i) => {
         p.text(linha, colDireitaX + colDireitaW, yDir + 11 + i * 11, 9, {
           bold: true,
