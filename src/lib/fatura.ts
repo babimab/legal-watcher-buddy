@@ -47,6 +47,13 @@ function normalizar(texto: string) {
   return texto.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 }
 
+// Protege o toLocaleString (que lança exceção pra código inválido) caso
+// alguma célula de moeda venha com lixo que a varredura de linha de
+// resumo não pegou.
+function moedaValida(valor: string | null): string | null {
+  return valor && /^[a-zA-Z]{3}$/.test(valor) ? valor.toUpperCase() : null;
+}
+
 function texto(valor: unknown): string | null {
   if (valor == null) return null;
   const s = String(valor).trim();
@@ -305,6 +312,24 @@ export function lerPlanilhaFatura(buffer: ArrayBuffer): NotaFatura[] {
         if (campo && dados[campo] == null) dados[campo] = bruta[j];
       });
 
+      // Pula linha de resumo ("Total do invoice" etc.) que planilhas desse
+      // tipo costumam ter no fim -- ela não é um lançamento de verdade e,
+      // se cair num campo de texto, trava a geração (ex.: "TOTAL" lido
+      // como código de moeda).
+      const camposTexto = [
+        dados.caso,
+        dados.autor,
+        dados.reu,
+        dados.processo,
+        dados.moeda,
+        dados.tipoPagamento,
+        dados.tipoDespesa,
+      ]
+        .map((v) => texto(v))
+        .filter((v): v is string => v != null)
+        .map(normalizar);
+      if (camposTexto.some((v) => v === "total" || v === "totais")) continue;
+
       const chaveCaso = texto(dados.caso) ?? `sem-caso-${semCasoSeq++}`;
       if (!porCaso.has(chaveCaso)) {
         porCaso.set(chaveCaso, []);
@@ -318,11 +343,11 @@ export function lerPlanilhaFatura(buffer: ArrayBuffer): NotaFatura[] {
   ordemCaso.forEach((chaveCaso, idx) => {
     const linhas = porCaso.get(chaveCaso)!;
     const primeira = linhas[0]!.dados;
-    const moeda = texto(primeira.moeda) ?? "BRL";
+    const moeda = moedaValida(texto(primeira.moeda)) ?? "BRL";
 
     const itens: ItemFatura[] = linhas.map(({ tipo, dados }) => {
       const valor = numero(dados.valor) ?? 0;
-      const moedaItem = texto(dados.moeda) ?? moeda;
+      const moedaItem = moedaValida(texto(dados.moeda)) ?? moeda;
       const paragrafo =
         tipo === "Honorários"
           ? paragrafoHonorarios(valor, moedaItem, texto(dados.tipoPagamento))
