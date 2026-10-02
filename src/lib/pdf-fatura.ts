@@ -65,22 +65,49 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
   const colDireitaX = MARGIN + colEsquerdaW + gap;
   const colDireitaW = larguraUtil - colEsquerdaW - gap;
 
-  let yEsq = 124;
-  p.text("DESTINATÁRIO", MARGIN, yEsq, 7, { color: CORES.muted });
-  yEsq += 13;
+  // Mede as duas colunas antes de desenhar, pra poder centralizar
+  // verticalmente a mais curta em relação à mais alta (a BDR notou que,
+  // com o destinatário sempre bem mais curto que o bloco de metadados,
+  // ficava com um vão vazio embaixo em vez de centralizado).
   const linhasDestinatario = quebrarTexto(
     `Aos Resseguradores / Seguradores da ${nota.reu ?? "—"}`,
     colEsquerdaW,
     11,
     true,
   );
+  const linhasCorr = nota.correspondente
+    ? quebrarTexto(`A/C: ${nota.correspondente}`, colEsquerdaW, 8)
+    : [];
+  const alturaEsq =
+    13 + linhasDestinatario.length * 14 + (linhasCorr.length ? 4 + linhasCorr.length * 10 : 0);
+
+  const camposMeta: [string, string | null][] = [
+    ["Emissão", nota.invoiceData ? isoBR(nota.invoiceData) : null],
+    ["Período de referência", nota.invoicePeriodo],
+    ["Reclamante", nota.autor],
+    ["Processo", nota.processo],
+    ["Juízo", nota.juizo],
+    ["Ref. B&S", nota.bsRef],
+    ["Moeda", nota.moeda],
+  ];
+  const alturaDir = camposMeta.reduce((soma, [, valor]) => {
+    if (!valor) return soma;
+    const linhas = quebrarTexto(valor, colDireitaW - 2, 9, true);
+    return soma + Math.max(11, linhas.length * 11) + 6 + 10;
+  }, 0);
+
+  const topo = 124;
+  let yEsq = topo + Math.max(0, (alturaDir - alturaEsq) / 2);
+  let yDir = topo + Math.max(0, (alturaEsq - alturaDir) / 2);
+
+  p.text("DESTINATÁRIO", MARGIN, yEsq, 7, { color: CORES.muted });
+  yEsq += 13;
   linhasDestinatario.forEach((linha, i) => {
     p.text(linha, MARGIN, yEsq + i * 14, 11, { bold: true, color: CORES.navy });
   });
   yEsq += linhasDestinatario.length * 14;
-  if (nota.correspondente) {
+  if (linhasCorr.length) {
     yEsq += 4;
-    const linhasCorr = quebrarTexto(`A/C: ${nota.correspondente}`, colEsquerdaW, 8);
     linhasCorr.forEach((linha, i) => {
       p.text(linha, MARGIN, yEsq + i * 10, 8, { color: CORES.muted });
     });
@@ -91,7 +118,6 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
   // Reserva 2pt de folga no fim da linha (a largura agora é medida com a
   // métrica real da Helvetica, então isso é só uma margem de segurança,
   // não um ajuste pra compensar estimativa errada).
-  let yDir = 124;
   const linhaMeta = (rotulo: string, valor: string | null) => {
     if (!valor) return;
     const linhas = quebrarTexto(valor, colDireitaW - 2, 9, true);
@@ -109,13 +135,7 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
     yDir += 10;
   };
 
-  linhaMeta("Emissão", nota.invoiceData ? isoBR(nota.invoiceData) : null);
-  linhaMeta("Período de referência", nota.invoicePeriodo);
-  linhaMeta("Reclamante", nota.autor);
-  linhaMeta("Processo", nota.processo);
-  linhaMeta("Juízo", nota.juizo);
-  linhaMeta("Ref. B&S", nota.bsRef);
-  linhaMeta("Moeda", nota.moeda);
+  camposMeta.forEach(([rotulo, valor]) => linhaMeta(rotulo, valor));
 
   let y = Math.max(yEsq, yDir) + 26;
 
