@@ -96,10 +96,16 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
   // precisa de mais espaço em cima pra parecer centralizado de verdade.
   const PAD_TOPO = 13;
   const PAD_BASE = 8;
+  // Quando o valor cabe numa linha só, rótulo e valor dividem a mesma
+  // linha (rótulo à esquerda, valor à direita). Quando quebra em mais de
+  // uma linha, a primeira linha quebrada fica quase do tamanho da coluna
+  // inteira e esbarraria no rótulo -- nesse caso o rótulo ganha uma linha
+  // própria em cima, e o valor (todas as linhas) fica embaixo.
+  const extraLinhasValor = (linhas: string[]) => (linhas.length > 1 ? linhas.length * 11 : 0);
   const alturaDir = camposMeta.reduce((soma, [, valor]) => {
     if (!valor) return soma;
     const linhas = quebrarTexto(valor, colDireitaW - 2, 9, true);
-    return soma + (linhas.length - 1) * 11 + PAD_BASE + PAD_TOPO;
+    return soma + extraLinhasValor(linhas) + PAD_BASE + PAD_TOPO;
   }, 0);
 
   const topo = 124;
@@ -120,22 +126,33 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
     yEsq += linhasCorr.length * 10;
   }
 
-  // Direita: rótulo e valor na MESMA linha, com divisória fina embaixo.
-  // Reserva 2pt de folga no fim da linha (a largura agora é medida com a
-  // métrica real da Helvetica, então isso é só uma margem de segurança,
-  // não um ajuste pra compensar estimativa errada).
+  // Direita: rótulo e valor na MESMA linha quando o valor cabe numa linha
+  // só. Reserva 2pt de folga no fim da linha (a largura agora é medida
+  // com a métrica real da Helvetica, então isso é só uma margem de
+  // segurança, não um ajuste pra compensar estimativa errada).
   const linhaMeta = (rotulo: string, valor: string | null) => {
     if (!valor) return;
     const linhas = quebrarTexto(valor, colDireitaW - 2, 9, true);
     p.text(rotulo, colDireitaX, yDir, 8, { color: CORES.muted });
-    linhas.forEach((linha, i) => {
-      p.text(linha, colDireitaX + colDireitaW, yDir + i * 11, 9, {
+    if (linhas.length === 1) {
+      p.text(linhas[0]!, colDireitaX + colDireitaW, yDir, 9, {
         bold: true,
         color: CORES.text,
         align: "right",
       });
-    });
-    yDir += (linhas.length - 1) * 11 + PAD_BASE;
+    } else {
+      // Não cabe numa linha: a primeira linha quebrada ficaria quase do
+      // tamanho da coluna inteira e esbarraria no rótulo, então o valor
+      // desce pra uma linha própria embaixo do rótulo.
+      linhas.forEach((linha, i) => {
+        p.text(linha, colDireitaX + colDireitaW, yDir + 11 + i * 11, 9, {
+          bold: true,
+          color: CORES.text,
+          align: "right",
+        });
+      });
+    }
+    yDir += extraLinhasValor(linhas) + PAD_BASE;
     p.stroke(CORES.border);
     p.line(colDireitaX, yDir, colDireitaX + colDireitaW, yDir);
     yDir += PAD_TOPO;

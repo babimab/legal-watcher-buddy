@@ -60,9 +60,24 @@ function texto(valor: unknown): string | null {
   return s === "" || s.toLowerCase() === "nan" ? null : s;
 }
 
+// Aceita número puro (célula numérica normal) ou texto com símbolo de
+// moeda misturado (ex.: "U$ 58", "R$ 1.200,00") -- vi célula assim numa
+// planilha real, com o valor preso dentro de um texto em vez de número.
 function numero(valor: unknown): number | null {
   if (valor == null || valor === "") return null;
-  const n = typeof valor === "number" ? valor : Number(String(valor).replace(",", "."));
+  if (typeof valor === "number") return Number.isFinite(valor) ? valor : null;
+  let s = String(valor)
+    .trim()
+    .replace(/[^\d.,-]/g, "");
+  if (!s) return null;
+  const ultimaVirgula = s.lastIndexOf(",");
+  const ultimoPonto = s.lastIndexOf(".");
+  if (ultimaVirgula !== -1 && ultimoPonto !== -1) {
+    s = ultimaVirgula > ultimoPonto ? s.replace(/\./g, "").replace(",", ".") : s.replace(/,/g, "");
+  } else if (ultimaVirgula !== -1) {
+    s = s.replace(",", ".");
+  }
+  const n = Number(s);
   return Number.isFinite(n) ? n : null;
 }
 
