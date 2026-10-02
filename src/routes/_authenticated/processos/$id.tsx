@@ -338,7 +338,15 @@ function ProcessoDetalhe() {
             variant="outline"
             type="button"
             onClick={() =>
-              window.open(link.url, "_blank", "noopener,noreferrer,width=1280,height=900")
+              // Nome fixo (não "_blank") pra reaproveitar a mesma janela a
+              // cada clique -- "_blank" sempre cria uma janela nova, então
+              // a posição que a pessoa arrastou pra segunda tela se
+              // perderia a cada busca.
+              window.open(
+                link.url,
+                "farolex_consulta_externa",
+                "noopener,noreferrer,width=1280,height=900",
+              )
             }
           >
             <ExternalLink className="size-4" /> {link.rotulo}
