@@ -22,10 +22,11 @@ export const ROTULO_CAMPO_HISTORICO: Record<string, string> = {
   pronto_para_encerrar: "Pronto para encerrar",
   decisoes_no_ld: "Decisões no LD",
   valor_encerramento: "Valor de encerramento",
+  valor_causa: "Valor da causa",
 };
 
 const CAMPOS_BOOLEANOS = new Set(["pronto_para_encerrar", "decisoes_no_ld"]);
-const CAMPOS_MOEDA = new Set(["valor_encerramento"]);
+const CAMPOS_MOEDA = new Set(["valor_encerramento", "valor_causa"]);
 
 export function formatarValorHistorico(campo: string, valor: string | null): string {
   if (valor == null) return "—";

@@ -9,12 +9,14 @@ import {
   CheckCircle2,
   Copy,
   Download,
+  List,
   Mail,
   Play,
 } from "lucide-react";
 import ExcelJS from "exceljs";
 
 import { Button } from "@/components/ui/button";
+import { AgendaPrazos } from "@/components/AgendaPrazos";
 import { NovoPrazoDialog } from "@/components/NovoPrazoDialog";
 import { EncerramentoDialog } from "@/components/EncerramentoDialog";
 import { PendenciaBaixaDialog } from "@/components/PendenciaBaixaDialog";
@@ -643,6 +645,7 @@ function RelatorioPage() {
   const [urgencia, setUrgencia] = useState(search.urgencia ?? "todos");
   const [pastaSelecionada, setPastaSelecionada] = useState(search.pasta ?? "todas");
   const [socioSelecionado, setSocioSelecionado] = useState(search.socio ?? "todos");
+  const [visaoPrazos, setVisaoPrazos] = useState<"lista" | "agenda">("lista");
   const [soProntos, setSoProntos] = useState(false);
   const [ufEncerramento, setUfEncerramento] = useState("todos");
   const [estagiarioEncerramento, setEstagiarioEncerramento] = useState("todos");
@@ -1234,18 +1237,40 @@ function RelatorioPage() {
             <h2 className="font-serif text-xl font-semibold">
               Prazos ({pendenciasFiltradas.length})
             </h2>
-            <Link
-              to="/relatorio"
-              search={{
-                aba: "novidades",
-                advogado,
-                pasta: pastaSelecionada,
-                socio: socioSelecionado,
-              }}
-              className="text-sm text-primary underline-offset-4 hover:underline"
-            >
-              Ver relatório de andamentos
-            </Link>
+            <div className="flex items-center gap-2">
+              <div className="flex overflow-hidden rounded-md border">
+                <Button
+                  type="button"
+                  variant={visaoPrazos === "lista" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="rounded-none"
+                  onClick={() => setVisaoPrazos("lista")}
+                >
+                  <List className="size-4" /> Lista
+                </Button>
+                <Button
+                  type="button"
+                  variant={visaoPrazos === "agenda" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="rounded-none"
+                  onClick={() => setVisaoPrazos("agenda")}
+                >
+                  <CalendarRange className="size-4" /> Agenda
+                </Button>
+              </div>
+              <Link
+                to="/relatorio"
+                search={{
+                  aba: "novidades",
+                  advogado,
+                  pasta: pastaSelecionada,
+                  socio: socioSelecionado,
+                }}
+                className="text-sm text-primary underline-offset-4 hover:underline"
+              >
+                Ver relatório de andamentos
+              </Link>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -1312,7 +1337,11 @@ function RelatorioPage() {
             </Button>
           </div>
 
-          <Lista itens={pendenciasFiltradas} vazio="Nenhuma providência em aberto." destaque />
+          {visaoPrazos === "agenda" ? (
+            <AgendaPrazos itens={pendenciasFiltradas} />
+          ) : (
+            <Lista itens={pendenciasFiltradas} vazio="Nenhuma providência em aberto." destaque />
+          )}
         </>
       ) : aba === "encerramento" ? (
         <>
