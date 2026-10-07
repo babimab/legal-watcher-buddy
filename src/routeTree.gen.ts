@@ -17,6 +17,7 @@ import { Route as AuthenticatedBaixasClienteRouteImport } from './routes/_authen
 import { Route as AuthenticatedCaixaEntradaRouteImport } from './routes/_authenticated/caixa-entrada'
 import { Route as AuthenticatedCalculosRouteImport } from './routes/_authenticated/calculos'
 import { Route as AuthenticatedCitacoesRouteImport } from './routes/_authenticated/citacoes'
+import { Route as AuthenticatedDocsRepresentacaoRouteImport } from './routes/_authenticated/docs-representacao'
 import { Route as AuthenticatedFaturaRouteImport } from './routes/_authenticated/fatura'
 import { Route as AuthenticatedGruposRouteImport } from './routes/_authenticated/grupos'
 import { Route as AuthenticatedImportarRouteImport } from './routes/_authenticated/importar'
@@ -73,6 +74,12 @@ const AuthenticatedCitacoesRoute = AuthenticatedCitacoesRouteImport.update({
   path: '/citacoes',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDocsRepresentacaoRoute =
+  AuthenticatedDocsRepresentacaoRouteImport.update({
+    id: '/docs-representacao',
+    path: '/docs-representacao',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedFaturaRoute = AuthenticatedFaturaRouteImport.update({
   id: '/fatura',
   path: '/fatura',
@@ -153,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/caixa-entrada': typeof AuthenticatedCaixaEntradaRoute
   '/calculos': typeof AuthenticatedCalculosRoute
   '/citacoes': typeof AuthenticatedCitacoesRoute
+  '/docs-representacao': typeof AuthenticatedDocsRepresentacaoRoute
   '/fatura': typeof AuthenticatedFaturaRoute
   '/grupos': typeof AuthenticatedGruposRoute
   '/importar': typeof AuthenticatedImportarRoute
@@ -175,6 +183,7 @@ export interface FileRoutesByTo {
   '/caixa-entrada': typeof AuthenticatedCaixaEntradaRoute
   '/calculos': typeof AuthenticatedCalculosRoute
   '/citacoes': typeof AuthenticatedCitacoesRoute
+  '/docs-representacao': typeof AuthenticatedDocsRepresentacaoRoute
   '/fatura': typeof AuthenticatedFaturaRoute
   '/grupos': typeof AuthenticatedGruposRoute
   '/importar': typeof AuthenticatedImportarRoute
@@ -199,6 +208,7 @@ export interface FileRoutesById {
   '/_authenticated/caixa-entrada': typeof AuthenticatedCaixaEntradaRoute
   '/_authenticated/calculos': typeof AuthenticatedCalculosRoute
   '/_authenticated/citacoes': typeof AuthenticatedCitacoesRoute
+  '/_authenticated/docs-representacao': typeof AuthenticatedDocsRepresentacaoRoute
   '/_authenticated/fatura': typeof AuthenticatedFaturaRoute
   '/_authenticated/grupos': typeof AuthenticatedGruposRoute
   '/_authenticated/importar': typeof AuthenticatedImportarRoute
@@ -223,6 +233,7 @@ export interface FileRouteTypes {
     | '/caixa-entrada'
     | '/calculos'
     | '/citacoes'
+    | '/docs-representacao'
     | '/fatura'
     | '/grupos'
     | '/importar'
@@ -245,6 +256,7 @@ export interface FileRouteTypes {
     | '/caixa-entrada'
     | '/calculos'
     | '/citacoes'
+    | '/docs-representacao'
     | '/fatura'
     | '/grupos'
     | '/importar'
@@ -268,6 +280,7 @@ export interface FileRouteTypes {
     | '/_authenticated/caixa-entrada'
     | '/_authenticated/calculos'
     | '/_authenticated/citacoes'
+    | '/_authenticated/docs-representacao'
     | '/_authenticated/fatura'
     | '/_authenticated/grupos'
     | '/_authenticated/importar'
@@ -346,6 +359,13 @@ declare module '@tanstack/react-router' {
       path: '/citacoes'
       fullPath: '/citacoes'
       preLoaderRoute: typeof AuthenticatedCitacoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/docs-representacao': {
+      id: '/_authenticated/docs-representacao'
+      path: '/docs-representacao'
+      fullPath: '/docs-representacao'
+      preLoaderRoute: typeof AuthenticatedDocsRepresentacaoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/fatura': {
@@ -448,6 +468,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCaixaEntradaRoute: typeof AuthenticatedCaixaEntradaRoute
   AuthenticatedCalculosRoute: typeof AuthenticatedCalculosRoute
   AuthenticatedCitacoesRoute: typeof AuthenticatedCitacoesRoute
+  AuthenticatedDocsRepresentacaoRoute: typeof AuthenticatedDocsRepresentacaoRoute
   AuthenticatedFaturaRoute: typeof AuthenticatedFaturaRoute
   AuthenticatedGruposRoute: typeof AuthenticatedGruposRoute
   AuthenticatedImportarRoute: typeof AuthenticatedImportarRoute
@@ -468,6 +489,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCaixaEntradaRoute: AuthenticatedCaixaEntradaRoute,
   AuthenticatedCalculosRoute: AuthenticatedCalculosRoute,
   AuthenticatedCitacoesRoute: AuthenticatedCitacoesRoute,
+  AuthenticatedDocsRepresentacaoRoute: AuthenticatedDocsRepresentacaoRoute,
   AuthenticatedFaturaRoute: AuthenticatedFaturaRoute,
   AuthenticatedGruposRoute: AuthenticatedGruposRoute,
   AuthenticatedImportarRoute: AuthenticatedImportarRoute,
