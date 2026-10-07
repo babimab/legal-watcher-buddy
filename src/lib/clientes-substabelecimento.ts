@@ -12,8 +12,9 @@ import type { ClienteSubstabelecimento } from "@/lib/substabelecimento";
 
 const BUCKET = "assinaturas-substabelecimento";
 const BUCKET_PROCURACAO = "procuracoes-clientes";
+const BUCKET_CARTA_PREPOSICAO = "cartas-preposicao-clientes";
 const TAMANHO_MAX_ASSINATURA = 5 * 1024 * 1024;
-const TAMANHO_MAX_PROCURACAO = 20 * 1024 * 1024;
+const TAMANHO_MAX_PDF = 20 * 1024 * 1024;
 
 type LinhaCliente = {
   id: string;
@@ -24,6 +25,8 @@ type LinhaCliente = {
   assinatura_caminho: string | null;
   procuracao_caminho: string | null;
   procuracao_nome_arquivo: string | null;
+  carta_preposicao_caminho: string | null;
+  carta_preposicao_nome_arquivo: string | null;
 };
 
 function mapearCliente(linha: LinhaCliente): ClienteSubstabelecimento {
@@ -36,8 +39,74 @@ function mapearCliente(linha: LinhaCliente): ClienteSubstabelecimento {
     assinaturaCaminho: linha.assinatura_caminho,
     procuracaoCaminho: linha.procuracao_caminho,
     procuracaoNomeArquivo: linha.procuracao_nome_arquivo,
+    cartaPreposicaoCaminho: linha.carta_preposicao_caminho,
+    cartaPreposicaoNomeArquivo: linha.carta_preposicao_nome_arquivo,
   };
 }
+
+// Fábrica de enviar/remover/baixar pra "um PDF só, só a versão atual"
+// por cliente -- mesmo padrão pra procuração e carta de preposição
+// modelo, só muda o bucket e as colunas.
+function criarGerenciadorPdfCliente(
+  bucket: string,
+  colunaCaminho: string,
+  colunaNomeArquivo: string,
+  obterCaminhoAtual: (c: ClienteSubstabelecimento) => string | null,
+) {
+  async function enviar(cliente: ClienteSubstabelecimento, arquivo: File): Promise<void> {
+    if (arquivo.size > TAMANHO_MAX_PDF) throw new Error("Arquivo muito grande (máximo 20 MB).");
+    if (arquivo.type !== "application/pdf") throw new Error("Envie um arquivo PDF.");
+
+    const caminho = `${cliente.id}/${crypto.randomUUID()}-${arquivo.name}`;
+    const { error: erroUpload } = await supabase.storage.from(bucket).upload(caminho, arquivo);
+    if (erroUpload) throw erroUpload;
+
+    const { error: erroUpdate } = await supabaseSolto
+      .from("clientes_substabelecimento")
+      .update({ [colunaCaminho]: caminho, [colunaNomeArquivo]: arquivo.name })
+      .eq("id", cliente.id);
+    if (erroUpdate) {
+      await supabase.storage.from(bucket).remove([caminho]);
+      throw erroUpdate;
+    }
+
+    const anterior = obterCaminhoAtual(cliente);
+    if (anterior) await supabase.storage.from(bucket).remove([anterior]);
+  }
+
+  async function remover(cliente: ClienteSubstabelecimento): Promise<void> {
+    const { error } = await supabaseSolto
+      .from("clientes_substabelecimento")
+      .update({ [colunaCaminho]: null, [colunaNomeArquivo]: null })
+      .eq("id", cliente.id);
+    if (error) throw error;
+    const anterior = obterCaminhoAtual(cliente);
+    if (anterior) await supabase.storage.from(bucket).remove([anterior]);
+  }
+
+  async function baixar(cliente: ClienteSubstabelecimento): Promise<void> {
+    const caminho = obterCaminhoAtual(cliente);
+    if (!caminho) return;
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(caminho, 60);
+    if (error) throw error;
+    window.open(data.signedUrl, "_blank");
+  }
+
+  return { enviar, remover, baixar };
+}
+
+const gerenciadorProcuracao = criarGerenciadorPdfCliente(
+  BUCKET_PROCURACAO,
+  "procuracao_caminho",
+  "procuracao_nome_arquivo",
+  (c) => c.procuracaoCaminho,
+);
+const gerenciadorCartaPreposicao = criarGerenciadorPdfCliente(
+  BUCKET_CARTA_PREPOSICAO,
+  "carta_preposicao_caminho",
+  "carta_preposicao_nome_arquivo",
+  (c) => c.cartaPreposicaoCaminho,
+);
 
 function slugificar(nome: string): string {
   return nome
@@ -149,6 +218,9 @@ export async function excluirClienteSubstabelecimento(
   if (cliente.procuracaoCaminho) {
     await supabase.storage.from(BUCKET_PROCURACAO).remove([cliente.procuracaoCaminho]);
   }
+  if (cliente.cartaPreposicaoCaminho) {
+    await supabase.storage.from(BUCKET_CARTA_PREPOSICAO).remove([cliente.cartaPreposicaoCaminho]);
+  }
 }
 
 export async function obterUrlAssinaturaCliente(caminho: string): Promise<string> {
@@ -157,55 +229,12 @@ export async function obterUrlAssinaturaCliente(caminho: string): Promise<string
   return data.signedUrl;
 }
 
-// Só guarda a versão atual: subir uma nova procuração substitui a
-// anterior (sem manter histórico).
-export async function enviarProcuracaoCliente(
-  cliente: ClienteSubstabelecimento,
-  arquivo: File,
-): Promise<void> {
-  if (arquivo.size > TAMANHO_MAX_PROCURACAO) {
-    throw new Error("Arquivo muito grande (máximo 20 MB).");
-  }
-  if (arquivo.type !== "application/pdf") {
-    throw new Error("Envie um arquivo PDF.");
-  }
+// Só guarda a versão atual: subir um novo arquivo substitui o anterior
+// (sem manter histórico).
+export const enviarProcuracaoCliente = gerenciadorProcuracao.enviar;
+export const removerProcuracaoCliente = gerenciadorProcuracao.remover;
+export const baixarProcuracaoCliente = gerenciadorProcuracao.baixar;
 
-  const caminho = `${cliente.id}/${crypto.randomUUID()}-${arquivo.name}`;
-  const { error: erroUpload } = await supabase.storage
-    .from(BUCKET_PROCURACAO)
-    .upload(caminho, arquivo);
-  if (erroUpload) throw erroUpload;
-
-  const { error: erroUpdate } = await supabaseSolto
-    .from("clientes_substabelecimento")
-    .update({ procuracao_caminho: caminho, procuracao_nome_arquivo: arquivo.name })
-    .eq("id", cliente.id);
-  if (erroUpdate) {
-    await supabase.storage.from(BUCKET_PROCURACAO).remove([caminho]);
-    throw erroUpdate;
-  }
-
-  if (cliente.procuracaoCaminho) {
-    await supabase.storage.from(BUCKET_PROCURACAO).remove([cliente.procuracaoCaminho]);
-  }
-}
-
-export async function removerProcuracaoCliente(cliente: ClienteSubstabelecimento): Promise<void> {
-  const { error } = await supabaseSolto
-    .from("clientes_substabelecimento")
-    .update({ procuracao_caminho: null, procuracao_nome_arquivo: null })
-    .eq("id", cliente.id);
-  if (error) throw error;
-  if (cliente.procuracaoCaminho) {
-    await supabase.storage.from(BUCKET_PROCURACAO).remove([cliente.procuracaoCaminho]);
-  }
-}
-
-export async function baixarProcuracaoCliente(cliente: ClienteSubstabelecimento): Promise<void> {
-  if (!cliente.procuracaoCaminho) return;
-  const { data, error } = await supabase.storage
-    .from(BUCKET_PROCURACAO)
-    .createSignedUrl(cliente.procuracaoCaminho, 60);
-  if (error) throw error;
-  window.open(data.signedUrl, "_blank");
-}
+export const enviarCartaPreposicaoModeloCliente = gerenciadorCartaPreposicao.enviar;
+export const removerCartaPreposicaoModeloCliente = gerenciadorCartaPreposicao.remover;
+export const baixarCartaPreposicaoModeloCliente = gerenciadorCartaPreposicao.baixar;

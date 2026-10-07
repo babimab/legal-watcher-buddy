@@ -52,13 +52,16 @@ import {
 } from "@/lib/carta-preposicao";
 import {
   atualizarClienteSubstabelecimento,
+  baixarCartaPreposicaoModeloCliente,
   baixarProcuracaoCliente,
   criarClienteSubstabelecimento,
   enviarAssinaturaCliente,
+  enviarCartaPreposicaoModeloCliente,
   enviarProcuracaoCliente,
   excluirClienteSubstabelecimento,
   listarClientesSubstabelecimento,
   removerAssinaturaCliente,
+  removerCartaPreposicaoModeloCliente,
   removerProcuracaoCliente,
 } from "@/lib/clientes-substabelecimento";
 import {
@@ -920,6 +923,7 @@ function GerenciarClientesDialog({
   const [editando, setEditando] = useState<ClienteSubstabelecimento | null>(null);
   const [assinaturaDe, setAssinaturaDe] = useState<ClienteSubstabelecimento | null>(null);
   const [procuracaoDe, setProcuracaoDe] = useState<ClienteSubstabelecimento | null>(null);
+  const [cartaModeloDe, setCartaModeloDe] = useState<ClienteSubstabelecimento | null>(null);
   const [excluindo, setExcluindo] = useState<ClienteSubstabelecimento | null>(null);
 
   const criar = async () => {
@@ -1011,9 +1015,14 @@ function GerenciarClientesDialog({
                         ) : (
                           <Badge variant="secondary">Sem procuração</Badge>
                         )}
+                        {c.cartaPreposicaoCaminho ? (
+                          <Badge variant="outline">Modelo de carta cadastrado</Badge>
+                        ) : (
+                          <Badge variant="secondary">Sem modelo de carta</Badge>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex flex-wrap items-center gap-1">
                       <Button
                         type="button"
                         variant="outline"
@@ -1037,6 +1046,14 @@ function GerenciarClientesDialog({
                         onClick={() => setProcuracaoDe(c)}
                       >
                         Procuração
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCartaModeloDe(c)}
+                      >
+                        Carta de Preposição
                       </Button>
                       <Button
                         type="button"
@@ -1089,8 +1106,14 @@ function GerenciarClientesDialog({
       <Dialog open={procuracaoDe != null} onOpenChange={(v) => !v && setProcuracaoDe(null)}>
         <DialogContent className="max-w-md">
           {procuracaoDe ? (
-            <EditorProcuracao
-              cliente={procuracaoDe}
+            <EditorPdfCliente
+              titulo={`Procuração de ${procuracaoDe.nome}`}
+              descricao="Guarda só a versão atual — subir um novo arquivo substitui o anterior. Fica guardado de forma privada, visível só pra quem acessa Docs de Representação."
+              caminhoAtual={procuracaoDe.procuracaoCaminho}
+              nomeArquivoAtual={procuracaoDe.procuracaoNomeArquivo}
+              onEnviar={(arquivo) => enviarProcuracaoCliente(procuracaoDe, arquivo)}
+              onRemover={() => removerProcuracaoCliente(procuracaoDe)}
+              onBaixar={() => baixarProcuracaoCliente(procuracaoDe)}
               onSalvar={() => {
                 setProcuracaoDe(null);
                 onChanged();
@@ -1101,13 +1124,34 @@ function GerenciarClientesDialog({
         </DialogContent>
       </Dialog>
 
+      <Dialog open={cartaModeloDe != null} onOpenChange={(v) => !v && setCartaModeloDe(null)}>
+        <DialogContent className="max-w-md">
+          {cartaModeloDe ? (
+            <EditorPdfCliente
+              titulo={`Carta de Preposição (modelo) de ${cartaModeloDe.nome}`}
+              descricao="PDF já pronto, pra quando não precisar passar pela planilha. Guarda só a versão atual — subir um novo arquivo substitui o anterior."
+              caminhoAtual={cartaModeloDe.cartaPreposicaoCaminho}
+              nomeArquivoAtual={cartaModeloDe.cartaPreposicaoNomeArquivo}
+              onEnviar={(arquivo) => enviarCartaPreposicaoModeloCliente(cartaModeloDe, arquivo)}
+              onRemover={() => removerCartaPreposicaoModeloCliente(cartaModeloDe)}
+              onBaixar={() => baixarCartaPreposicaoModeloCliente(cartaModeloDe)}
+              onSalvar={() => {
+                setCartaModeloDe(null);
+                onChanged();
+              }}
+              onCancelar={() => setCartaModeloDe(null)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={excluindo != null} onOpenChange={(v) => !v && setExcluindo(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir {excluindo?.nome}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Isso apaga o cadastro, a assinatura e a procuração desse cliente (se tiver). Não afeta
-              documentos já baixados.
+              Isso apaga o cadastro e os arquivos desse cliente (assinatura, procuração e modelo de
+              carta, se tiver). Não afeta documentos já baixados.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1289,12 +1333,27 @@ function EditorAssinatura({
   );
 }
 
-function EditorProcuracao({
-  cliente,
+// Editor genérico pra "um PDF só, só a versão atual" vinculado a um
+// cliente -- usado tanto pra procuração quanto pro modelo de carta de
+// preposição (mesmo comportamento, só muda o texto e as funções).
+function EditorPdfCliente({
+  titulo,
+  descricao,
+  caminhoAtual,
+  nomeArquivoAtual,
+  onEnviar,
+  onRemover,
+  onBaixar,
   onSalvar,
   onCancelar,
 }: {
-  cliente: ClienteSubstabelecimento;
+  titulo: string;
+  descricao: string;
+  caminhoAtual: string | null;
+  nomeArquivoAtual: string | null;
+  onEnviar: (arquivo: File) => Promise<void>;
+  onRemover: () => Promise<void>;
+  onBaixar: () => Promise<void>;
   onSalvar: () => void;
   onCancelar: () => void;
 }) {
@@ -1310,12 +1369,12 @@ function EditorProcuracao({
     }
     setEnviando(true);
     try {
-      await enviarProcuracaoCliente(cliente, arquivo);
-      toast.success("Procuração salva.");
+      await onEnviar(arquivo);
+      toast.success("Arquivo salvo.");
       onSalvar();
     } catch (e) {
       const detalhe = e instanceof Error ? e.message : String(e);
-      toast.error(`Não consegui salvar a procuração: ${detalhe}`);
+      toast.error(`Não consegui salvar o arquivo: ${detalhe}`);
     } finally {
       setEnviando(false);
     }
@@ -1324,12 +1383,12 @@ function EditorProcuracao({
   const remover = async () => {
     setRemovendo(true);
     try {
-      await removerProcuracaoCliente(cliente);
-      toast.success("Procuração removida.");
+      await onRemover();
+      toast.success("Arquivo removido.");
       onSalvar();
     } catch (e) {
-      console.error("Erro ao remover procuração:", e);
-      toast.error("Não consegui remover a procuração.");
+      console.error("Erro ao remover arquivo do cliente:", e);
+      toast.error("Não consegui remover o arquivo.");
     } finally {
       setRemovendo(false);
     }
@@ -1338,10 +1397,10 @@ function EditorProcuracao({
   const baixar = async () => {
     setBaixando(true);
     try {
-      await baixarProcuracaoCliente(cliente);
+      await onBaixar();
     } catch (e) {
-      console.error("Erro ao baixar procuração:", e);
-      toast.error("Não consegui abrir a procuração.");
+      console.error("Erro ao baixar arquivo do cliente:", e);
+      toast.error("Não consegui abrir o arquivo.");
     } finally {
       setBaixando(false);
     }
@@ -1350,18 +1409,13 @@ function EditorProcuracao({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Procuração de {cliente.nome}</DialogTitle>
-        <DialogDescription>
-          Guarda só a versão atual — subir um novo arquivo substitui o anterior. Fica guardado de
-          forma privada, visível só pra quem acessa Docs de Representação.
-        </DialogDescription>
+        <DialogTitle>{titulo}</DialogTitle>
+        <DialogDescription>{descricao}</DialogDescription>
       </DialogHeader>
       <div className="space-y-3">
-        {cliente.procuracaoCaminho ? (
+        {caminhoAtual ? (
           <div className="flex flex-wrap items-center gap-2 rounded-md border border-border p-2 text-sm">
-            <span className="min-w-0 flex-1 truncate">
-              {cliente.procuracaoNomeArquivo ?? "procuracao.pdf"}
-            </span>
+            <span className="min-w-0 flex-1 truncate">{nomeArquivoAtual ?? "arquivo.pdf"}</span>
             <Button
               type="button"
               variant="outline"
@@ -1374,17 +1428,17 @@ function EditorProcuracao({
           </div>
         ) : null}
         <div className="space-y-1">
-          <Label htmlFor="procuracao-arquivo">
-            {cliente.procuracaoCaminho ? "Substituir por outro PDF" : "Arquivo PDF"}
+          <Label htmlFor="pdf-cliente-arquivo">
+            {caminhoAtual ? "Substituir por outro PDF" : "Arquivo PDF"}
           </Label>
           <Input
-            id="procuracao-arquivo"
+            id="pdf-cliente-arquivo"
             type="file"
             accept="application/pdf"
             onChange={(e) => setArquivo(e.target.files?.[0] ?? null)}
           />
         </div>
-        {cliente.procuracaoCaminho ? (
+        {caminhoAtual ? (
           <Button
             type="button"
             variant="outline"
@@ -1392,7 +1446,7 @@ function EditorProcuracao({
             onClick={() => void remover()}
             disabled={removendo}
           >
-            {removendo ? "Removendo..." : "Remover procuração atual"}
+            {removendo ? "Removendo..." : "Remover arquivo atual"}
           </Button>
         ) : null}
       </div>
@@ -1401,7 +1455,7 @@ function EditorProcuracao({
           Cancelar
         </Button>
         <Button type="button" onClick={() => void enviar()} disabled={enviando}>
-          {enviando ? "Enviando..." : "Salvar procuração"}
+          {enviando ? "Enviando..." : "Salvar"}
         </Button>
       </DialogFooter>
     </>

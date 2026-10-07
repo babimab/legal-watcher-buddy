@@ -28,6 +28,11 @@ export type ClienteSubstabelecimento = {
   // é mantida, subir uma nova substitui a anterior.
   procuracaoCaminho: string | null;
   procuracaoNomeArquivo: string | null;
+  // Carta de preposição "modelo pronto" (PDF) -- além do gerador
+  // dinâmico (planilha -> PDF), alguns clientes preferem só anexar uma
+  // carta fixa. Mesmo padrão da procuração: só a versão atual.
+  cartaPreposicaoCaminho: string | null;
+  cartaPreposicaoNomeArquivo: string | null;
 };
 
 export type ItemSubstabelecimento = {
