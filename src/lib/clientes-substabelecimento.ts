@@ -11,7 +11,9 @@ import type { ClienteSubstabelecimento } from "@/lib/substabelecimento";
 // o arquivo por aqui.
 
 const BUCKET = "assinaturas-substabelecimento";
+const BUCKET_PROCURACAO = "procuracoes-clientes";
 const TAMANHO_MAX_ASSINATURA = 5 * 1024 * 1024;
+const TAMANHO_MAX_PROCURACAO = 20 * 1024 * 1024;
 
 type LinhaCliente = {
   id: string;
@@ -20,6 +22,8 @@ type LinhaCliente = {
   assinante_nome: string | null;
   assinante_oab: string | null;
   assinatura_caminho: string | null;
+  procuracao_caminho: string | null;
+  procuracao_nome_arquivo: string | null;
 };
 
 function mapearCliente(linha: LinhaCliente): ClienteSubstabelecimento {
@@ -30,6 +34,8 @@ function mapearCliente(linha: LinhaCliente): ClienteSubstabelecimento {
     assinanteNome: linha.assinante_nome,
     assinanteOab: linha.assinante_oab,
     assinaturaCaminho: linha.assinatura_caminho,
+    procuracaoCaminho: linha.procuracao_caminho,
+    procuracaoNomeArquivo: linha.procuracao_nome_arquivo,
   };
 }
 
@@ -140,10 +146,66 @@ export async function excluirClienteSubstabelecimento(
   if (cliente.assinaturaCaminho) {
     await supabase.storage.from(BUCKET).remove([cliente.assinaturaCaminho]);
   }
+  if (cliente.procuracaoCaminho) {
+    await supabase.storage.from(BUCKET_PROCURACAO).remove([cliente.procuracaoCaminho]);
+  }
 }
 
 export async function obterUrlAssinaturaCliente(caminho: string): Promise<string> {
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(caminho, 300);
   if (error) throw error;
   return data.signedUrl;
+}
+
+// Só guarda a versão atual: subir uma nova procuração substitui a
+// anterior (sem manter histórico).
+export async function enviarProcuracaoCliente(
+  cliente: ClienteSubstabelecimento,
+  arquivo: File,
+): Promise<void> {
+  if (arquivo.size > TAMANHO_MAX_PROCURACAO) {
+    throw new Error("Arquivo muito grande (máximo 20 MB).");
+  }
+  if (arquivo.type !== "application/pdf") {
+    throw new Error("Envie um arquivo PDF.");
+  }
+
+  const caminho = `${cliente.id}/${crypto.randomUUID()}-${arquivo.name}`;
+  const { error: erroUpload } = await supabase.storage
+    .from(BUCKET_PROCURACAO)
+    .upload(caminho, arquivo);
+  if (erroUpload) throw erroUpload;
+
+  const { error: erroUpdate } = await supabaseSolto
+    .from("clientes_substabelecimento")
+    .update({ procuracao_caminho: caminho, procuracao_nome_arquivo: arquivo.name })
+    .eq("id", cliente.id);
+  if (erroUpdate) {
+    await supabase.storage.from(BUCKET_PROCURACAO).remove([caminho]);
+    throw erroUpdate;
+  }
+
+  if (cliente.procuracaoCaminho) {
+    await supabase.storage.from(BUCKET_PROCURACAO).remove([cliente.procuracaoCaminho]);
+  }
+}
+
+export async function removerProcuracaoCliente(cliente: ClienteSubstabelecimento): Promise<void> {
+  const { error } = await supabaseSolto
+    .from("clientes_substabelecimento")
+    .update({ procuracao_caminho: null, procuracao_nome_arquivo: null })
+    .eq("id", cliente.id);
+  if (error) throw error;
+  if (cliente.procuracaoCaminho) {
+    await supabase.storage.from(BUCKET_PROCURACAO).remove([cliente.procuracaoCaminho]);
+  }
+}
+
+export async function baixarProcuracaoCliente(cliente: ClienteSubstabelecimento): Promise<void> {
+  if (!cliente.procuracaoCaminho) return;
+  const { data, error } = await supabase.storage
+    .from(BUCKET_PROCURACAO)
+    .createSignedUrl(cliente.procuracaoCaminho, 60);
+  if (error) throw error;
+  window.open(data.signedUrl, "_blank");
 }

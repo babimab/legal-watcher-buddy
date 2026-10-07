@@ -52,11 +52,14 @@ import {
 } from "@/lib/carta-preposicao";
 import {
   atualizarClienteSubstabelecimento,
+  baixarProcuracaoCliente,
   criarClienteSubstabelecimento,
   enviarAssinaturaCliente,
+  enviarProcuracaoCliente,
   excluirClienteSubstabelecimento,
   listarClientesSubstabelecimento,
   removerAssinaturaCliente,
+  removerProcuracaoCliente,
 } from "@/lib/clientes-substabelecimento";
 import {
   gerarEBaixarPdfSubstabelecimento,
@@ -916,6 +919,7 @@ function GerenciarClientesDialog({
   const [criando, setCriando] = useState(false);
   const [editando, setEditando] = useState<ClienteSubstabelecimento | null>(null);
   const [assinaturaDe, setAssinaturaDe] = useState<ClienteSubstabelecimento | null>(null);
+  const [procuracaoDe, setProcuracaoDe] = useState<ClienteSubstabelecimento | null>(null);
   const [excluindo, setExcluindo] = useState<ClienteSubstabelecimento | null>(null);
 
   const criar = async () => {
@@ -994,15 +998,20 @@ function GerenciarClientesDialog({
                     <div className="min-w-0">
                       <p className="font-medium">{c.nome}</p>
                       <p className="truncate text-xs text-muted-foreground">{c.textoOutorgante}</p>
-                      {c.assinaturaCaminho ? (
-                        <Badge variant="outline" className="mt-1">
-                          Assinatura: {c.assinanteNome ?? "cadastrada"}
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="mt-1">
-                          Sem assinatura
-                        </Badge>
-                      )}
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {c.assinaturaCaminho ? (
+                          <Badge variant="outline">
+                            Assinatura: {c.assinanteNome ?? "cadastrada"}
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">Sem assinatura</Badge>
+                        )}
+                        {c.procuracaoCaminho ? (
+                          <Badge variant="outline">Procuração cadastrada</Badge>
+                        ) : (
+                          <Badge variant="secondary">Sem procuração</Badge>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-1">
                       <Button
@@ -1020,6 +1029,14 @@ function GerenciarClientesDialog({
                         onClick={() => setAssinaturaDe(c)}
                       >
                         Assinatura
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setProcuracaoDe(c)}
+                      >
+                        Procuração
                       </Button>
                       <Button
                         type="button"
@@ -1069,13 +1086,28 @@ function GerenciarClientesDialog({
         </DialogContent>
       </Dialog>
 
+      <Dialog open={procuracaoDe != null} onOpenChange={(v) => !v && setProcuracaoDe(null)}>
+        <DialogContent className="max-w-md">
+          {procuracaoDe ? (
+            <EditorProcuracao
+              cliente={procuracaoDe}
+              onSalvar={() => {
+                setProcuracaoDe(null);
+                onChanged();
+              }}
+              onCancelar={() => setProcuracaoDe(null)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={excluindo != null} onOpenChange={(v) => !v && setExcluindo(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir {excluindo?.nome}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Isso apaga o cadastro e a assinatura desse cliente (se tiver). Não afeta documentos já
-              baixados.
+              Isso apaga o cadastro, a assinatura e a procuração desse cliente (se tiver). Não afeta
+              documentos já baixados.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1251,6 +1283,125 @@ function EditorAssinatura({
         </Button>
         <Button type="button" onClick={() => void enviar()} disabled={enviando}>
           {enviando ? "Enviando..." : "Salvar assinatura"}
+        </Button>
+      </DialogFooter>
+    </>
+  );
+}
+
+function EditorProcuracao({
+  cliente,
+  onSalvar,
+  onCancelar,
+}: {
+  cliente: ClienteSubstabelecimento;
+  onSalvar: () => void;
+  onCancelar: () => void;
+}) {
+  const [arquivo, setArquivo] = useState<File | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const [removendo, setRemovendo] = useState(false);
+  const [baixando, setBaixando] = useState(false);
+
+  const enviar = async () => {
+    if (!arquivo) {
+      toast.error("Escolha um arquivo PDF.");
+      return;
+    }
+    setEnviando(true);
+    try {
+      await enviarProcuracaoCliente(cliente, arquivo);
+      toast.success("Procuração salva.");
+      onSalvar();
+    } catch (e) {
+      const detalhe = e instanceof Error ? e.message : String(e);
+      toast.error(`Não consegui salvar a procuração: ${detalhe}`);
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const remover = async () => {
+    setRemovendo(true);
+    try {
+      await removerProcuracaoCliente(cliente);
+      toast.success("Procuração removida.");
+      onSalvar();
+    } catch (e) {
+      console.error("Erro ao remover procuração:", e);
+      toast.error("Não consegui remover a procuração.");
+    } finally {
+      setRemovendo(false);
+    }
+  };
+
+  const baixar = async () => {
+    setBaixando(true);
+    try {
+      await baixarProcuracaoCliente(cliente);
+    } catch (e) {
+      console.error("Erro ao baixar procuração:", e);
+      toast.error("Não consegui abrir a procuração.");
+    } finally {
+      setBaixando(false);
+    }
+  };
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>Procuração de {cliente.nome}</DialogTitle>
+        <DialogDescription>
+          Guarda só a versão atual — subir um novo arquivo substitui o anterior. Fica guardado de
+          forma privada, visível só pra quem acessa Docs de Representação.
+        </DialogDescription>
+      </DialogHeader>
+      <div className="space-y-3">
+        {cliente.procuracaoCaminho ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-md border border-border p-2 text-sm">
+            <span className="min-w-0 flex-1 truncate">
+              {cliente.procuracaoNomeArquivo ?? "procuracao.pdf"}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void baixar()}
+              disabled={baixando}
+            >
+              {baixando ? "Abrindo..." : "Baixar"}
+            </Button>
+          </div>
+        ) : null}
+        <div className="space-y-1">
+          <Label htmlFor="procuracao-arquivo">
+            {cliente.procuracaoCaminho ? "Substituir por outro PDF" : "Arquivo PDF"}
+          </Label>
+          <Input
+            id="procuracao-arquivo"
+            type="file"
+            accept="application/pdf"
+            onChange={(e) => setArquivo(e.target.files?.[0] ?? null)}
+          />
+        </div>
+        {cliente.procuracaoCaminho ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void remover()}
+            disabled={removendo}
+          >
+            {removendo ? "Removendo..." : "Remover procuração atual"}
+          </Button>
+        ) : null}
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onCancelar}>
+          Cancelar
+        </Button>
+        <Button type="button" onClick={() => void enviar()} disabled={enviando}>
+          {enviando ? "Enviando..." : "Salvar procuração"}
         </Button>
       </DialogFooter>
     </>

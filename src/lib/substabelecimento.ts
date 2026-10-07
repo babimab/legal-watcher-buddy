@@ -24,6 +24,10 @@ export type ClienteSubstabelecimento = {
   // Caminho no bucket de assinaturas, ou null se esse cliente ainda não
   // tem assinatura cadastrada (documento sai com espaço em branco).
   assinaturaCaminho: string | null;
+  // Procuração do cliente (PDF), guardada à parte -- só a versão atual
+  // é mantida, subir uma nova substitui a anterior.
+  procuracaoCaminho: string | null;
+  procuracaoNomeArquivo: string | null;
 };
 
 export type ItemSubstabelecimento = {
