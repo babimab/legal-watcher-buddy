@@ -4,6 +4,7 @@ import {
   dataPorExtenso,
   nomeArquivoSubstabelecimento,
 } from "@/lib/substabelecimento";
+import { obterUrlAssinaturaCliente } from "@/lib/clientes-substabelecimento";
 import {
   A4_W,
   MARGIN,
@@ -224,14 +225,12 @@ function carregarLogo() {
   return logoCache;
 }
 
-const cacheAssinatura = new Map<string, Promise<ImagemPdf>>();
-function carregarAssinatura(url: string) {
-  let p = cacheAssinatura.get(url);
-  if (!p) {
-    p = imagemComoJpeg(url, CORES.white);
-    cacheAssinatura.set(url, p);
-  }
-  return p;
+// Sem cache por URL: a URL assinada do Storage muda a cada chamada
+// (token com validade curta), então reaproveitar por URL nunca ia bater.
+async function carregarAssinatura(cliente: ClienteSubstabelecimento): Promise<ImagemPdf | null> {
+  if (!cliente.assinaturaCaminho) return null;
+  const url = await obterUrlAssinaturaCliente(cliente.assinaturaCaminho);
+  return imagemComoJpeg(url, CORES.white);
 }
 
 async function construirPaginaSubstabelecimento(
@@ -308,7 +307,7 @@ export async function gerarPdfSubstabelecimento(
   item: ItemSubstabelecimento,
 ): Promise<Blob> {
   const logo = await carregarLogo();
-  const assinatura = cliente.assinante ? await carregarAssinatura(cliente.assinante.imagem) : null;
+  const assinatura = await carregarAssinatura(cliente);
   const pagina = await construirPaginaSubstabelecimento(cliente, item, logo, assinatura);
   const imagens: Record<string, ImagemPdf> = { ImLogo: logo };
   if (assinatura) imagens["ImAssinatura"] = assinatura;
@@ -328,7 +327,7 @@ export async function gerarPdfSubstabelecimentos(
   itens: ItemSubstabelecimento[],
 ): Promise<Blob> {
   const logo = await carregarLogo();
-  const assinatura = cliente.assinante ? await carregarAssinatura(cliente.assinante.imagem) : null;
+  const assinatura = await carregarAssinatura(cliente);
   const paginas = await Promise.all(
     itens.map((item) => construirPaginaSubstabelecimento(cliente, item, logo, assinatura)),
   );

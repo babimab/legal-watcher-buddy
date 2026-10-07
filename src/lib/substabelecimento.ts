@@ -1,50 +1,30 @@
 import * as XLSX from "xlsx";
 
-import assinaturaJuliaKlm from "@/assets/assinaturas/julia-reis-forain-klm.png";
-
 // Acesso restrito -- mesma trava da Fatura: esses documentos citam
 // cliente, processo e carregam a assinatura escaneada de um sócio, não é
 // pra ficar visível pra quem não precisa.
 export const SIGLAS_PERMITIDAS_REPRESENTACAO = ["LSO", "NYM", "BDR"];
 
-export type Assinante = {
-  nome: string;
-  oab: string;
-  // Imagem já inclui a assinatura escaneada + linha + nome/OAB impressos
-  // (é um recorte único, não três elementos separados).
-  imagem: string;
-};
-
+// Cadastro de cliente de substabelecimento -- vem do banco (tabela
+// clientes_substabelecimento), não mais fixo no código. A assinatura é
+// opcional e fica guardada num bucket privado (assinaturas-substabelecimento),
+// gerenciada pela própria BDR na tela de Docs de Representação. Ver
+// src/lib/clientes-substabelecimento.ts pras funções que leem/gravam
+// isso no Supabase.
 export type ClienteSubstabelecimento = {
   id: string;
   nome: string;
   // Como o cliente aparece na cláusula "os poderes que me foram
   // conferidos por ___" -- geralmente a razão social completa.
   textoOutorgante: string;
-  // Só preenchido pra cliente com assinatura autorizada guardada (ver
-  // conversa com a BDR: a assinatura de um sócio só pode ser usada nos
-  // documentos do cliente que ele está autorizado a assinar -- nunca
-  // reaproveitada pra outro cliente). Sem isso, o documento sai sem
-  // assinatura, com espaço em branco pra assinar depois.
-  assinante?: Assinante;
+  // Nome/OAB só pra exibição na tela (quem assina) -- a assinatura em
+  // si (imagem) já vem com nome/OAB impressos nela.
+  assinanteNome: string | null;
+  assinanteOab: string | null;
+  // Caminho no bucket de assinaturas, ou null se esse cliente ainda não
+  // tem assinatura cadastrada (documento sai com espaço em branco).
+  assinaturaCaminho: string | null;
 };
-
-export const CLIENTES_SUBSTABELECIMENTO: ClienteSubstabelecimento[] = [
-  {
-    id: "klm",
-    nome: "KLM",
-    textoOutorgante: "KLM – Cia Real Holandesa de Aviação",
-    assinante: {
-      nome: "Julia Reis Forain",
-      oab: "OAB/RJ 169.242",
-      imagem: assinaturaJuliaKlm,
-    },
-  },
-];
-
-export function buscarClienteSubstabelecimento(id: string): ClienteSubstabelecimento | null {
-  return CLIENTES_SUBSTABELECIMENTO.find((c) => c.id === id) ?? null;
-}
 
 export type ItemSubstabelecimento = {
   idx: number;

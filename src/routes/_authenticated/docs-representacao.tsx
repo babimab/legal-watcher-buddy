@@ -1,7 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Download, FileDown, Pencil, ScrollText, Trash2, Upload } from "lucide-react";
+import { Download, FileDown, Pencil, ScrollText, Settings, Trash2, Upload } from "lucide-react";
 
 import {
   AlertDialog,
@@ -36,14 +37,20 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  buscarClienteSubstabelecimento,
-  CLIENTES_SUBSTABELECIMENTO,
   dataPorExtenso,
   lerPlanilhaSubstabelecimento,
   SIGLAS_PERMITIDAS_REPRESENTACAO,
   type ClienteSubstabelecimento,
   type ItemSubstabelecimento,
 } from "@/lib/substabelecimento";
+import {
+  atualizarClienteSubstabelecimento,
+  criarClienteSubstabelecimento,
+  enviarAssinaturaCliente,
+  excluirClienteSubstabelecimento,
+  listarClientesSubstabelecimento,
+  removerAssinaturaCliente,
+} from "@/lib/clientes-substabelecimento";
 import {
   gerarEBaixarPdfSubstabelecimento,
   gerarPdfSubstabelecimentos,
@@ -107,7 +114,13 @@ function DocsRepresentacaoPage() {
 
 function AbaSubstabelecimento() {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [clienteId, setClienteId] = useState(CLIENTES_SUBSTABELECIMENTO[0]?.id ?? "");
+  const queryClient = useQueryClient();
+  const clientesQuery = useQuery({
+    queryKey: ["clientes-substabelecimento"],
+    queryFn: listarClientesSubstabelecimento,
+  });
+  const clientes = clientesQuery.data ?? [];
+  const [clienteId, setClienteId] = useState("");
   const [itens, setItens] = useState<ItemSubstabelecimento[]>([]);
   const [nomeArquivo, setNomeArquivo] = useState<string | null>(null);
   const [selecionados, setSelecionados] = useState<Set<number>>(new Set());
@@ -116,8 +129,17 @@ function AbaSubstabelecimento() {
   const [gerandoIdx, setGerandoIdx] = useState<number | null>(null);
   const [editando, setEditando] = useState<ItemSubstabelecimento | null>(null);
   const [apagando, setApagando] = useState<ItemSubstabelecimento | null>(null);
+  const [gerenciando, setGerenciando] = useState(false);
 
-  const cliente = buscarClienteSubstabelecimento(clienteId);
+  useEffect(() => {
+    if (!clienteId && clientesQuery.data && clientesQuery.data.length > 0) {
+      setClienteId(clientesQuery.data[0]!.id);
+    }
+  }, [clientesQuery.data, clienteId]);
+
+  const cliente = clientes.find((c) => c.id === clienteId) ?? null;
+  const recarregarClientes = () =>
+    queryClient.invalidateQueries({ queryKey: ["clientes-substabelecimento"] });
 
   const ler = async (arquivo: File) => {
     const nome = arquivo.name.toLowerCase();
@@ -225,22 +247,33 @@ function AbaSubstabelecimento() {
           <div className="flex flex-wrap items-center gap-3">
             <Select value={clienteId} onValueChange={setClienteId}>
               <SelectTrigger className="w-48">
-                <SelectValue placeholder="Cliente" />
+                <SelectValue placeholder={clientesQuery.isLoading ? "Carregando..." : "Cliente"} />
               </SelectTrigger>
               <SelectContent>
-                {CLIENTES_SUBSTABELECIMENTO.map((c) => (
+                {clientes.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.nome}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {cliente?.assinante ? (
-              <Badge variant="outline">Assinatura cadastrada: {cliente.assinante.nome}</Badge>
+            {cliente?.assinaturaCaminho ? (
+              <Badge variant="outline">
+                Assinatura cadastrada: {cliente.assinanteNome ?? "sem nome informado"}
+              </Badge>
             ) : (
               <Badge variant="secondary">Sem assinatura cadastrada — sai em branco</Badge>
             )}
+            <Button type="button" variant="ghost" size="sm" onClick={() => setGerenciando(true)}>
+              <Settings className="size-4" /> Clientes e assinaturas
+            </Button>
           </div>
+          {!clientesQuery.isLoading && clientes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nenhum cliente cadastrado ainda. Clique em "Clientes e assinaturas" pra cadastrar o
+              primeiro.
+            </p>
+          ) : null}
 
           <div className="flex flex-wrap items-center gap-3">
             <input
@@ -415,7 +448,371 @@ function AbaSubstabelecimento() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <GerenciarClientesDialog
+        open={gerenciando}
+        onOpenChange={setGerenciando}
+        clientes={clientes}
+        onChanged={recarregarClientes}
+      />
     </div>
+  );
+}
+
+function GerenciarClientesDialog({
+  open,
+  onOpenChange,
+  clientes,
+  onChanged,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  clientes: ClienteSubstabelecimento[];
+  onChanged: () => void;
+}) {
+  const [novoNome, setNovoNome] = useState("");
+  const [novoTexto, setNovoTexto] = useState("");
+  const [criando, setCriando] = useState(false);
+  const [editando, setEditando] = useState<ClienteSubstabelecimento | null>(null);
+  const [assinaturaDe, setAssinaturaDe] = useState<ClienteSubstabelecimento | null>(null);
+  const [excluindo, setExcluindo] = useState<ClienteSubstabelecimento | null>(null);
+
+  const criar = async () => {
+    if (!novoNome.trim() || !novoTexto.trim()) {
+      toast.error("Preencha o nome e o texto do outorgante.");
+      return;
+    }
+    setCriando(true);
+    try {
+      await criarClienteSubstabelecimento(novoNome.trim(), novoTexto.trim());
+      toast.success("Cliente cadastrado.");
+      setNovoNome("");
+      setNovoTexto("");
+      onChanged();
+    } catch (e) {
+      console.error("Erro ao cadastrar cliente de substabelecimento:", e);
+      toast.error("Não consegui cadastrar esse cliente.");
+    } finally {
+      setCriando(false);
+    }
+  };
+
+  const excluir = async () => {
+    if (!excluindo) return;
+    try {
+      await excluirClienteSubstabelecimento(excluindo);
+      toast.success("Cliente removido.");
+      onChanged();
+    } catch (e) {
+      console.error("Erro ao excluir cliente de substabelecimento:", e);
+      toast.error("Não consegui remover esse cliente.");
+    } finally {
+      setExcluindo(null);
+    }
+  };
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Clientes e assinaturas</DialogTitle>
+            <DialogDescription>
+              Cadastre o cliente e, se quiser, suba a imagem da assinatura (PNG ou JPG) — ela fica
+              guardada de forma privada e só é usada nos documentos desse cliente.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <p className="text-sm font-medium">Novo cliente</p>
+              <Input
+                placeholder="Nome (ex.: KLM)"
+                value={novoNome}
+                onChange={(e) => setNovoNome(e.target.value)}
+              />
+              <Input
+                placeholder="Como aparece no texto (ex.: KLM – Cia Real Holandesa de Aviação)"
+                value={novoTexto}
+                onChange={(e) => setNovoTexto(e.target.value)}
+              />
+              <Button type="button" size="sm" onClick={() => void criar()} disabled={criando}>
+                {criando ? "Cadastrando..." : "Cadastrar cliente"}
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              {clientes.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum cliente cadastrado ainda.</p>
+              ) : (
+                clientes.map((c) => (
+                  <div
+                    key={c.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium">{c.nome}</p>
+                      <p className="truncate text-xs text-muted-foreground">{c.textoOutorgante}</p>
+                      {c.assinaturaCaminho ? (
+                        <Badge variant="outline" className="mt-1">
+                          Assinatura: {c.assinanteNome ?? "cadastrada"}
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="mt-1">
+                          Sem assinatura
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditando(c)}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAssinaturaDe(c)}
+                      >
+                        Assinatura
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Excluir cliente ${c.nome}`}
+                        onClick={() => setExcluindo(c)}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editando != null} onOpenChange={(v) => !v && setEditando(null)}>
+        <DialogContent className="max-w-md">
+          {editando ? (
+            <EditorCliente
+              cliente={editando}
+              onSalvar={() => {
+                setEditando(null);
+                onChanged();
+              }}
+              onCancelar={() => setEditando(null)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={assinaturaDe != null} onOpenChange={(v) => !v && setAssinaturaDe(null)}>
+        <DialogContent className="max-w-md">
+          {assinaturaDe ? (
+            <EditorAssinatura
+              cliente={assinaturaDe}
+              onSalvar={() => {
+                setAssinaturaDe(null);
+                onChanged();
+              }}
+              onCancelar={() => setAssinaturaDe(null)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={excluindo != null} onOpenChange={(v) => !v && setExcluindo(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir {excluindo?.nome}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isso apaga o cadastro e a assinatura desse cliente (se tiver). Não afeta documentos já
+              baixados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void excluir()}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
+function EditorCliente({
+  cliente,
+  onSalvar,
+  onCancelar,
+}: {
+  cliente: ClienteSubstabelecimento;
+  onSalvar: () => void;
+  onCancelar: () => void;
+}) {
+  const [nome, setNome] = useState(cliente.nome);
+  const [texto, setTexto] = useState(cliente.textoOutorgante);
+  const [salvando, setSalvando] = useState(false);
+
+  const salvar = async () => {
+    if (!nome.trim() || !texto.trim()) {
+      toast.error("Preencha o nome e o texto do outorgante.");
+      return;
+    }
+    setSalvando(true);
+    try {
+      await atualizarClienteSubstabelecimento(cliente.id, {
+        nome: nome.trim(),
+        textoOutorgante: texto.trim(),
+      });
+      toast.success("Cliente atualizado.");
+      onSalvar();
+    } catch (e) {
+      console.error("Erro ao atualizar cliente de substabelecimento:", e);
+      toast.error("Não consegui salvar.");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>Editar cliente</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <Label htmlFor="cliente-nome">Nome</Label>
+          <Input id="cliente-nome" value={nome} onChange={(e) => setNome(e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="cliente-texto">Como aparece no texto</Label>
+          <Input id="cliente-texto" value={texto} onChange={(e) => setTexto(e.target.value)} />
+        </div>
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onCancelar}>
+          Cancelar
+        </Button>
+        <Button type="button" onClick={() => void salvar()} disabled={salvando}>
+          {salvando ? "Salvando..." : "Salvar"}
+        </Button>
+      </DialogFooter>
+    </>
+  );
+}
+
+function EditorAssinatura({
+  cliente,
+  onSalvar,
+  onCancelar,
+}: {
+  cliente: ClienteSubstabelecimento;
+  onSalvar: () => void;
+  onCancelar: () => void;
+}) {
+  const [assinanteNome, setAssinanteNome] = useState(cliente.assinanteNome ?? "");
+  const [assinanteOab, setAssinanteOab] = useState(cliente.assinanteOab ?? "");
+  const [arquivo, setArquivo] = useState<File | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const [removendo, setRemovendo] = useState(false);
+
+  const enviar = async () => {
+    if (!arquivo) {
+      toast.error("Escolha uma imagem (PNG ou JPG).");
+      return;
+    }
+    setEnviando(true);
+    try {
+      await enviarAssinaturaCliente(cliente, arquivo, assinanteNome.trim(), assinanteOab.trim());
+      toast.success("Assinatura salva.");
+      onSalvar();
+    } catch (e) {
+      const detalhe = e instanceof Error ? e.message : String(e);
+      toast.error(`Não consegui salvar a assinatura: ${detalhe}`);
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const remover = async () => {
+    setRemovendo(true);
+    try {
+      await removerAssinaturaCliente(cliente);
+      toast.success("Assinatura removida.");
+      onSalvar();
+    } catch (e) {
+      console.error("Erro ao remover assinatura:", e);
+      toast.error("Não consegui remover a assinatura.");
+    } finally {
+      setRemovendo(false);
+    }
+  };
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>Assinatura de {cliente.nome}</DialogTitle>
+        <DialogDescription>
+          Envie um recorte com a assinatura (pode já incluir nome e OAB impressos, como no modelo).
+          Fica guardada de forma privada.
+        </DialogDescription>
+      </DialogHeader>
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <Label htmlFor="assinatura-arquivo">Imagem (PNG ou JPG)</Label>
+          <Input
+            id="assinatura-arquivo"
+            type="file"
+            accept="image/png,image/jpeg"
+            onChange={(e) => setArquivo(e.target.files?.[0] ?? null)}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label htmlFor="assinatura-nome">Nome de quem assina</Label>
+            <Input
+              id="assinatura-nome"
+              value={assinanteNome}
+              onChange={(e) => setAssinanteNome(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="assinatura-oab">OAB</Label>
+            <Input
+              id="assinatura-oab"
+              value={assinanteOab}
+              onChange={(e) => setAssinanteOab(e.target.value)}
+            />
+          </div>
+        </div>
+        {cliente.assinaturaCaminho ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void remover()}
+            disabled={removendo}
+          >
+            {removendo ? "Removendo..." : "Remover assinatura atual"}
+          </Button>
+        ) : null}
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onCancelar}>
+          Cancelar
+        </Button>
+        <Button type="button" onClick={() => void enviar()} disabled={enviando}>
+          {enviando ? "Enviando..." : "Salvar assinatura"}
+        </Button>
+      </DialogFooter>
+    </>
   );
 }
 
