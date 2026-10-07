@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -44,6 +45,12 @@ import {
   type ItemSubstabelecimento,
 } from "@/lib/substabelecimento";
 import {
+  lerPlanilhaCartaPreposicao,
+  lerPrepostos,
+  serializarPrepostos,
+  type ItemCartaPreposicao,
+} from "@/lib/carta-preposicao";
+import {
   atualizarClienteSubstabelecimento,
   criarClienteSubstabelecimento,
   enviarAssinaturaCliente,
@@ -55,6 +62,10 @@ import {
   gerarEBaixarPdfSubstabelecimento,
   gerarPdfSubstabelecimentos,
 } from "@/lib/pdf-substabelecimento";
+import {
+  gerarEBaixarPdfCartaPreposicao,
+  gerarPdfCartasPreposicao,
+} from "@/lib/pdf-carta-preposicao";
 import { baixarBlob } from "@/lib/pdf-base";
 import { carregarUsuarioAtual, siglaDoEmail } from "@/lib/processos";
 
@@ -100,12 +111,13 @@ function DocsRepresentacaoPage() {
       <Tabs defaultValue="substabelecimento">
         <TabsList>
           <TabsTrigger value="substabelecimento">Substabelecimento</TabsTrigger>
-          <TabsTrigger value="preposicao" disabled>
-            Carta de Preposição (em breve)
-          </TabsTrigger>
+          <TabsTrigger value="preposicao">Carta de Preposição</TabsTrigger>
         </TabsList>
         <TabsContent value="substabelecimento" className="space-y-6 pt-4">
           <AbaSubstabelecimento />
+        </TabsContent>
+        <TabsContent value="preposicao" className="space-y-6 pt-4">
+          <AbaCartaPreposicao />
         </TabsContent>
       </Tabs>
     </div>
@@ -456,6 +468,435 @@ function AbaSubstabelecimento() {
         onChanged={recarregarClientes}
       />
     </div>
+  );
+}
+
+function AbaCartaPreposicao() {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
+  const clientesQuery = useQuery({
+    queryKey: ["clientes-substabelecimento"],
+    queryFn: listarClientesSubstabelecimento,
+  });
+  const clientes = clientesQuery.data ?? [];
+  const [clienteId, setClienteId] = useState("");
+  const [itens, setItens] = useState<ItemCartaPreposicao[]>([]);
+  const [nomeArquivo, setNomeArquivo] = useState<string | null>(null);
+  const [selecionados, setSelecionados] = useState<Set<number>>(new Set());
+  const [lendo, setLendo] = useState(false);
+  const [gerando, setGerando] = useState(false);
+  const [gerandoIdx, setGerandoIdx] = useState<number | null>(null);
+  const [editando, setEditando] = useState<ItemCartaPreposicao | null>(null);
+  const [apagando, setApagando] = useState<ItemCartaPreposicao | null>(null);
+  const [gerenciando, setGerenciando] = useState(false);
+
+  useEffect(() => {
+    if (!clienteId && clientesQuery.data && clientesQuery.data.length > 0) {
+      setClienteId(clientesQuery.data[0]!.id);
+    }
+  }, [clientesQuery.data, clienteId]);
+
+  const cliente = clientes.find((c) => c.id === clienteId) ?? null;
+  const recarregarClientes = () =>
+    queryClient.invalidateQueries({ queryKey: ["clientes-substabelecimento"] });
+
+  const ler = async (arquivo: File) => {
+    const nome = arquivo.name.toLowerCase();
+    if (!EXTENSOES.some((ext) => nome.endsWith(ext))) {
+      toast.error("Formato não suportado. Envie um arquivo .xlsx, .xls ou .xlsm.");
+      return;
+    }
+    if (arquivo.size > TAMANHO_MAX) {
+      toast.error("Arquivo muito grande (máximo 20 MB).");
+      return;
+    }
+    setLendo(true);
+    try {
+      const lidos = lerPlanilhaCartaPreposicao(await arquivo.arrayBuffer());
+      if (lidos.length === 0) {
+        toast.error("Não encontrei nenhuma linha com processo nessa planilha.");
+        return;
+      }
+      setItens(lidos);
+      setNomeArquivo(arquivo.name);
+      setSelecionados(new Set(lidos.map((n) => n.idx)));
+      toast.success(`${lidos.length} documento(s) montado(s).`);
+    } catch (e) {
+      console.error("Erro ao ler planilha de carta de preposição:", e);
+      const detalhe = e instanceof Error ? e.message : String(e);
+      toast.error(`Não consegui ler o arquivo: ${detalhe}`);
+    } finally {
+      setLendo(false);
+    }
+  };
+
+  const alternarSelecao = (idx: number) => {
+    setSelecionados((atual) => {
+      const novo = new Set(atual);
+      if (novo.has(idx)) novo.delete(idx);
+      else novo.add(idx);
+      return novo;
+    });
+  };
+
+  const marcarTodos = (marcar: boolean) => {
+    setSelecionados(marcar ? new Set(itens.map((n) => n.idx)) : new Set());
+  };
+
+  const salvarEdicao = (item: ItemCartaPreposicao) => {
+    setItens((atual) => atual.map((n) => (n.idx === item.idx ? item : n)));
+    setEditando(null);
+    toast.success("Documento atualizado.");
+  };
+
+  const apagar = () => {
+    if (!apagando) return;
+    setItens((atual) => atual.filter((n) => n.idx !== apagando.idx));
+    setSelecionados((atual) => {
+      const novo = new Set(atual);
+      novo.delete(apagando.idx);
+      return novo;
+    });
+    setApagando(null);
+    toast.success("Documento removido da lista.");
+  };
+
+  const baixarUm = async (item: ItemCartaPreposicao) => {
+    if (!cliente) return;
+    setGerandoIdx(item.idx);
+    try {
+      await gerarEBaixarPdfCartaPreposicao(cliente, item);
+    } catch {
+      toast.error("Não consegui gerar esse documento.");
+    } finally {
+      setGerandoIdx(null);
+    }
+  };
+
+  const gerarSelecionados = async () => {
+    if (!cliente) return;
+    const escolhidos = itens.filter((n) => selecionados.has(n.idx));
+    if (escolhidos.length === 0) {
+      toast.error("Selecione pelo menos um documento.");
+      return;
+    }
+    setGerando(true);
+    try {
+      const blob = await gerarPdfCartasPreposicao(cliente, escolhidos);
+      baixarBlob(
+        blob,
+        `cartas-preposicao-${cliente.id}-${new Date().toISOString().slice(0, 10)}.pdf`,
+      );
+      toast.success(`${escolhidos.length} documento(s) gerado(s) num PDF só.`);
+    } catch {
+      toast.error("Não consegui gerar os documentos.");
+    } finally {
+      setGerando(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-serif text-lg">Cliente e arquivo</CardTitle>
+          <CardDescription>
+            Formatos aceitos: .xlsx, .xls e .xlsm (até 20 MB). Coluna "Prepostos": um preposto por
+            linha dentro da célula, no formato "Nome - CPF".
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Select value={clienteId} onValueChange={setClienteId}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder={clientesQuery.isLoading ? "Carregando..." : "Cliente"} />
+              </SelectTrigger>
+              <SelectContent>
+                {clientes.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {cliente?.assinaturaCaminho ? (
+              <Badge variant="outline">
+                Assinatura cadastrada: {cliente.assinanteNome ?? "sem nome informado"}
+              </Badge>
+            ) : (
+              <Badge variant="secondary">Sem assinatura cadastrada — sai em branco</Badge>
+            )}
+            <Button type="button" variant="ghost" size="sm" onClick={() => setGerenciando(true)}>
+              <Settings className="size-4" /> Clientes e assinaturas
+            </Button>
+          </div>
+          {!clientesQuery.isLoading && clientes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nenhum cliente cadastrado ainda. Clique em "Clientes e assinaturas" pra cadastrar o
+              primeiro.
+            </p>
+          ) : null}
+
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".xlsx,.xls,.xlsm"
+              disabled={lendo}
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void ler(f);
+                e.target.value = "";
+              }}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => inputRef.current?.click()}
+              disabled={lendo}
+            >
+              <Upload className="size-4" />
+              {lendo ? "Lendo..." : "Subir planilha"}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void gerarSelecionados()}
+              disabled={gerando || itens.length === 0 || !cliente}
+            >
+              <FileDown className="size-4" />
+              {gerando ? "Gerando..." : "Gerar documentos"}
+            </Button>
+            {nomeArquivo ? (
+              <span className="text-sm text-muted-foreground">{nomeArquivo}</span>
+            ) : null}
+          </div>
+        </CardContent>
+      </Card>
+
+      {itens.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <CardTitle className="font-serif text-lg">
+                  {itens.length} documento{itens.length === 1 ? "" : "s"}
+                </CardTitle>
+                <CardDescription>{selecionados.size} selecionado(s)</CardDescription>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => marcarTodos(true)}>
+                  Marcar todos
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => marcarTodos(false)}
+                >
+                  Desmarcar todos
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-xs uppercase text-muted-foreground">
+                    <th className="p-2"></th>
+                    <th className="p-2">Processo</th>
+                    <th className="p-2">Polo ativo</th>
+                    <th className="p-2">Juízo</th>
+                    <th className="p-2">Prepostos</th>
+                    <th className="p-2">Data</th>
+                    <th className="p-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {itens.map((item) => (
+                    <tr key={item.idx} className="border-b border-border/60">
+                      <td className="p-2">
+                        <Checkbox
+                          checked={selecionados.has(item.idx)}
+                          onCheckedChange={() => alternarSelecao(item.idx)}
+                        />
+                      </td>
+                      <td className="p-2 font-mono text-xs">{item.processo ?? "—"}</td>
+                      <td className="p-2">{item.poloAtivo ?? "—"}</td>
+                      <td className="p-2">{item.juizo ?? "—"}</td>
+                      <td className="p-2">
+                        {item.prepostos.length === 0
+                          ? "—"
+                          : `${item.prepostos.length} preposto${item.prepostos.length === 1 ? "" : "s"}`}
+                      </td>
+                      <td className="p-2">
+                        {item.cidade}, {dataPorExtenso(item.data)}
+                      </td>
+                      <td className="p-2">
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Editar documento ${item.processo ?? item.idx + 1}`}
+                            onClick={() => setEditando(item)}
+                          >
+                            <Pencil className="size-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Apagar documento ${item.processo ?? item.idx + 1}`}
+                            onClick={() => setApagando(item)}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Baixar documento ${item.processo ?? item.idx + 1}`}
+                            onClick={() => void baixarUm(item)}
+                            disabled={gerandoIdx === item.idx || !cliente}
+                          >
+                            <Download className="size-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {itens.length > 0 ? (
+        <Button
+          type="button"
+          onClick={() => void gerarSelecionados()}
+          disabled={gerando || !cliente}
+          className="fixed bottom-6 right-6 z-40 shadow-lg"
+          size="lg"
+        >
+          <FileDown className="size-4" />
+          {gerando ? "Gerando..." : `Gerar documentos (${selecionados.size})`}
+        </Button>
+      ) : null}
+
+      <Dialog open={editando != null} onOpenChange={(aberto) => !aberto && setEditando(null)}>
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+          {editando ? (
+            <EditorItemPreposicao
+              item={editando}
+              onSalvar={salvarEdicao}
+              onCancelar={() => setEditando(null)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={apagando != null} onOpenChange={(aberto) => !aberto && setApagando(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar esse documento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O documento do processo {apagando?.processo ?? `#${(apagando?.idx ?? 0) + 1}`} sai da
+              lista (não mexe em nada do sistema, só tira ele daqui antes de gerar).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={apagar}>Apagar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <GerenciarClientesDialog
+        open={gerenciando}
+        onOpenChange={setGerenciando}
+        clientes={clientes}
+        onChanged={recarregarClientes}
+      />
+    </div>
+  );
+}
+
+function EditorItemPreposicao({
+  item,
+  onSalvar,
+  onCancelar,
+}: {
+  item: ItemCartaPreposicao;
+  onSalvar: (item: ItemCartaPreposicao) => void;
+  onCancelar: () => void;
+}) {
+  const [form, setForm] = useState<ItemCartaPreposicao>(item);
+  const [prepostosTexto, setPrepostosTexto] = useState(() => serializarPrepostos(item.prepostos));
+
+  const campoTexto = (rotulo: string, chave: "processo" | "poloAtivo" | "juizo" | "cidade") => (
+    <div className="space-y-1">
+      <Label htmlFor={`preposicao-${chave}`}>{rotulo}</Label>
+      <Input
+        id={`preposicao-${chave}`}
+        value={form[chave] ?? ""}
+        onChange={(e) => setForm((atual) => ({ ...atual, [chave]: e.target.value || null }))}
+      />
+    </div>
+  );
+
+  const salvar = () => {
+    onSalvar({ ...form, prepostos: lerPrepostos(prepostosTexto) });
+  };
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>Editar documento</DialogTitle>
+        <DialogDescription>
+          Ajusta os dados antes de gerar. Isso não altera a planilha original.
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="grid gap-3">
+        {campoTexto("Processo", "processo")}
+        {campoTexto("Polo ativo", "poloAtivo")}
+        {campoTexto("Juízo", "juizo")}
+        <div className="space-y-1">
+          <Label htmlFor="preposicao-prepostos">Prepostos (um por linha, "Nome - CPF")</Label>
+          <Textarea
+            id="preposicao-prepostos"
+            rows={4}
+            value={prepostosTexto}
+            onChange={(e) => setPrepostosTexto(e.target.value)}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {campoTexto("Cidade", "cidade")}
+          <div className="space-y-1">
+            <Label htmlFor="preposicao-data">Data</Label>
+            <Input
+              id="preposicao-data"
+              type="date"
+              value={form.data}
+              onChange={(e) => setForm((atual) => ({ ...atual, data: e.target.value }))}
+            />
+          </div>
+        </div>
+      </div>
+
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onCancelar}>
+          Cancelar
+        </Button>
+        <Button type="button" onClick={salvar}>
+          Salvar
+        </Button>
+      </DialogFooter>
+    </>
   );
 }
 

@@ -11,9 +11,11 @@ import {
   CORES,
   Pagina,
   baixarBlob,
-  estimarLargura,
+  desenharLinhaMista,
   imagemComoJpeg,
   montarPdf,
+  montarParagrafoComDestaques,
+  quebrarPalavras,
   type ImagemPdf,
 } from "@/lib/pdf-base";
 
@@ -78,147 +80,6 @@ const NOMES_ADVOGADOS = [
   "Gustavo A. Faria Cortines",
 ];
 
-// Versalete (small caps) não existe nas fontes padrão do PDF -- a gente
-// finge: letra minúscula vira maiúscula só que menor. 0.74 é a
-// proporção comum desse efeito (perto do que o Word usa).
-const ESCALA_VERSALETE = 0.74;
-
-type Subrun = { texto: string; bold: boolean; versalete: boolean };
-type Palavra = { subruns: Subrun[] };
-
-function faixasEmNegritoVersalete(corpo: string, cliente: string) {
-  const faixas: { inicio: number; fim: number }[] = [];
-  for (const alvo of [...NOMES_ADVOGADOS, cliente]) {
-    const inicio = corpo.indexOf(alvo);
-    if (inicio >= 0) faixas.push({ inicio, fim: inicio + alvo.length });
-  }
-  return faixas.sort((a, b) => a.inicio - b.inicio);
-}
-
-// Quebra o parágrafo em "palavras" (separadas por espaço, igual
-// quebrarTexto), mas cada palavra carrega pedaços (subruns) com o
-// estilo (negrito+versalete ou normal) de cada trecho dela -- preciso
-// disso pra pontuação colada no nome (ex.: "Couto,") sair só o nome em
-// negrito e a vírgula normal.
-function montarParagrafo(corpo: string, cliente: string): Palavra[] {
-  const faixas = faixasEmNegritoVersalete(corpo, cliente);
-  const estiloNoIndice = (i: number) => faixas.some((f) => i >= f.inicio && i < f.fim);
-
-  const palavras: Palavra[] = [];
-  let atual: Subrun[] = [];
-  const flush = () => {
-    if (atual.length > 0) palavras.push({ subruns: atual });
-    atual = [];
-  };
-
-  [...corpo].forEach((ch, i) => {
-    if (ch === " ") {
-      flush();
-      return;
-    }
-    const estilizado = estiloNoIndice(i);
-    const ultimo = atual[atual.length - 1];
-    if (ultimo && ultimo.bold === estilizado && ultimo.versalete === estilizado) {
-      ultimo.texto += ch;
-    } else {
-      atual.push({ texto: ch, bold: estilizado, versalete: estilizado });
-    }
-  });
-  flush();
-
-  return palavras;
-}
-
-function larguraSubrun(sub: Subrun, tamanho: number, fonte: "times") {
-  if (!sub.versalete) return estimarLargura(sub.texto, tamanho, sub.bold, fonte);
-  let total = 0;
-  for (const ch of sub.texto) {
-    const minuscula = ch !== ch.toUpperCase();
-    total += estimarLargura(
-      ch.toUpperCase(),
-      minuscula ? tamanho * ESCALA_VERSALETE : tamanho,
-      sub.bold,
-      fonte,
-    );
-  }
-  return total;
-}
-
-function larguraPalavra(p: Palavra, tamanho: number, fonte: "times") {
-  return p.subruns.reduce((acc, s) => acc + larguraSubrun(s, tamanho, fonte), 0);
-}
-
-function quebrarPalavras(
-  palavras: Palavra[],
-  largura: number,
-  tamanho: number,
-  fonte: "times",
-): Palavra[][] {
-  const larguraEspaco = estimarLargura(" ", tamanho, false, fonte);
-  const linhas: Palavra[][] = [];
-  let atual: Palavra[] = [];
-  let larguraAtual = 0;
-  for (const palavra of palavras) {
-    const w = larguraPalavra(palavra, tamanho, fonte);
-    const extra = atual.length === 0 ? w : larguraEspaco + w;
-    if (atual.length > 0 && larguraAtual + extra > largura) {
-      linhas.push(atual);
-      atual = [palavra];
-      larguraAtual = w;
-    } else {
-      atual.push(palavra);
-      larguraAtual += extra;
-    }
-  }
-  if (atual.length > 0) linhas.push(atual);
-  return linhas;
-}
-
-// Desenha uma linha palavra por palavra (em vez de um Tj só) pra poder
-// misturar negrito+versalete com texto normal. A justificação (margem
-// reta) é feita abrindo manualmente o espaço entre as palavras, em vez
-// de usar o operador Tw do PDF -- mais simples aqui porque a largura de
-// cada palavra já varia por causa do versalete.
-function desenharLinhaMista(
-  p: Pagina,
-  linha: Palavra[],
-  x0: number,
-  yTopo: number,
-  tamanho: number,
-  fonte: "times",
-  larguraAlvo: number | null,
-) {
-  const larguraEspacoBase = estimarLargura(" ", tamanho, false, fonte);
-  const larguraNatural =
-    linha.reduce((acc, palavra) => acc + larguraPalavra(palavra, tamanho, fonte), 0) +
-    (linha.length - 1) * larguraEspacoBase;
-  const gaps = linha.length - 1;
-  const espacoExtra =
-    larguraAlvo != null && gaps > 0 && larguraNatural < larguraAlvo
-      ? (larguraAlvo - larguraNatural) / gaps
-      : 0;
-  const larguraEspaco = larguraEspacoBase + espacoExtra;
-
-  let x = x0;
-  linha.forEach((palavra, i) => {
-    for (const sub of palavra.subruns) {
-      if (!sub.versalete) {
-        p.text(sub.texto, x, yTopo, tamanho, { bold: sub.bold, color: PRETO, fonte });
-        x += estimarLargura(sub.texto, tamanho, sub.bold, fonte);
-      } else {
-        for (const ch of sub.texto) {
-          const minuscula = ch !== ch.toUpperCase();
-          const tam = minuscula ? tamanho * ESCALA_VERSALETE : tamanho;
-          const chDesenhado = ch.toUpperCase();
-          p.text(chDesenhado, x, yTopo, tam, { bold: sub.bold, color: PRETO, fonte });
-          x += estimarLargura(chDesenhado, tam, sub.bold, fonte);
-        }
-      }
-    }
-    if (i < linha.length - 1) x += larguraEspaco;
-  });
-}
-
 let logoCache: Promise<ImagemPdf> | null = null;
 function carregarLogo() {
   if (!logoCache) logoCache = imagemComoJpeg(LOGO_URL, CORES.white);
@@ -263,14 +124,26 @@ async function construirPaginaSubstabelecimento(
     item.autor ?? "—",
     item.juizo ?? "—",
   );
-  const palavras = montarParagrafo(corpo, cliente.textoOutorgante);
+  const palavras = montarParagrafoComDestaques(corpo, [
+    ...NOMES_ADVOGADOS,
+    cliente.textoOutorgante,
+  ]);
   const linhas = quebrarPalavras(palavras, larguraUtil, 14, "times");
   linhas.forEach((linha, i) => {
     // Justifica (margem reta nos dois lados) todas as linhas, exceto a
     // última -- igual no Word, a última linha de um parágrafo fica em
     // trapo (não estica pra preencher a largura toda).
     const ultima = i === linhas.length - 1;
-    desenharLinhaMista(p, linha, MARGIN, y + i * 20, 14, "times", ultima ? null : larguraUtil);
+    desenharLinhaMista(
+      p,
+      linha,
+      MARGIN,
+      y + i * 20,
+      14,
+      "times",
+      ultima ? null : larguraUtil,
+      PRETO,
+    );
   });
   y += linhas.length * 20 + 28;
 

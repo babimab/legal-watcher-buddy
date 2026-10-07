@@ -36,17 +36,19 @@ export type ItemSubstabelecimento = {
   data: string; // ISO yyyy-mm-dd
 };
 
-function normalizar(texto: string) {
+// Exportadas pra reaproveitar na leitura da planilha de Carta de
+// Preposição (mesmo padrão de planilha, mesmo jeito de ler célula).
+export function normalizar(texto: string) {
   return texto.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 }
 
-function texto(valor: unknown): string | null {
+export function texto(valor: unknown): string | null {
   if (valor == null) return null;
   const s = String(valor).trim();
   return s === "" || s.toLowerCase() === "nan" ? null : s;
 }
 
-function dataISO(valor: unknown): string | null {
+export function dataISO(valor: unknown): string | null {
   if (valor == null || valor === "") return null;
   if (valor instanceof Date) {
     const d = new Date(valor.getTime() - valor.getTimezoneOffset() * 60000);
