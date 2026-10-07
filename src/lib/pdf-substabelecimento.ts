@@ -86,8 +86,13 @@ async function construirPaginaSubstabelecimento(
   p.line(MARGIN, 96, A4_W - MARGIN, 96);
 
   let y = 140;
-  p.text("SUBSTABELECIMENTO", A4_W / 2, y, 14, { bold: true, color: CORES.blue, align: "center" });
-  y += 36;
+  p.text("SUBSTABELECIMENTO", A4_W / 2, y, 16, {
+    bold: true,
+    color: CORES.blue,
+    align: "center",
+    fonte: "times",
+  });
+  y += 40;
 
   const corpo = CORPO_RECEBENDO(
     item.comReserva ? "com" : "sem",
@@ -96,13 +101,24 @@ async function construirPaginaSubstabelecimento(
     item.autor ?? "—",
     item.juizo ?? "—",
   );
-  const linhas = quebrarTexto(corpo, larguraUtil, 10.5);
+  const linhas = quebrarTexto(corpo, larguraUtil, 14, false, "times");
   linhas.forEach((linha, i) => {
-    p.text(linha, MARGIN, y + i * 16, 10.5, { color: CORES.text });
+    // Justifica (margem reta nos dois lados) todas as linhas, exceto a
+    // última -- igual no Word, a última linha de um parágrafo fica em
+    // trapo (não estica pra preencher a largura toda).
+    const ultima = i === linhas.length - 1;
+    p.text(linha, MARGIN, y + i * 20, 14, {
+      color: CORES.text,
+      fonte: "times",
+      ...(ultima ? {} : { justificarLargura: larguraUtil }),
+    });
   });
-  y += linhas.length * 16 + 28;
+  y += linhas.length * 20 + 28;
 
-  p.text(`${item.cidade}, ${dataPorExtenso(item.data)}.`, MARGIN, y, 10.5, { color: CORES.text });
+  p.text(`${item.cidade}, ${dataPorExtenso(item.data)}.`, MARGIN, y, 14, {
+    color: CORES.text,
+    fonte: "times",
+  });
   y += 36;
 
   if (assinatura) {
