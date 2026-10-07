@@ -251,7 +251,7 @@ async function construirPaginaSubstabelecimento(
   let y = 140;
   p.text("SUBSTABELECIMENTO", A4_W / 2, y, 16, {
     bold: true,
-    color: CORES.blue,
+    color: PRETO,
     align: "center",
     fonte: "times",
   });
@@ -284,7 +284,7 @@ async function construirPaginaSubstabelecimento(
 
   if (assinatura) {
     const razaoAssinatura = assinatura.width / assinatura.height;
-    const largAssinatura = 240;
+    const largAssinatura = 320;
     const altAssinatura = largAssinatura / razaoAssinatura;
     p.image("ImAssinatura", A4_W / 2 - largAssinatura / 2, y, largAssinatura, altAssinatura);
   }
