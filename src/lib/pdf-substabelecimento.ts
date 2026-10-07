@@ -18,6 +18,11 @@ import {
 
 const LOGO_URL = "/bcw-logo.png";
 
+// Corpo em preto puro (não o navy/slate CORES.text usado no resto do
+// app) -- é o que o modelo real em Word usa, CORES.text ficava meio
+// apagado nesse documento mais formal.
+const PRETO = [0, 0, 0] as const;
+
 const ENDERECOS = [
   "Rua Dom Gerardo, 35, 5º Andar, Centro, CEP: 20090-905, Rio de Janeiro – RJ, Brasil, Tel.: +55(21) 3543-1000",
   "Av. Brigadeiro Faria Lima, 4509, 8º andar, Itaim Bibi, CEP: 04538-133, São Paulo – SP, Brasil, Tel.: +55 (11) 3078-3858",
@@ -82,8 +87,6 @@ async function construirPaginaSubstabelecimento(
   const logoW = 110;
   const logoH = logoW / logoRatio;
   p.image("ImLogo", MARGIN, 40, logoW, logoH);
-  p.stroke(CORES.border);
-  p.line(MARGIN, 96, A4_W - MARGIN, 96);
 
   let y = 140;
   p.text("SUBSTABELECIMENTO", A4_W / 2, y, 16, {
@@ -108,22 +111,23 @@ async function construirPaginaSubstabelecimento(
     // trapo (não estica pra preencher a largura toda).
     const ultima = i === linhas.length - 1;
     p.text(linha, MARGIN, y + i * 20, 14, {
-      color: CORES.text,
+      color: PRETO,
       fonte: "times",
       ...(ultima ? {} : { justificarLargura: larguraUtil }),
     });
   });
   y += linhas.length * 20 + 28;
 
-  p.text(`${item.cidade}, ${dataPorExtenso(item.data)}.`, MARGIN, y, 14, {
-    color: CORES.text,
+  p.text(`${item.cidade}, ${dataPorExtenso(item.data)}.`, A4_W / 2, y, 14, {
+    color: PRETO,
     fonte: "times",
+    align: "center",
   });
   y += 36;
 
   if (assinatura) {
     const razaoAssinatura = assinatura.width / assinatura.height;
-    const largAssinatura = 170;
+    const largAssinatura = 240;
     const altAssinatura = largAssinatura / razaoAssinatura;
     p.image("ImAssinatura", A4_W / 2 - largAssinatura / 2, y, largAssinatura, altAssinatura);
   }
