@@ -333,10 +333,13 @@ export function cnjsDuplicados(processos: Processo[]): GrupoCnjDuplicado[] {
 // Recurso/cumprimento de sentença/execução costumam ganhar um número CNJ
 // novo, mas mantêm o mesmo "número do caso" (numero_interno) do processo
 // original — então dois ou mais processos "raiz" (sem processo_pai_id)
-// com o mesmo número de caso é sinal forte de que um deles deveria estar
-// vinculado ao outro via "Vincular desdobramento", em vez de flutuar como
-// processo independente.
+// com o mesmo Cliente/Caso é sinal forte de que um deles deveria estar
+// vinculado ao outro via "Vincular a um processo", em vez de flutuar como
+// processo independente. Agrupa por cliente + número de caso (não só
+// número de caso) porque clientes diferentes podem coincidentemente usar
+// o mesmo número interno.
 export type GrupoDesdobramentoNaoVinculado = {
+  numeroCliente: string | null;
   numeroInterno: string;
   processos: Pick<
     Processo,
@@ -348,30 +351,39 @@ export type GrupoDesdobramentoNaoVinculado = {
     | "status"
     | "fase"
     | "tipo_desdobramento"
+    | "carteira"
+    | "created_at"
   >[];
 };
 
 export function desdobramentosNaoVinculados(
   processos: Processo[],
 ): GrupoDesdobramentoNaoVinculado[] {
-  const porNumeroInterno = new Map<string, Processo[]>();
+  const porChave = new Map<
+    string,
+    { numeroCliente: string | null; numeroInterno: string; lista: Processo[] }
+  >();
   for (const p of processos) {
     const numero = p.numero_interno?.trim();
     if (!numero) continue;
-    const atual = porNumeroInterno.get(numero);
-    if (atual) atual.push(p);
-    else porNumeroInterno.set(numero, [p]);
+    const chaveCliente = (p.numero_cliente ?? p.cliente).trim().toLowerCase();
+    const chave = `${chaveCliente}::${numero}`;
+    const atual = porChave.get(chave);
+    if (atual) atual.lista.push(p);
+    else
+      porChave.set(chave, { numeroCliente: p.numero_cliente, numeroInterno: numero, lista: [p] });
   }
 
-  return [...porNumeroInterno.entries()]
-    .filter(([, lista]) => {
+  return [...porChave.values()]
+    .filter(({ lista }) => {
       if (lista.length < 2) return false;
       const raizes = lista.filter((p) => !p.processo_pai_id);
       // Uma família bem vinculada tem exatamente 1 raiz e o resto como
-      // filho dela — 2+ raízes com o mesmo número de caso é o problema.
+      // filho dela — 2+ raízes com o mesmo Cliente/Caso é o problema.
       return raizes.length > 1;
     })
-    .map(([numeroInterno, lista]) => ({
+    .map(({ numeroCliente, numeroInterno, lista }) => ({
+      numeroCliente,
       numeroInterno,
       processos: lista.map((p) => ({
         id: p.id,
@@ -382,8 +394,33 @@ export function desdobramentosNaoVinculados(
         status: p.status,
         fase: p.fase,
         tipo_desdobramento: p.tipo_desdobramento,
+        carteira: p.carteira,
+        created_at: p.created_at,
       })),
     }));
+}
+
+// Data da movimentação mais antiga registrada de cada processo (quando
+// existir) -- usada só como aproximação de "qual processo é mais antigo"
+// pra sugerir qual é o principal num grupo de Cliente/Caso duplicado. Não
+// existe um campo literal de "data de distribuição" por processo; o
+// histórico de andamentos importado do tribunal é o melhor proxy que
+// temos.
+export async function primeirasMovimentacoesDe(
+  processoIds: string[],
+): Promise<Map<string, string>> {
+  if (processoIds.length === 0) return new Map();
+  const { data, error } = await supabase
+    .from("movimentacoes")
+    .select("processo_id, data_movimentacao")
+    .in("processo_id", processoIds)
+    .order("data_movimentacao", { ascending: true });
+  if (error) throw new Error(error.message);
+  const primeiras = new Map<string, string>();
+  for (const m of (data ?? []) as { processo_id: string; data_movimentacao: string }[]) {
+    if (!primeiras.has(m.processo_id)) primeiras.set(m.processo_id, m.data_movimentacao);
+  }
+  return primeiras;
 }
 
 // --- Possível desdobramento por parte adversa repetida ---

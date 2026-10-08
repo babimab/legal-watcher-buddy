@@ -1,13 +1,21 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, Download, Trash2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { exibir, formatarCNJ } from "@/lib/processos";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+import { categoriaCliente, exibir, formatarCNJ, TIPOS_DESDOBRAMENTO } from "@/lib/processos";
 import { listarGrupos, listarPastas } from "@/lib/grupos";
 import { exportarGruposParteAdversaExcel } from "@/lib/excel";
 import {
@@ -19,7 +27,9 @@ import {
   listarProblemasAcento,
   listarProcessosParaSaude,
   objetosForaDoPadrao,
+  primeirasMovimentacoesDe,
   processosSemPasta,
+  type GrupoDesdobramentoNaoVinculado,
   type ProblemaAcento,
 } from "@/lib/saude";
 
@@ -57,9 +67,42 @@ function QualidadeDadosPage() {
 
   const semPasta = processos.data ? processosSemPasta(processos.data) : [];
   const duplicados = processos.data ? cnjsDuplicados(processos.data) : [];
-  const desdobramentos = processos.data ? desdobramentosNaoVinculados(processos.data) : [];
+  const desdobramentos = useMemo(
+    () => (processos.data ? desdobramentosNaoVinculados(processos.data) : []),
+    [processos.data],
+  );
   const objetoForaDoPadrao = processos.data ? objetosForaDoPadrao(processos.data) : [];
   const acentos = problemasAcento.data ?? [];
+
+  // Data da movimentação mais antiga de cada processo envolvido num grupo
+  // duplicado -- usada só pra sugerir qual processo do grupo é o
+  // principal (o mais antigo) e quais são prováveis desdobramentos.
+  const idsEnvolvidos = useMemo(
+    () => desdobramentos.flatMap((g) => g.processos.map((p) => p.id)),
+    [desdobramentos],
+  );
+  const primeirasMov = useQuery({
+    queryKey: ["primeiras-movimentacoes", idsEnvolvidos],
+    queryFn: () => primeirasMovimentacoesDe(idsEnvolvidos),
+    enabled: idsEnvolvidos.length > 0,
+  });
+
+  // Souza Cruz primeiro -- foi o pedido original, mas a lista continua
+  // valendo pra qualquer cliente com Cliente/Caso duplicado.
+  const desdobramentosOrdenados = useMemo(
+    () =>
+      [...desdobramentos].sort((a, b) => {
+        const souza = (g: GrupoDesdobramentoNaoVinculado) =>
+          categoriaCliente(g.processos[0]!.cliente, g.numeroCliente, g.processos[0]!.carteira) ===
+          "Souza Cruz"
+            ? 0
+            : 1;
+        const diff = souza(a) - souza(b);
+        if (diff !== 0) return diff;
+        return a.numeroInterno.localeCompare(b.numeroInterno, "pt-BR");
+      }),
+    [desdobramentos],
+  );
 
   // Pasta BDR (Equipe Souza Cruz) — planilha de possíveis desdobramentos
   // por parte adversa repetida, pra revisão manual.
@@ -257,45 +300,27 @@ function QualidadeDadosPage() {
         </Card>
       ) : null}
 
-      {desdobramentos.length > 0 ? (
+      {desdobramentosOrdenados.length > 0 ? (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 font-serif text-lg">
               <AlertTriangle className="size-5 text-amber-500" />
-              {desdobramentos.length} possível(is) desdobramento(s) não vinculado(s)
+              {desdobramentosOrdenados.length} Cliente/Caso com mais de um processo não vinculado
             </CardTitle>
             <CardDescription>
-              Mesmo número de caso, CNJs diferentes, e mais de um cadastrado como processo
-              independente — provavelmente um recurso/cumprimento/execução do outro. Abre o processo
-              e usa "Vincular desdobramento" pra corrigir.
+              Mesmo Cliente/Caso, CNJs diferentes, e mais de um cadastrado como processo
+              independente — provavelmente um recurso/cumprimento/execução do outro. O processo mais
+              antigo do grupo (pela primeira movimentação registrada) entra marcado como sugestão de
+              principal — confira antes de vincular.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {desdobramentos.map((grupo) => (
-              <div key={grupo.numeroInterno} className="rounded-md border border-border p-3">
-                <p className="mb-2 text-xs text-muted-foreground">Caso {grupo.numeroInterno}</p>
-                <div className="flex flex-wrap gap-2">
-                  {grupo.processos.map((p) => (
-                    <Link
-                      key={p.id}
-                      to="/processos/$id"
-                      params={{ id: p.id }}
-                      className="flex items-center gap-2 rounded-md border border-border px-2 py-1 text-sm hover:border-primary"
-                    >
-                      <span className="font-mono text-xs">{formatarCNJ(p.numero_cnj)}</span>
-                      <span>
-                        {exibir(p.cliente)}
-                        {p.parte_contraria ? ` x ${exibir(p.parte_contraria)}` : ""}
-                      </span>
-                      {p.responsavel ? <Badge variant="outline">{p.responsavel}</Badge> : null}
-                      {p.fase ? <Badge variant="secondary">{p.fase}</Badge> : null}
-                      {p.tipo_desdobramento ? (
-                        <Badge variant="outline">{p.tipo_desdobramento}</Badge>
-                      ) : null}
-                    </Link>
-                  ))}
-                </div>
-              </div>
+            {desdobramentosOrdenados.map((grupo) => (
+              <GrupoDesdobramentoCard
+                key={`${grupo.numeroCliente ?? ""}::${grupo.numeroInterno}`}
+                grupo={grupo}
+                primeiras={primeirasMov.data ?? new Map()}
+              />
             ))}
           </CardContent>
         </Card>
@@ -471,6 +496,113 @@ function QualidadeDadosPage() {
           </CardContent>
         </Card>
       ) : null}
+    </div>
+  );
+}
+
+function GrupoDesdobramentoCard({
+  grupo,
+  primeiras,
+}: {
+  grupo: GrupoDesdobramentoNaoVinculado;
+  primeiras: Map<string, string>;
+}) {
+  const queryClient = useQueryClient();
+  const [vinculando, setVinculando] = useState<string | null>(null);
+  const [tipoPorId, setTipoPorId] = useState<Record<string, string>>({});
+
+  // Mais antigo primeiro (pela primeira movimentação registrada, ou pela
+  // data de cadastro quando não há nenhuma) -- esse vira a sugestão de
+  // principal do grupo.
+  const ordenados = [...grupo.processos].sort((a, b) => {
+    const da = primeiras.get(a.id) ?? a.created_at;
+    const db = primeiras.get(b.id) ?? b.created_at;
+    return da < db ? -1 : da > db ? 1 : 0;
+  });
+  const principal = ordenados[0]!;
+
+  const vincular = async (filhoId: string) => {
+    setVinculando(filhoId);
+    try {
+      const { error } = await supabase
+        .from("processos")
+        .update({
+          processo_pai_id: principal.id,
+          tipo_desdobramento: tipoPorId[filhoId] ?? TIPOS_DESDOBRAMENTO[0],
+        })
+        .eq("id", filhoId);
+      if (error) throw new Error(error.message);
+      toast.success("Vinculado ao principal sugerido.");
+      await queryClient.invalidateQueries();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não consegui vincular.");
+    } finally {
+      setVinculando(null);
+    }
+  };
+
+  return (
+    <div className="rounded-md border border-border p-3">
+      <p className="mb-2 text-xs text-muted-foreground">
+        Cliente/Caso: {grupo.numeroCliente ?? "—"}/{grupo.numeroInterno}
+        {principal.carteira ? ` · ${principal.carteira}` : ""}
+      </p>
+      <div className="space-y-2">
+        {ordenados.map((p) => {
+          const ehPrincipal = p.id === principal.id;
+          return (
+            <div
+              key={p.id}
+              className="flex flex-wrap items-center gap-2 rounded-md border border-border px-2 py-1.5"
+            >
+              <Link
+                to="/processos/$id"
+                params={{ id: p.id }}
+                className="flex flex-wrap items-center gap-2 text-sm hover:underline"
+              >
+                <span className="font-mono text-xs">{formatarCNJ(p.numero_cnj)}</span>
+                <span>
+                  {exibir(p.cliente)}
+                  {p.parte_contraria ? ` x ${exibir(p.parte_contraria)}` : ""}
+                </span>
+                {p.responsavel ? <Badge variant="outline">{p.responsavel}</Badge> : null}
+                {p.fase ? <Badge variant="secondary">{p.fase}</Badge> : null}
+              </Link>
+              <Badge variant={ehPrincipal ? "default" : "outline"}>
+                {ehPrincipal ? "Sugerido: principal" : "Sugerido: desdobramento"}
+              </Badge>
+              {!ehPrincipal ? (
+                <div className="ml-auto flex items-center gap-2">
+                  <Select
+                    value={tipoPorId[p.id] ?? TIPOS_DESDOBRAMENTO[0]}
+                    onValueChange={(v) => setTipoPorId((atual) => ({ ...atual, [p.id]: v }))}
+                  >
+                    <SelectTrigger className="h-8 w-44 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIPOS_DESDOBRAMENTO.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {exibir(t)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={vinculando === p.id}
+                    onClick={() => void vincular(p.id)}
+                  >
+                    {vinculando === p.id ? "Vinculando..." : "Vincular ao principal"}
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
