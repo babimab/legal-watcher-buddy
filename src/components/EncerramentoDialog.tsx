@@ -2,6 +2,16 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -28,6 +38,8 @@ import {
   FASE_OPCOES,
   RESULTADOS_PROCESSO,
   siglaOuEmailAtual,
+  listarDesdobramentos,
+  formatarCNJ,
   type Processo,
 } from "@/lib/processos";
 
@@ -48,27 +60,55 @@ export function EncerramentoDialog({
   const [decisoesNoLd, setDecisoesNoLd] = useState(processo.decisoes_no_ld);
   const [salvando, setSalvando] = useState(false);
   const [encerrando, setEncerrando] = useState(false);
+  const [desdobramentosAtivos, setDesdobramentosAtivos] = useState<Processo[] | null>(null);
   const queryClient = useQueryClient();
 
   // Muda o status pra "encerrado" e cria a pendência de baixa no sistema
-  // do cliente (aba "Baixa no cliente pendente") -- ação separada de
-  // "Salvar" porque é uma mudança de status, não só os dados do
-  // encerramento em si.
-  const marcarEncerrado = async () => {
+  // do cliente (aba "Baixa no cliente pendente") -- aplica no processo e,
+  // se a pessoa confirmou, em todos os desdobramentos vinculados junto
+  // (ids extras só vêm preenchidos depois da confirmação em
+  // desdobramentosAtivos).
+  const marcarEncerrado = async (idsExtras: string[] = []) => {
     setEncerrando(true);
     const { error } = await supabaseSolto
       .from("processos")
       .update({ status: "encerrado", baixa_cliente_pendente: true })
-      .eq("id", processo.id);
+      .in("id", [processo.id, ...idsExtras]);
     setEncerrando(false);
 
     if (error) {
       toast.error(error.message);
       return;
     }
-    toast.success("Processo marcado como encerrado — foi pra fila de baixa no cliente.");
+    toast.success(
+      idsExtras.length > 0
+        ? `Processo e ${idsExtras.length} desdobramento(s) marcados como encerrados.`
+        : "Processo marcado como encerrado — foi pra fila de baixa no cliente.",
+    );
     await queryClient.invalidateQueries();
+    setDesdobramentosAtivos(null);
     setAberto(false);
+  };
+
+  // Antes de encerrar, checa se tem desdobramento ainda ativo vinculado --
+  // se tiver, pede confirmação pra encerrar tudo junto (em vez de deixar o
+  // desdobramento esquecido como "ativo" depois do processo principal
+  // fechado).
+  const iniciarEncerramento = async () => {
+    setEncerrando(true);
+    try {
+      const filhos = await listarDesdobramentos(processo.id);
+      const ativos = filhos.filter((f) => f.status !== "encerrado");
+      if (ativos.length > 0) {
+        setDesdobramentosAtivos(ativos);
+      } else {
+        await marcarEncerrado();
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não consegui checar os desdobramentos.");
+    } finally {
+      setEncerrando(false);
+    }
   };
 
   const salvar = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -221,7 +261,7 @@ export function EncerramentoDialog({
                 type="button"
                 variant="outline"
                 disabled={encerrando || salvando}
-                onClick={() => void marcarEncerrado()}
+                onClick={() => void iniciarEncerramento()}
               >
                 {encerrando ? "Marcando..." : "Marcar como encerrado"}
               </Button>
@@ -234,6 +274,42 @@ export function EncerramentoDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+
+      <AlertDialog
+        open={desdobramentosAtivos != null}
+        onOpenChange={(v) => !v && setDesdobramentosAtivos(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Encerrar os desdobramentos junto?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  Esse processo tem {desdobramentosAtivos?.length} desdobramento(s) ainda ativo(s),
+                  vinculado(s) a ele:
+                </p>
+                <ul className="list-disc pl-5">
+                  {(desdobramentosAtivos ?? []).map((d) => (
+                    <li key={d.id}>
+                      {formatarCNJ(d.numero_cnj)}
+                      {d.tipo_desdobramento ? ` — ${d.tipo_desdobramento}` : ""}
+                    </li>
+                  ))}
+                </ul>
+                <p>Confirma encerrar o processo principal e todos esses desdobramentos juntos?</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void marcarEncerrado((desdobramentosAtivos ?? []).map((d) => d.id))}
+            >
+              Encerrar todos
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

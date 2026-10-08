@@ -74,6 +74,13 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais, onSalvo }: 
     [processos.data],
   );
 
+  // Desdobramento não tem número de caso próprio -- usa o do processo
+  // principal, e esse campo fica travado (só edita no pai).
+  const idPai = processo?.processo_pai_id ?? null;
+  const numeroCasoDoPai = idPai
+    ? ((processos.data ?? []).find((p) => p.id === idPai)?.numero_interno ?? "")
+    : null;
+
   const pastaAtualId = processo?.pasta_id ?? iniciais?.pasta_id ?? "";
   const grupoSelecionado =
     grupoId || (pastas.data ?? []).find((p) => p.id === pastaAtualId)?.grupo_id || "";
@@ -210,7 +217,13 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais, onSalvo }: 
           <Campo
             label="Número do caso"
             name="numero_interno"
-            defaultValue={processo?.numero_interno ?? iniciais?.numero_interno ?? ""}
+            defaultValue={
+              idPai
+                ? (numeroCasoDoPai ?? "")
+                : (processo?.numero_interno ?? iniciais?.numero_interno ?? "")
+            }
+            disabled={!!idPai}
+            ajuda={idPai ? "Desdobramento usa o número do processo principal." : undefined}
           />
           <Campo
             label="Parte contrária"
@@ -421,12 +434,16 @@ function Campo({
   defaultValue,
   required,
   placeholder,
+  disabled,
+  ajuda,
 }: {
   label: string;
   name: string;
   defaultValue?: string | undefined;
   required?: boolean | undefined;
   placeholder?: string | undefined;
+  disabled?: boolean | undefined;
+  ajuda?: string | undefined;
 }) {
   return (
     <div className="space-y-2">
@@ -437,7 +454,9 @@ function Campo({
         required={required}
         defaultValue={defaultValue}
         placeholder={placeholder}
+        disabled={disabled}
       />
+      {ajuda ? <p className="text-xs text-muted-foreground">{ajuda}</p> : null}
     </div>
   );
 }

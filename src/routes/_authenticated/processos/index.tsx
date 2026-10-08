@@ -132,8 +132,8 @@ function ProcessosPage() {
   const setBusca = (v: string) => definir("q", v, "");
   const status = search.status ?? "ativo";
   const setStatus = (v: string) => definir("status", v, "ativo");
-  const desdobramento = search.desdobramento ?? "ocultar";
-  const setDesdobramento = (v: string) => definir("desdobramento", v, "ocultar");
+  const desdobramento = search.desdobramento ?? "todos";
+  const setDesdobramento = (v: string) => definir("desdobramento", v, "todos");
   const fase = search.fase ?? "todas";
   const setFase = (v: string) => definir("fase", v, "todas");
   const cliente = search.cliente ?? "todos";
@@ -170,6 +170,9 @@ function ProcessosPage() {
     () => new Map((pastas.data ?? []).map((p) => [p.id, p])),
     [pastas.data],
   );
+  // Desdobramento não tem número de caso próprio -- mostra o do
+  // processo principal (ver ProcessoDialog, mesma regra no formulário).
+  const processoPorId = useMemo(() => new Map((data ?? []).map((p) => [p.id, p])), [data]);
   const pastasDoGrupoSelecionado = useMemo(
     () => (pastas.data ?? []).filter((p) => grupoId === "todos" || p.grupo_id === grupoId),
     [pastas.data, grupoId],
@@ -250,7 +253,10 @@ function ProcessosPage() {
       const semEspaco = (v: string | null | undefined) =>
         (v ?? "").replace(/\s+/g, "").toLowerCase();
       const termoSemEspaco = termo.replace(/\s+/g, "");
-      const interno = semEspaco(p.numero_interno);
+      const numeroCasoResolvido = p.processo_pai_id
+        ? (processoPorId.get(p.processo_pai_id)?.numero_interno ?? p.numero_interno)
+        : p.numero_interno;
+      const interno = semEspaco(numeroCasoResolvido);
       const numCliente = semEspaco(p.numero_cliente);
       const casaClienteCaso = (() => {
         if (!termoSemEspaco) return false;
@@ -266,7 +272,7 @@ function ProcessosPage() {
         casaClienteCaso ||
         [
           p.numero_cnj,
-          p.numero_interno,
+          numeroCasoResolvido,
           p.numero_antigo,
           p.cliente,
           p.autor,
@@ -299,6 +305,7 @@ function ProcessosPage() {
     return ordenarProcessos(filtrados);
   }, [
     data,
+    processoPorId,
     busca,
     status,
     desdobramento,
@@ -642,6 +649,7 @@ function ProcessosPage() {
                             key={p.id}
                             p={p}
                             pastaPorId={pastaPorId}
+                            processoPorId={processoPorId}
                             ultimaMovimentacao={ultimasMovimentacoes.data?.get(p.id)}
                           />
                         ))}
@@ -660,6 +668,7 @@ function ProcessosPage() {
               key={p.id}
               p={p}
               pastaPorId={pastaPorId}
+              processoPorId={processoPorId}
               ultimaMovimentacao={ultimasMovimentacoes.data?.get(p.id)}
             />
           ))}
@@ -686,12 +695,17 @@ function agruparPorCarteira(itens: Processo[]): [string, Processo[]][] {
 function ProcessoCard({
   p,
   pastaPorId,
+  processoPorId,
   ultimaMovimentacao,
 }: {
   p: Processo;
   pastaPorId: Map<string, Pasta>;
+  processoPorId: Map<string, Processo>;
   ultimaMovimentacao: { data_movimentacao: string; descricao: string } | undefined;
 }) {
+  const numeroCasoExibido = p.processo_pai_id
+    ? (processoPorId.get(p.processo_pai_id)?.numero_interno ?? null)
+    : p.numero_interno;
   const queryClient = useQueryClient();
   const mudarCor = useMutation({
     mutationFn: (cor: string | null) => atualizarCorProcesso(p.id, cor),
@@ -766,12 +780,12 @@ function ProcessoCard({
         {p.criticidade ? (
           <Badge variant={variantCriticidade(p.criticidade)}>{p.criticidade}</Badge>
         ) : null}
-        {p.numero_interno || p.numero_cliente ? (
+        {numeroCasoExibido || p.numero_cliente ? (
           <span className="text-xs text-muted-foreground">
-            {p.numero_cliente && p.numero_interno
-              ? `Cliente/Caso: ${p.numero_cliente}/${p.numero_interno}`
-              : p.numero_interno
-                ? `Caso: ${p.numero_interno}`
+            {p.numero_cliente && numeroCasoExibido
+              ? `Cliente/Caso: ${p.numero_cliente}/${numeroCasoExibido}`
+              : numeroCasoExibido
+                ? `Caso: ${numeroCasoExibido}`
                 : `Nº cliente: ${p.numero_cliente}`}
           </span>
         ) : null}

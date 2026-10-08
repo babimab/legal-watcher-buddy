@@ -151,7 +151,14 @@ function preencherPlanilhaProcessos(
 ) {
   planilha.columns = COLUNAS_PROCESSOS;
 
+  // Desdobramento não tem número de caso próprio -- mostra o do
+  // processo principal (mesma regra da tela de Processos/ProcessoDialog).
+  const processoPorId = new Map(processos.map((p) => [p.id, p]));
+
   for (const p of processos) {
+    const numeroCasoExibido = p.processo_pai_id
+      ? (processoPorId.get(p.processo_pai_id)?.numero_interno ?? "")
+      : (p.numero_interno ?? "");
     const ultimos = andamentosPorProcesso.get(p.id) ?? [];
     const ultimosAndamentos = ultimos
       .map(
@@ -165,7 +172,7 @@ function preencherPlanilhaProcessos(
       cliente: exibir(p.cliente) ?? "",
       parte_contraria: p.parte_contraria ?? "",
       numero_cliente: p.numero_cliente ?? "",
-      numero_interno: p.numero_interno ?? "",
+      numero_interno: numeroCasoExibido,
       comarca: p.comarca ?? "",
       uf: p.uf ?? "",
       vara: p.vara ?? "",
