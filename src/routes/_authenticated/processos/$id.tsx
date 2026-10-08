@@ -50,6 +50,7 @@ import { ExcluirProcessoDialog } from "@/components/ExcluirProcessoDialog";
 import { VincularDesdobramentoDialog } from "@/components/VincularDesdobramentoDialog";
 import { EditarLinkTribunalDialog } from "@/components/EditarLinkTribunalDialog";
 import { GerarDocRepresentacaoDialog } from "@/components/GerarDocRepresentacaoDialog";
+import { EncerramentoDialog } from "@/components/EncerramentoDialog";
 
 export const Route = createFileRoute("/_authenticated/processos/$id")({
   head: () => ({
@@ -371,6 +372,7 @@ function ProcessoDetalhe() {
             }
           />
           <GerarDocRepresentacaoDialog processo={p} />
+          <EncerramentoDialog processo={p} />
           <Button
             variant="outline"
             disabled={consultandoJudit}
@@ -434,6 +436,35 @@ function ProcessoDetalhe() {
           <CardTitle className="font-serif text-lg">Dados do processo</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
+            <Badge variant={p.status === "ativo" ? "default" : "secondary"} className="mt-1">
+              {p.status}
+            </Badge>
+          </div>
+          {p.status === "encerrado" ? (
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Baixa do cliente
+              </p>
+              <Badge
+                variant={p.baixa_cliente_pendente ? "destructive" : "secondary"}
+                className="mt-1"
+              >
+                {p.baixa_cliente_pendente ? "Pendente" : "Confirmada"}
+              </Badge>
+            </div>
+          ) : (
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Pronto para encerrar
+              </p>
+              <Badge variant={p.pronto_para_encerrar ? "default" : "secondary"} className="mt-1">
+                {p.pronto_para_encerrar ? "Sim" : "Não"}
+              </Badge>
+            </div>
+          )}
+          <Dado rotulo="Resultado do encerramento" valor={p.resultado_encerramento} />
           <Dado rotulo="Autor" valor={p.autor} />
           <Dado rotulo="Réu" valor={p.reu} />
           <Dado rotulo="Número do cliente" valor={p.numero_cliente} />
