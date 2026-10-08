@@ -506,6 +506,7 @@ export const TIPOS_DESDOBRAMENTO = [
   "Execucao",
   "Embargos",
   "Agravo",
+  "Incidente de Desconsideracao da Personalidade Juridica (IDPJ)",
   "Outro",
 ] as const;
 
@@ -519,6 +520,8 @@ const TEXTOS_PARA_EXIBICAO: Record<string, string> = {
   "Perfis MLV (acoes de cobranca)": "Perfis MLV (ações de cobrança)",
   "RJ Astro Navegacao": "RJ Astro Navegação",
   Astromaritima: "Astromarítima",
+  "Incidente de Desconsideracao da Personalidade Juridica (IDPJ)":
+    "Incidente de Desconsideração da Personalidade Jurídica (IDPJ)",
 };
 
 export function exibir(texto: string): string;
