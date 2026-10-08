@@ -48,6 +48,7 @@ import { RelacionadosProcesso } from "@/components/RelacionadosProcesso";
 import { HistoricoProcesso } from "@/components/HistoricoProcesso";
 import { ExcluirProcessoDialog } from "@/components/ExcluirProcessoDialog";
 import { VincularDesdobramentoDialog } from "@/components/VincularDesdobramentoDialog";
+import { VincularAProcessoPrincipalDialog } from "@/components/VincularAProcessoPrincipalDialog";
 import { EditarLinkTribunalDialog } from "@/components/EditarLinkTribunalDialog";
 import { GerarDocRepresentacaoDialog } from "@/components/GerarDocRepresentacaoDialog";
 import { EncerramentoDialog } from "@/components/EncerramentoDialog";
@@ -373,6 +374,9 @@ function ProcessoDetalhe() {
           />
           <GerarDocRepresentacaoDialog processo={p} />
           <EncerramentoDialog processo={p} />
+          {(desdobramentos.data ?? []).length === 0 ? (
+            <VincularAProcessoPrincipalDialog filhoId={p.id} filhoJaTemPai={p.processo_pai_id} />
+          ) : null}
           <Button
             variant="outline"
             disabled={consultandoJudit}

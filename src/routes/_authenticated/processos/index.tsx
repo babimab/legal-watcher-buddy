@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ProcessoDialog } from "@/components/ProcessoDialog";
+import { VincularAProcessoPrincipalDialog } from "@/components/VincularAProcessoPrincipalDialog";
 import {
   listarProcessos,
   ordenarProcessos,
@@ -173,6 +174,12 @@ function ProcessosPage() {
   // Desdobramento não tem número de caso próprio -- mostra o do
   // processo principal (ver ProcessoDialog, mesma regra no formulário).
   const processoPorId = useMemo(() => new Map((data ?? []).map((p) => [p.id, p])), [data]);
+  // Processo que já é pai de outro não pode virar filho de um terceiro --
+  // manteria só um nível de vínculo (ver VincularAProcessoPrincipalDialog).
+  const idsComFilhos = useMemo(
+    () => new Set((data ?? []).map((p) => p.processo_pai_id).filter((id): id is string => !!id)),
+    [data],
+  );
   const pastasDoGrupoSelecionado = useMemo(
     () => (pastas.data ?? []).filter((p) => grupoId === "todos" || p.grupo_id === grupoId),
     [pastas.data, grupoId],
@@ -650,6 +657,7 @@ function ProcessosPage() {
                             p={p}
                             pastaPorId={pastaPorId}
                             processoPorId={processoPorId}
+                            ehPai={idsComFilhos.has(p.id)}
                             ultimaMovimentacao={ultimasMovimentacoes.data?.get(p.id)}
                           />
                         ))}
@@ -669,6 +677,7 @@ function ProcessosPage() {
               p={p}
               pastaPorId={pastaPorId}
               processoPorId={processoPorId}
+              ehPai={idsComFilhos.has(p.id)}
               ultimaMovimentacao={ultimasMovimentacoes.data?.get(p.id)}
             />
           ))}
@@ -696,11 +705,13 @@ function ProcessoCard({
   p,
   pastaPorId,
   processoPorId,
+  ehPai,
   ultimaMovimentacao,
 }: {
   p: Processo;
   pastaPorId: Map<string, Pasta>;
   processoPorId: Map<string, Processo>;
+  ehPai: boolean;
   ultimaMovimentacao: { data_movimentacao: string; descricao: string } | undefined;
 }) {
   const numeroCasoExibido = p.processo_pai_id
@@ -760,6 +771,15 @@ function ProcessoCard({
           >
             <X className="size-3.5" />
           </button>
+        ) : null}
+        {!ehPai ? (
+          <span className="ml-auto" onClick={(e) => e.stopPropagation()}>
+            <VincularAProcessoPrincipalDialog
+              filhoId={p.id}
+              filhoJaTemPai={p.processo_pai_id}
+              tamanho="icon"
+            />
+          </span>
         ) : null}
       </div>
       <div className="flex flex-wrap items-center gap-3">
