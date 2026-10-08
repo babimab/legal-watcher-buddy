@@ -35,8 +35,10 @@ import {
   normalizarNome,
   variantCriticidade,
   siglaOuEmailAtual,
+  useSiglaAtual,
   usePodeExcluirProcesso,
 } from "@/lib/processos";
+import { SIGLAS_PERMITIDAS_REPRESENTACAO } from "@/lib/substabelecimento";
 import { linkTribunal } from "@/lib/tribunais";
 import { consultarProcessoJudit, type ResultadoConsultaJudit } from "@/lib/judit";
 import { AcessosProcesso } from "@/components/AcessosProcesso";
@@ -49,6 +51,7 @@ import { HistoricoProcesso } from "@/components/HistoricoProcesso";
 import { ExcluirProcessoDialog } from "@/components/ExcluirProcessoDialog";
 import { VincularDesdobramentoDialog } from "@/components/VincularDesdobramentoDialog";
 import { EditarLinkTribunalDialog } from "@/components/EditarLinkTribunalDialog";
+import { GerarDocRepresentacaoDialog } from "@/components/GerarDocRepresentacaoDialog";
 
 export const Route = createFileRoute("/_authenticated/processos/$id")({
   head: () => ({
@@ -100,6 +103,10 @@ function ProcessoDetalhe() {
 
   const processo = useQuery({ queryKey: ["processo", id], queryFn: () => buscarProcesso(id) });
   const souPodeExcluir = usePodeExcluirProcesso(processo.data?.responsavel ?? null);
+  const minhaSigla = useSiglaAtual();
+  const podeVerRepresentacao = SIGLAS_PERMITIDAS_REPRESENTACAO.includes(
+    (minhaSigla ?? "").toUpperCase(),
+  );
   const [consultandoJudit, setConsultandoJudit] = useState(false);
   const [resultadoJudit, setResultadoJudit] = useState<ResultadoConsultaJudit | null>(null);
   const movs = useQuery({
@@ -369,6 +376,7 @@ function ProcessoDetalhe() {
               </Button>
             }
           />
+          {podeVerRepresentacao ? <GerarDocRepresentacaoDialog processo={p} /> : null}
           <Button
             variant="outline"
             disabled={consultandoJudit}
