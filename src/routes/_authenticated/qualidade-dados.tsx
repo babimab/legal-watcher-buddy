@@ -15,7 +15,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { categoriaCliente, exibir, formatarCNJ, TIPOS_DESDOBRAMENTO } from "@/lib/processos";
+import {
+  anoCnj,
+  categoriaCliente,
+  exibir,
+  formatarCNJ,
+  TIPOS_DESDOBRAMENTO,
+} from "@/lib/processos";
 import { listarGrupos, listarPastas } from "@/lib/grupos";
 import { exportarGruposParteAdversaExcel } from "@/lib/excel";
 import {
@@ -310,8 +316,8 @@ function QualidadeDadosPage() {
             <CardDescription>
               Mesmo Cliente/Caso, CNJs diferentes, e mais de um cadastrado como processo
               independente — provavelmente um recurso/cumprimento/execução do outro. O processo mais
-              antigo do grupo (pela primeira movimentação registrada) entra marcado como sugestão de
-              principal — confira antes de vincular.
+              antigo do grupo (pelo ano no próprio CNJ) entra marcado como sugestão de principal —
+              confira antes de vincular.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -511,10 +517,15 @@ function GrupoDesdobramentoCard({
   const [vinculando, setVinculando] = useState<string | null>(null);
   const [tipoPorId, setTipoPorId] = useState<Record<string, string>>({});
 
-  // Mais antigo primeiro (pela primeira movimentação registrada, ou pela
-  // data de cadastro quando não há nenhuma) -- esse vira a sugestão de
-  // principal do grupo.
+  // Mais antigo primeiro -- esse vira a sugestão de principal do grupo.
+  // O ano embutido no próprio CNJ é o sinal mais confiável (não depende
+  // de quando o caso foi importado pro sistema); a primeira movimentação
+  // registrada só desempata processos do mesmo ano, e a data de cadastro
+  // só entra se nenhum dos dois estiver disponível.
   const ordenados = [...grupo.processos].sort((a, b) => {
+    const anoA = anoCnj(a.numero_cnj);
+    const anoB = anoCnj(b.numero_cnj);
+    if (anoA != null && anoB != null && anoA !== anoB) return anoA - anoB;
     const da = primeiras.get(a.id) ?? a.created_at;
     const db = primeiras.get(b.id) ?? b.created_at;
     return da < db ? -1 : da > db ? 1 : 0;

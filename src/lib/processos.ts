@@ -917,3 +917,14 @@ export function formatarCNJ(valor: string) {
   if (d.length < 20) return valor;
   return `${d.slice(0, 7)}-${d.slice(7, 9)}.${d.slice(9, 13)}.${d.slice(13, 14)}.${d.slice(14, 16)}.${d.slice(16, 20)}`;
 }
+
+// O CNJ (NNNNNNN-DD.AAAA.J.TR.OOOO) traz o ano de ajuizamento embutido no
+// próprio número -- é o jeito mais confiável de saber qual processo é mais
+// antigo, bem mais que data de cadastro no sistema (que só diz quando a
+// planilha foi importada, não quando o caso realmente começou).
+export function anoCnj(valor: string): number | null {
+  const d = valor.replace(/\D/g, "");
+  if (d.length < 20) return null;
+  const ano = Number(d.slice(9, 13));
+  return Number.isFinite(ano) && ano > 1000 ? ano : null;
+}
