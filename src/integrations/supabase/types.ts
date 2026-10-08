@@ -347,6 +347,60 @@ export type Database = {
         }
         Relationships: []
       }
+      clientes_substabelecimento: {
+        Row: {
+          assinante_nome: string | null
+          assinante_oab: string | null
+          assinatura_caminho: string | null
+          carta_preposicao_caminho: string | null
+          carta_preposicao_nome_arquivo: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          nome: string
+          procuracao_caminho: string | null
+          procuracao_nome_arquivo: string | null
+          substabelecimento_modelo_caminho: string | null
+          substabelecimento_modelo_nome_arquivo: string | null
+          texto_outorgante: string
+          updated_at: string
+        }
+        Insert: {
+          assinante_nome?: string | null
+          assinante_oab?: string | null
+          assinatura_caminho?: string | null
+          carta_preposicao_caminho?: string | null
+          carta_preposicao_nome_arquivo?: string | null
+          created_at?: string
+          created_by?: string | null
+          id: string
+          nome: string
+          procuracao_caminho?: string | null
+          procuracao_nome_arquivo?: string | null
+          substabelecimento_modelo_caminho?: string | null
+          substabelecimento_modelo_nome_arquivo?: string | null
+          texto_outorgante: string
+          updated_at?: string
+        }
+        Update: {
+          assinante_nome?: string | null
+          assinante_oab?: string | null
+          assinatura_caminho?: string | null
+          carta_preposicao_caminho?: string | null
+          carta_preposicao_nome_arquivo?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome?: string
+          procuracao_caminho?: string | null
+          procuracao_nome_arquivo?: string | null
+          substabelecimento_modelo_caminho?: string | null
+          substabelecimento_modelo_nome_arquivo?: string | null
+          texto_outorgante?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       convites_grupo: {
         Row: {
           created_at: string
@@ -561,6 +615,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      nomes_ocultos_publicacoes_bdr: {
+        Row: {
+          created_at: string
+          id: string
+          nome: string
+          ordem: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome: string
+          ordem?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome?: string
+          ordem?: number
+          user_id?: string
+        }
+        Relationships: []
       }
       pasta_membros: {
         Row: {
@@ -1028,6 +1106,7 @@ export type Database = {
           email: string | null
           id: string
           nome: string | null
+          pode_ver_fatura: boolean
           sigla: string | null
           updated_at: string
         }
@@ -1037,6 +1116,7 @@ export type Database = {
           email?: string | null
           id: string
           nome?: string | null
+          pode_ver_fatura?: boolean
           sigla?: string | null
           updated_at?: string
         }
@@ -1046,6 +1126,7 @@ export type Database = {
           email?: string | null
           id?: string
           nome?: string | null
+          pode_ver_fatura?: boolean
           sigla?: string | null
           updated_at?: string
         }
@@ -1204,6 +1285,7 @@ export type Database = {
         Returns: boolean
       }
       pode_editar_calculo: { Args: { _calculo_id: string }; Returns: boolean }
+      pode_gerenciar_representacao: { Args: never; Returns: boolean }
       pode_visualizar_calculo: {
         Args: { _calculo_id: string }
         Returns: boolean
