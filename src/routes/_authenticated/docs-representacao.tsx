@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -40,7 +40,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   dataPorExtenso,
   lerPlanilhaSubstabelecimento,
-  SIGLAS_PERMITIDAS_REPRESENTACAO,
   type ClienteSubstabelecimento,
   type ItemSubstabelecimento,
 } from "@/lib/substabelecimento";
@@ -76,18 +75,8 @@ import {
   gerarPdfCartasPreposicao,
 } from "@/lib/pdf-carta-preposicao";
 import { baixarBlob } from "@/lib/pdf-base";
-import { carregarUsuarioAtual, siglaDoEmail } from "@/lib/processos";
 
 export const Route = createFileRoute("/_authenticated/docs-representacao")({
-  // Dado sensível (cita cliente/processo e carrega assinatura escaneada
-  // de sócio) -- mesma trava de acesso da Fatura.
-  beforeLoad: async () => {
-    const usuario = await carregarUsuarioAtual();
-    const sigla = (usuario.sigla || siglaDoEmail(usuario.email) || "").toUpperCase();
-    if (!SIGLAS_PERMITIDAS_REPRESENTACAO.includes(sigla)) {
-      throw redirect({ to: "/painel" });
-    }
-  },
   head: () => ({
     meta: [
       { title: "Docs de Representação | FaroLex" },
@@ -1125,7 +1114,7 @@ function GerenciarClientesDialog({
           {procuracaoDe ? (
             <EditorPdfCliente
               titulo={`Procuração de ${procuracaoDe.nome}`}
-              descricao="Guarda só a versão atual — subir um novo arquivo substitui o anterior. Fica guardado de forma privada, visível só pra quem acessa Docs de Representação."
+              descricao="Guarda só a versão atual — subir um novo arquivo substitui o anterior."
               caminhoAtual={procuracaoDe.procuracaoCaminho}
               nomeArquivoAtual={procuracaoDe.procuracaoNomeArquivo}
               onEnviar={(arquivo) => enviarProcuracaoCliente(procuracaoDe, arquivo)}

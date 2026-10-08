@@ -32,7 +32,6 @@ import { listarBaixasCliente } from "@/lib/baixas-cliente";
 import { listarCaixaEntrada } from "@/lib/caixa-entrada";
 import { listarPainelAdministrativos } from "@/lib/acompanhamentos";
 import { SIGLAS_PERMITIDAS_FATURA } from "@/lib/fatura";
-import { SIGLAS_PERMITIDAS_REPRESENTACAO } from "@/lib/substabelecimento";
 import {
   listarPendencias,
   ehResponsavelDaSigla,
@@ -63,9 +62,6 @@ function AppLayout() {
   const minhaSigla = useSiglaAtual();
   const ehEstagiaria = useCargoAtual() === "Estagiário";
   const podeVerFatura = SIGLAS_PERMITIDAS_FATURA.includes((minhaSigla ?? "").toUpperCase());
-  const podeVerRepresentacao = SIGLAS_PERMITIDAS_REPRESENTACAO.includes(
-    (minhaSigla ?? "").toUpperCase(),
-  );
   const emSeteDias = new Date();
   emSeteDias.setDate(emSeteDias.getDate() + 7);
   const emSeteDiasISO = emSeteDias.toISOString().slice(0, 10);
@@ -151,14 +147,12 @@ function AppLayout() {
           tourId="nav-fatura"
         />
       ) : null}
-      {podeVerRepresentacao ? (
-        <NavItem
-          to="/docs-representacao"
-          icon={<ScrollText className="size-4" />}
-          label="Docs de Representação"
-          tourId="nav-docs-representacao"
-        />
-      ) : null}
+      <NavItem
+        to="/docs-representacao"
+        icon={<ScrollText className="size-4" />}
+        label="Docs de Representação"
+        tourId="nav-docs-representacao"
+      />
       <NavItem
         to="/relatorio"
         icon={<LineChart className="size-4" />}

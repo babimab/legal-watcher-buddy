@@ -1,10 +1,5 @@
 import * as XLSX from "xlsx";
 
-// Acesso restrito -- mesma trava da Fatura: esses documentos citam
-// cliente, processo e carregam a assinatura escaneada de um sócio, não é
-// pra ficar visível pra quem não precisa.
-export const SIGLAS_PERMITIDAS_REPRESENTACAO = ["LSO", "NYM", "BDR"];
-
 // Cadastro de cliente de substabelecimento -- vem do banco (tabela
 // clientes_substabelecimento), não mais fixo no código. A assinatura é
 // opcional e fica guardada num bucket privado (assinaturas-substabelecimento),
