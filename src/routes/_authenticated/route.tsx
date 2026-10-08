@@ -31,12 +31,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { listarBaixasCliente } from "@/lib/baixas-cliente";
 import { listarCaixaEntrada } from "@/lib/caixa-entrada";
 import { listarPainelAdministrativos } from "@/lib/acompanhamentos";
-import { SIGLAS_PERMITIDAS_FATURA } from "@/lib/fatura";
 import {
   listarPendencias,
   ehResponsavelDaSigla,
   useSiglaAtual,
   useCargoAtual,
+  usePodeVerFatura,
 } from "@/lib/processos";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -61,7 +61,7 @@ function AppLayout() {
   });
   const minhaSigla = useSiglaAtual();
   const ehEstagiaria = useCargoAtual() === "Estagiário";
-  const podeVerFatura = SIGLAS_PERMITIDAS_FATURA.includes((minhaSigla ?? "").toUpperCase());
+  const podeVerFatura = usePodeVerFatura();
   const emSeteDias = new Date();
   emSeteDias.setDate(emSeteDias.getDate() + 7);
   const emSeteDiasISO = emSeteDias.toISOString().slice(0, 10);

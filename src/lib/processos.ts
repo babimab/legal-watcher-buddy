@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
+import { supabaseSolto } from "@/lib/supabase-solto";
 
 export type Processo = {
   id: string;
@@ -188,16 +189,17 @@ export function ehResponsavelDaSigla(responsavel: string | null | undefined, sig
 
 export async function carregarUsuarioAtual() {
   const { data } = await supabase.auth.getUser();
-  if (!data.user) return { sigla: null, cargo: null, email: null };
-  const { data: perfil } = await supabase
+  if (!data.user) return { sigla: null, cargo: null, email: null, podeVerFatura: false };
+  const { data: perfil } = await supabaseSolto
     .from("profiles")
-    .select("sigla, cargo")
+    .select("sigla, cargo, pode_ver_fatura")
     .eq("id", data.user.id)
     .maybeSingle();
   return {
     sigla: perfil?.sigla ?? null,
     cargo: perfil?.cargo ?? null,
     email: data.user.email ?? null,
+    podeVerFatura: perfil?.pode_ver_fatura ?? false,
   };
 }
 
@@ -238,6 +240,17 @@ export function useSouAdminCargo(): boolean {
   return (data?.email ?? "").toLowerCase() === EMAIL_ADMIN_CARGO;
 }
 
+// Acesso à Fatura: campo no perfil, só a BDR liga/desliga pela tela
+// "Cargo da equipe" (ver migração permissao_fatura_no_perfil).
+export function usePodeVerFatura(): boolean {
+  const { data } = useQuery({
+    queryKey: ["usuario-atual"],
+    queryFn: carregarUsuarioAtual,
+    staleTime: Infinity,
+  });
+  return data?.podeVerFatura ?? false;
+}
+
 // Regra de quem pode excluir processo (ver migração
 // exclusao_processos_regras — trava a mesma regra no banco via RLS; essa
 // checagem aqui é só pra decidir o que mostrar na tela): BDR e ELV
@@ -263,19 +276,31 @@ export type PerfilResumo = {
   email: string | null;
   sigla: string | null;
   cargo: string | null;
+  pode_ver_fatura: boolean;
 };
 
 export async function listarPerfis(): Promise<PerfilResumo[]> {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseSolto
     .from("profiles")
-    .select("id, nome, email, sigla, cargo")
+    .select("id, nome, email, sigla, cargo, pode_ver_fatura")
     .order("nome");
   if (error) throw error;
-  return data;
+  return data as PerfilResumo[];
 }
 
 export async function atualizarCargoDe(userId: string, cargo: string): Promise<void> {
   const { error } = await supabase.from("profiles").update({ cargo }).eq("id", userId);
+  if (error) throw error;
+}
+
+export async function atualizarPermissaoFaturaDe(
+  userId: string,
+  podeVerFatura: boolean,
+): Promise<void> {
+  const { error } = await supabaseSolto
+    .from("profiles")
+    .update({ pode_ver_fatura: podeVerFatura })
+    .eq("id", userId);
   if (error) throw error;
 }
 

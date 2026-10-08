@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -17,7 +18,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { CARGO_OPCOES, useSouAdminCargo, listarPerfis, atualizarCargoDe } from "@/lib/processos";
+import {
+  CARGO_OPCOES,
+  useSouAdminCargo,
+  listarPerfis,
+  atualizarCargoDe,
+  atualizarPermissaoFaturaDe,
+} from "@/lib/processos";
 
 export const Route = createFileRoute("/_authenticated/perfil")({
   head: () => ({
@@ -241,14 +248,25 @@ function CargoDaEquipeCard() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const mudarPermissaoFatura = useMutation({
+    mutationFn: ({ id, valor }: { id: string; valor: boolean }) =>
+      atualizarPermissaoFaturaDe(id, valor),
+    onSuccess: async () => {
+      toast.success("Acesso à Fatura atualizado.");
+      await queryClient.invalidateQueries({ queryKey: ["todos-perfis"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 font-serif text-lg">
-          <ShieldCheck className="size-4" /> Cargo da equipe
+          <ShieldCheck className="size-4" /> Cargo e acessos da equipe
         </CardTitle>
         <CardDescription>
-          Só você pode alterar o cargo de outras pessoas. Cada um vê só o seu no próprio perfil.
+          Só você pode alterar o cargo e os acessos de outras pessoas. Cada um vê só o seu no
+          próprio perfil.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -257,26 +275,40 @@ function CargoDaEquipeCard() {
         ) : (
           <ul className="divide-y divide-border rounded-lg border border-border">
             {(perfis.data ?? []).map((p) => (
-              <li key={p.id} className="flex items-center justify-between gap-3 px-3 py-2">
+              <li
+                key={p.id}
+                className="flex flex-wrap items-center justify-between gap-3 px-3 py-2"
+              >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{p.nome ?? p.email ?? "Usuário"}</p>
                   <p className="truncate text-xs text-muted-foreground">{p.email}</p>
                 </div>
-                <Select
-                  value={p.cargo ?? "Advogado"}
-                  onValueChange={(valor) => mudarCargo.mutate({ id: p.id, cargo: valor })}
-                >
-                  <SelectTrigger className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CARGO_OPCOES.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={p.pode_ver_fatura}
+                      onCheckedChange={(valor) =>
+                        mudarPermissaoFatura.mutate({ id: p.id, valor: valor === true })
+                      }
+                    />
+                    Fatura
+                  </label>
+                  <Select
+                    value={p.cargo ?? "Advogado"}
+                    onValueChange={(valor) => mudarCargo.mutate({ id: p.id, cargo: valor })}
+                  >
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CARGO_OPCOES.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </li>
             ))}
           </ul>

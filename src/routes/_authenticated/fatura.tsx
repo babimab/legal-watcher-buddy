@@ -28,25 +28,19 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  formatarMoeda,
-  lerPlanilhaFatura,
-  SIGLAS_PERMITIDAS_FATURA,
-  type ItemFatura,
-  type NotaFatura,
-} from "@/lib/fatura";
+import { formatarMoeda, lerPlanilhaFatura, type ItemFatura, type NotaFatura } from "@/lib/fatura";
 import { gerarEBaixarPdfNota, gerarPdfNotas } from "@/lib/pdf-fatura";
 import { baixarBlob } from "@/lib/pdf-base";
-import { carregarUsuarioAtual, siglaDoEmail } from "@/lib/processos";
+import { carregarUsuarioAtual } from "@/lib/processos";
 
 export const Route = createFileRoute("/_authenticated/fatura")({
-  // Dado confidencial de fatura de cliente -- só essas siglas podem
-  // entrar, mesmo digitando a URL direto (esconder o item do menu em
-  // route.tsx não bastaria sozinho).
+  // Dado confidencial de fatura de cliente -- só quem tem o campo
+  // pode_ver_fatura ligado no perfil pode entrar, mesmo digitando a URL
+  // direto (esconder o item do menu em route.tsx não bastaria sozinho).
+  // Só a BDR liga/desliga isso pela tela "Cargo da equipe" (perfil.tsx).
   beforeLoad: async () => {
     const usuario = await carregarUsuarioAtual();
-    const sigla = (usuario.sigla || siglaDoEmail(usuario.email) || "").toUpperCase();
-    if (!SIGLAS_PERMITIDAS_FATURA.includes(sigla)) {
+    if (!usuario.podeVerFatura) {
       throw redirect({ to: "/painel" });
     }
   },

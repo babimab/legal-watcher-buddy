@@ -1,11 +1,5 @@
 import * as XLSX from "xlsx";
 
-// Acesso restrito -- essa seção lida com dado confidencial de fatura de
-// cliente, só essas siglas podem ver (pedido da BDR). Checado tanto pra
-// esconder o item do menu quanto no beforeLoad da rota (não é só
-// estético, bloqueia de verdade quem tentar entrar pela URL direto).
-export const SIGLAS_PERMITIDAS_FATURA = ["LSO", "NYM", "BDR", "JNC"];
-
 // Lê a planilha de faturamento por ato de um cliente que paga por ato (ex.:
 // resseguradora de companhia aérea) -- uma aba por tipo de cobrança
 // (Honorários, Preposição, Outras Despesas). O nome das abas pode variar
