@@ -54,15 +54,18 @@ import {
   atualizarClienteSubstabelecimento,
   baixarCartaPreposicaoModeloCliente,
   baixarProcuracaoCliente,
+  baixarSubstabelecimentoModeloCliente,
   criarClienteSubstabelecimento,
   enviarAssinaturaCliente,
   enviarCartaPreposicaoModeloCliente,
   enviarProcuracaoCliente,
+  enviarSubstabelecimentoModeloCliente,
   excluirClienteSubstabelecimento,
   listarClientesSubstabelecimento,
   removerAssinaturaCliente,
   removerCartaPreposicaoModeloCliente,
   removerProcuracaoCliente,
+  removerSubstabelecimentoModeloCliente,
 } from "@/lib/clientes-substabelecimento";
 import {
   gerarEBaixarPdfSubstabelecimento,
@@ -924,6 +927,7 @@ function GerenciarClientesDialog({
   const [assinaturaDe, setAssinaturaDe] = useState<ClienteSubstabelecimento | null>(null);
   const [procuracaoDe, setProcuracaoDe] = useState<ClienteSubstabelecimento | null>(null);
   const [cartaModeloDe, setCartaModeloDe] = useState<ClienteSubstabelecimento | null>(null);
+  const [substabModeloDe, setSubstabModeloDe] = useState<ClienteSubstabelecimento | null>(null);
   const [excluindo, setExcluindo] = useState<ClienteSubstabelecimento | null>(null);
 
   const criar = async () => {
@@ -1020,6 +1024,11 @@ function GerenciarClientesDialog({
                         ) : (
                           <Badge variant="secondary">Sem modelo de carta</Badge>
                         )}
+                        {c.substabelecimentoModeloCaminho ? (
+                          <Badge variant="outline">Modelo de substabelecimento cadastrado</Badge>
+                        ) : (
+                          <Badge variant="secondary">Sem modelo de substabelecimento</Badge>
+                        )}
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-1">
@@ -1054,6 +1063,14 @@ function GerenciarClientesDialog({
                         onClick={() => setCartaModeloDe(c)}
                       >
                         Carta de Preposição
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSubstabModeloDe(c)}
+                      >
+                        Substabelecimento
                       </Button>
                       <Button
                         type="button"
@@ -1145,13 +1162,34 @@ function GerenciarClientesDialog({
         </DialogContent>
       </Dialog>
 
+      <Dialog open={substabModeloDe != null} onOpenChange={(v) => !v && setSubstabModeloDe(null)}>
+        <DialogContent className="max-w-md">
+          {substabModeloDe ? (
+            <EditorPdfCliente
+              titulo={`Substabelecimento (modelo) de ${substabModeloDe.nome}`}
+              descricao="PDF já pronto, pra cliente com texto/rol de advogados próprio, diferente da cláusula padrão do gerador. Guarda só a versão atual — subir um novo arquivo substitui o anterior."
+              caminhoAtual={substabModeloDe.substabelecimentoModeloCaminho}
+              nomeArquivoAtual={substabModeloDe.substabelecimentoModeloNomeArquivo}
+              onEnviar={(arquivo) => enviarSubstabelecimentoModeloCliente(substabModeloDe, arquivo)}
+              onRemover={() => removerSubstabelecimentoModeloCliente(substabModeloDe)}
+              onBaixar={() => baixarSubstabelecimentoModeloCliente(substabModeloDe)}
+              onSalvar={() => {
+                setSubstabModeloDe(null);
+                onChanged();
+              }}
+              onCancelar={() => setSubstabModeloDe(null)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={excluindo != null} onOpenChange={(v) => !v && setExcluindo(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir {excluindo?.nome}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Isso apaga o cadastro e os arquivos desse cliente (assinatura, procuração e modelo de
-              carta, se tiver). Não afeta documentos já baixados.
+              Isso apaga o cadastro e os arquivos desse cliente (assinatura, procuração e modelos de
+              carta/substabelecimento, se tiver). Não afeta documentos já baixados.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

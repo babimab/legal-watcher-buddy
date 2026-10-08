@@ -13,6 +13,7 @@ import type { ClienteSubstabelecimento } from "@/lib/substabelecimento";
 const BUCKET = "assinaturas-substabelecimento";
 const BUCKET_PROCURACAO = "procuracoes-clientes";
 const BUCKET_CARTA_PREPOSICAO = "cartas-preposicao-clientes";
+const BUCKET_SUBSTABELECIMENTO_MODELO = "substabelecimentos-modelo-clientes";
 const TAMANHO_MAX_ASSINATURA = 5 * 1024 * 1024;
 const TAMANHO_MAX_PDF = 20 * 1024 * 1024;
 
@@ -27,6 +28,8 @@ type LinhaCliente = {
   procuracao_nome_arquivo: string | null;
   carta_preposicao_caminho: string | null;
   carta_preposicao_nome_arquivo: string | null;
+  substabelecimento_modelo_caminho: string | null;
+  substabelecimento_modelo_nome_arquivo: string | null;
 };
 
 function mapearCliente(linha: LinhaCliente): ClienteSubstabelecimento {
@@ -41,6 +44,8 @@ function mapearCliente(linha: LinhaCliente): ClienteSubstabelecimento {
     procuracaoNomeArquivo: linha.procuracao_nome_arquivo,
     cartaPreposicaoCaminho: linha.carta_preposicao_caminho,
     cartaPreposicaoNomeArquivo: linha.carta_preposicao_nome_arquivo,
+    substabelecimentoModeloCaminho: linha.substabelecimento_modelo_caminho,
+    substabelecimentoModeloNomeArquivo: linha.substabelecimento_modelo_nome_arquivo,
   };
 }
 
@@ -106,6 +111,12 @@ const gerenciadorCartaPreposicao = criarGerenciadorPdfCliente(
   "carta_preposicao_caminho",
   "carta_preposicao_nome_arquivo",
   (c) => c.cartaPreposicaoCaminho,
+);
+const gerenciadorSubstabelecimentoModelo = criarGerenciadorPdfCliente(
+  BUCKET_SUBSTABELECIMENTO_MODELO,
+  "substabelecimento_modelo_caminho",
+  "substabelecimento_modelo_nome_arquivo",
+  (c) => c.substabelecimentoModeloCaminho,
 );
 
 function slugificar(nome: string): string {
@@ -221,6 +232,11 @@ export async function excluirClienteSubstabelecimento(
   if (cliente.cartaPreposicaoCaminho) {
     await supabase.storage.from(BUCKET_CARTA_PREPOSICAO).remove([cliente.cartaPreposicaoCaminho]);
   }
+  if (cliente.substabelecimentoModeloCaminho) {
+    await supabase.storage
+      .from(BUCKET_SUBSTABELECIMENTO_MODELO)
+      .remove([cliente.substabelecimentoModeloCaminho]);
+  }
 }
 
 export async function obterUrlAssinaturaCliente(caminho: string): Promise<string> {
@@ -238,3 +254,7 @@ export const baixarProcuracaoCliente = gerenciadorProcuracao.baixar;
 export const enviarCartaPreposicaoModeloCliente = gerenciadorCartaPreposicao.enviar;
 export const removerCartaPreposicaoModeloCliente = gerenciadorCartaPreposicao.remover;
 export const baixarCartaPreposicaoModeloCliente = gerenciadorCartaPreposicao.baixar;
+
+export const enviarSubstabelecimentoModeloCliente = gerenciadorSubstabelecimentoModelo.enviar;
+export const removerSubstabelecimentoModeloCliente = gerenciadorSubstabelecimentoModelo.remover;
+export const baixarSubstabelecimentoModeloCliente = gerenciadorSubstabelecimentoModelo.baixar;

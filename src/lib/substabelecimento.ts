@@ -33,6 +33,11 @@ export type ClienteSubstabelecimento = {
   // carta fixa. Mesmo padrão da procuração: só a versão atual.
   cartaPreposicaoCaminho: string | null;
   cartaPreposicaoNomeArquivo: string | null;
+  // Substabelecimento "modelo pronto" (PDF) -- pra cliente com texto
+  // próprio (ex.: Souza Cruz), diferente da cláusula padrão usada pelo
+  // gerador dinâmico. Mesmo padrão: só a versão atual.
+  substabelecimentoModeloCaminho: string | null;
+  substabelecimentoModeloNomeArquivo: string | null;
 };
 
 export type ItemSubstabelecimento = {
