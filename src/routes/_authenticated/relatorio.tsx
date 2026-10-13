@@ -810,11 +810,13 @@ function RelatorioPage() {
     ? encerramentoAstroProntos
     : encerramentoAstroPorAdvogado;
 
-  // Base completa (todos os processos, não só os com andamento novo) do
-  // advogado/pasta/sócio selecionados, pra exportar com destaque em
-  // amarelo pra quem prefere ver o caso inteiro em vez de receber uma
-  // planilha só com os andamentos novos.
+  // Base completa (todos os processos ATIVOS, não só os com andamento
+  // novo) do advogado/pasta/sócio selecionados, pra exportar com destaque
+  // em amarelo pra quem prefere ver o caso inteiro em vez de receber uma
+  // planilha só com os andamentos novos. Encerrado/suspenso/arquivado não
+  // entra -- já saiu da carteira ativa.
   const processosDaBaseFiltrados = (processos.data ?? [])
+    .filter((p) => p.status === "ativo")
     .filter((p) =>
       advogado === "todos"
         ? true
