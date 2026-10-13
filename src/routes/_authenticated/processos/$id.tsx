@@ -26,6 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { supabaseSolto } from "@/lib/supabase-solto";
 import {
   buscarProcesso,
+  categoriaCliente,
   desvincularDesdobramento,
   listarDesdobramentos,
   listarMovimentacoes,
@@ -373,7 +374,14 @@ function ProcessoDetalhe() {
             }
           />
           <GerarDocRepresentacaoDialog processo={p} />
-          <EncerramentoDialog processo={p} />
+          <EncerramentoDialog
+            processo={p}
+            permitirEncerrarDireto={
+              !["Souza Cruz", "Astro"].includes(
+                categoriaCliente(p.cliente, p.numero_cliente, p.carteira),
+              )
+            }
+          />
           {(desdobramentos.data ?? []).length === 0 ? (
             <VincularAProcessoPrincipalDialog filhoId={p.id} filhoJaTemPai={p.processo_pai_id} />
           ) : null}

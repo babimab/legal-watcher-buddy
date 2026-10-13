@@ -49,10 +49,17 @@ export function EncerramentoDialog({
   processo,
   descricao = "Preenche o que a Eliane precisa pra dar baixa nesse processo.",
   mostrarDecisoesNoLd = true,
+  permitirEncerrarDireto = true,
 }: {
   processo: Processo;
   descricao?: string | undefined;
   mostrarDecisoesNoLd?: boolean;
+  // Souza Cruz e Astro encerram em lote pela aba "prontos para encerrar"
+  // (Relatório > Encerramentos) -- lá esse diálogo continua com o botão
+  // normal (é literalmente essa aba), mas no diálogo aberto direto do
+  // processo (ver processos/$id.tsx) ele some pra essas duas carteiras,
+  // pra forçar passar pela revisão em lote em vez de encerrar avulso.
+  permitirEncerrarDireto?: boolean;
 }) {
   const processoComResultado = processo as ProcessoComResultado;
   const [aberto, setAberto] = useState(false);
@@ -72,7 +79,11 @@ export function EncerramentoDialog({
     setEncerrando(true);
     const { error } = await supabaseSolto
       .from("processos")
-      .update({ status: "encerrado", baixa_cliente_pendente: true })
+      .update({
+        status: "encerrado",
+        baixa_cliente_pendente: true,
+        encerrado_em: new Date().toISOString(),
+      })
       .in("id", [processo.id, ...idsExtras]);
     setEncerrando(false);
 
@@ -256,7 +267,9 @@ export function EncerramentoDialog({
             />
           </div>
           <DialogFooter className="sm:justify-between">
-            {processo.status !== "encerrado" ? (
+            {processo.status === "encerrado" ? (
+              <p className="text-sm text-muted-foreground">Já está com status encerrado.</p>
+            ) : permitirEncerrarDireto ? (
               <Button
                 type="button"
                 variant="outline"
@@ -266,7 +279,9 @@ export function EncerramentoDialog({
                 {encerrando ? "Marcando..." : "Marcar como encerrado"}
               </Button>
             ) : (
-              <p className="text-sm text-muted-foreground">Já está com status encerrado.</p>
+              <p className="text-xs text-muted-foreground">
+                Encerra pela aba "prontos para encerrar" em Relatório &gt; Encerramentos.
+              </p>
             )}
             <Button type="submit" disabled={salvando || encerrando}>
               {salvando ? "Salvando..." : "Salvar"}

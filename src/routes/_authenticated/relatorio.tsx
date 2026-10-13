@@ -958,7 +958,11 @@ function RelatorioPage() {
     setEncerrandoTodos(true);
     const { error } = await supabaseSolto
       .from("processos")
-      .update({ status: "encerrado", baixa_cliente_pendente: true })
+      .update({
+        status: "encerrado",
+        baixa_cliente_pendente: true,
+        encerrado_em: new Date().toISOString(),
+      })
       .in(
         "id",
         encerramentoProntos.map((p) => p.id),
@@ -1782,9 +1786,35 @@ function Lista({
   );
 }
 
+// encerrado_em ainda não está nos tipos gerados do Supabase (coluna
+// nova) -- fica à parte de Processo (ver mesmo padrão em
+// EncerramentoDialog/ProcessoComResultado), senão quebraria os outros
+// usos de Processo que dependem de bater exatamente com o schema atual.
+type ProcessoComEncerradoEm = Processo & { encerrado_em?: string | null };
+
 function ListaBaixaClientePendente({ processos }: { processos: Processo[] }) {
   const queryClient = useQueryClient();
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null);
+  const [advogado, setAdvogado] = useState("todos");
+  const [dataDe, setDataDe] = useState("");
+  const [dataAte, setDataAte] = useState("");
+
+  const comData = processos as ProcessoComEncerradoEm[];
+  const advogados = useMemo(
+    () => [...new Set(comData.map((p) => p.responsavel).filter(Boolean) as string[])].sort(),
+    [comData],
+  );
+  const filtrados = useMemo(
+    () =>
+      comData.filter((p) => {
+        const casaAdvogado = advogado === "todos" || p.responsavel === advogado;
+        const data = p.encerrado_em?.slice(0, 10);
+        const casaDe = !dataDe || (data != null && data >= dataDe);
+        const casaAte = !dataAte || (data != null && data <= dataAte);
+        return casaAdvogado && casaDe && casaAte;
+      }),
+    [comData, advogado, dataDe, dataAte],
+  );
 
   const confirmarBaixa = async (id: string) => {
     setConfirmandoId(id);
@@ -1822,8 +1852,43 @@ function ListaBaixaClientePendente({ processos }: { processos: Processo[] }) {
         sistema do cliente (LegalDesk etc.). Confirma aqui quando terminar essa parte
         administrativa.
       </CardDescription>
+      <div className="flex flex-wrap items-center gap-2">
+        {advogados.length > 0 ? (
+          <Select value={advogado} onValueChange={setAdvogado}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os advogados</SelectItem>
+              {advogados.map((a) => (
+                <SelectItem key={a} value={a}>
+                  {a}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+        <Input
+          type="date"
+          value={dataDe}
+          onChange={(e) => setDataDe(e.target.value)}
+          className="w-40"
+          title="Encerrado de"
+        />
+        <span className="text-sm text-muted-foreground">até</span>
+        <Input
+          type="date"
+          value={dataAte}
+          onChange={(e) => setDataAte(e.target.value)}
+          className="w-40"
+          title="Encerrado até"
+        />
+      </div>
+      {filtrados.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nenhum processo bate com esse filtro.</p>
+      ) : null}
       <ol className="space-y-3">
-        {processos.map((p) => (
+        {filtrados.map((p) => (
           <li key={p.id} className="rounded-lg border border-border bg-card p-4 text-sm">
             <div className="flex flex-wrap items-center gap-3">
               <Link
