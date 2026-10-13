@@ -297,6 +297,31 @@ export function processosSemPasta(processos: Processo[]): ProcessoSemPasta[] {
     }));
 }
 
+// --- Processos sem número de cliente ou de caso ---
+// Desdobramento não tem (nem deveria ter) número de caso próprio -- ele
+// mostra/herda o do processo principal (ver ProcessoDialog/processos
+// index) -- por isso fica de fora dessa checagem, senão todo
+// desdobramento cairia aqui como falso positivo.
+export type ProcessoSemClienteOuCaso = Pick<
+  Processo,
+  "id" | "numero_cnj" | "cliente" | "responsavel" | "numero_cliente" | "numero_interno" | "status"
+>;
+
+export function processosSemClienteOuCaso(processos: Processo[]): ProcessoSemClienteOuCaso[] {
+  return processos
+    .filter((p) => !p.processo_pai_id)
+    .filter((p) => !p.numero_cliente || !p.numero_interno)
+    .map((p) => ({
+      id: p.id,
+      numero_cnj: p.numero_cnj,
+      cliente: p.cliente,
+      responsavel: p.responsavel,
+      numero_cliente: p.numero_cliente,
+      numero_interno: p.numero_interno,
+      status: p.status,
+    }));
+}
+
 // --- CNJ duplicado ---
 export type GrupoCnjDuplicado = {
   cnjDigits: string;

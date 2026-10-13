@@ -34,6 +34,7 @@ import {
   listarProcessosParaSaude,
   objetosForaDoPadrao,
   primeirasMovimentacoesDe,
+  processosSemClienteOuCaso,
   processosSemPasta,
   type GrupoDesdobramentoNaoVinculado,
   type ProblemaAcento,
@@ -72,6 +73,7 @@ function QualidadeDadosPage() {
   const [exportandoParteAdversa, setExportandoParteAdversa] = useState(false);
 
   const semPasta = processos.data ? processosSemPasta(processos.data) : [];
+  const semClienteOuCaso = processos.data ? processosSemClienteOuCaso(processos.data) : [];
   const duplicados = processos.data ? cnjsDuplicados(processos.data) : [];
   const desdobramentos = useMemo(
     () => (processos.data ? desdobramentosNaoVinculados(processos.data) : []),
@@ -134,6 +136,7 @@ function QualidadeDadosPage() {
   const semProblemas =
     !carregando &&
     semPasta.length === 0 &&
+    semClienteOuCaso.length === 0 &&
     duplicados.length === 0 &&
     desdobramentos.length === 0 &&
     objetoForaDoPadrao.length === 0 &&
@@ -249,6 +252,59 @@ function QualidadeDadosPage() {
                       <td className="p-2 font-mono text-xs">{formatarCNJ(p.numero_cnj)}</td>
                       <td className="p-2">{exibir(p.cliente)}</td>
                       <td className="p-2">{exibir(p.responsavel)}</td>
+                      <td className="p-2 text-right">
+                        <Button asChild size="sm" variant="outline">
+                          <Link to="/processos/$id" params={{ id: p.id }}>
+                            Editar
+                          </Link>
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {semClienteOuCaso.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 font-serif text-lg">
+              <AlertTriangle className="size-5 text-amber-500" />
+              {semClienteOuCaso.length} processo(s) sem número de cliente ou de caso
+            </CardTitle>
+            <CardDescription>
+              Sem isso, o Cliente/Caso aparece incompleto na lista, na busca e nas exportações.
+              Desdobramento não entra aqui (ele herda o número de caso do processo principal).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto rounded-md border border-border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="p-2 text-left">Processo</th>
+                    <th className="p-2 text-left">Cliente</th>
+                    <th className="p-2 text-left">Nº cliente</th>
+                    <th className="p-2 text-left">Nº caso</th>
+                    <th className="p-2 text-left">Status</th>
+                    <th className="w-24 p-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {semClienteOuCaso.map((p) => (
+                    <tr key={p.id} className="border-t border-border">
+                      <td className="p-2 font-mono text-xs">{formatarCNJ(p.numero_cnj)}</td>
+                      <td className="p-2">{exibir(p.cliente)}</td>
+                      <td className="p-2">{p.numero_cliente ?? "—"}</td>
+                      <td className="p-2">{p.numero_interno ?? "—"}</td>
+                      <td className="p-2">
+                        <Badge variant={p.status === "ativo" ? "default" : "secondary"}>
+                          {p.status}
+                        </Badge>
+                      </td>
                       <td className="p-2 text-right">
                         <Button asChild size="sm" variant="outline">
                           <Link to="/processos/$id" params={{ id: p.id }}>
