@@ -704,6 +704,9 @@ function ProcessoDetalhe() {
               paiId={p.id}
               iniciais={{
                 cliente: p.cliente,
+                autor: p.autor,
+                reu: p.reu,
+                numero_cliente: p.numero_cliente,
                 parte_contraria: p.parte_contraria,
                 tribunal: p.tribunal,
                 vara: p.vara,
