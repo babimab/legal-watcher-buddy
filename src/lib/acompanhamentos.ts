@@ -57,7 +57,14 @@ export async function listarUltimosAcompanhamentos(): Promise<
 export type ItemPainelAdministrativo = {
   processo: Pick<
     Processo,
-    "id" | "numero_cnj" | "numero_cliente" | "cliente" | "autor" | "reu" | "responsavel"
+    | "id"
+    | "numero_cnj"
+    | "numero_cliente"
+    | "cliente"
+    | "autor"
+    | "reu"
+    | "responsavel"
+    | "estagiario"
   >;
   ultimoCheckIn: AcompanhamentoAdministrativo | null;
   diasSemCheckIn: number | null;
@@ -71,7 +78,7 @@ export async function listarPainelAdministrativos(): Promise<ItemPainelAdministr
   const [{ data: processos, error }, ultimos] = await Promise.all([
     supabaseSolto
       .from("processos")
-      .select("id, numero_cnj, numero_cliente, cliente, autor, reu, responsavel")
+      .select("id, numero_cnj, numero_cliente, cliente, autor, reu, responsavel, estagiario")
       .eq("carteira", "Administrativos")
       .eq("status", "ativo")
       .order("numero_cnj", { ascending: true }),

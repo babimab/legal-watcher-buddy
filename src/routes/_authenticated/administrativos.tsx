@@ -1,9 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 import { Phone } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { NovoAcompanhamentoDialog } from "@/components/AcompanhamentoAdministrativoProcesso";
 import { DIAS_PARA_ATRASO, listarPainelAdministrativos } from "@/lib/acompanhamentos";
 import { exibir, formatarCNJ } from "@/lib/processos";
@@ -28,7 +36,35 @@ function AdministrativosPage() {
     queryFn: listarPainelAdministrativos,
   });
 
-  const itens = painel.data ?? [];
+  const todos = useMemo(() => painel.data ?? [], [painel.data]);
+
+  const [advogado, setAdvogado] = useState("todos");
+  const [estagiario, setEstagiario] = useState("todos");
+  const [cliente, setCliente] = useState("todos");
+
+  const advogados = useMemo(
+    () => [...new Set(todos.map((i) => i.processo.responsavel).filter(Boolean) as string[])].sort(),
+    [todos],
+  );
+  const estagiarios = useMemo(
+    () => [...new Set(todos.map((i) => i.processo.estagiario).filter(Boolean) as string[])].sort(),
+    [todos],
+  );
+  const clientes = useMemo(
+    () => [...new Set(todos.map((i) => i.processo.cliente).filter(Boolean))].sort(),
+    [todos],
+  );
+
+  const itens = useMemo(
+    () =>
+      todos.filter(
+        (i) =>
+          (advogado === "todos" || i.processo.responsavel === advogado) &&
+          (estagiario === "todos" || i.processo.estagiario === estagiario) &&
+          (cliente === "todos" || i.processo.cliente === cliente),
+      ),
+    [todos, advogado, estagiario, cliente],
+  );
   const atrasados = itens.filter((i) => i.atrasado).length;
 
   return (
@@ -42,6 +78,54 @@ function AdministrativosPage() {
           precisam de ligação semanal das estagiárias pra checar a situação. Cada ligação fica
           registrada aqui, com quem ligou e o que foi dito, pra você conferir se está em dia.
         </p>
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        {advogados.length > 0 ? (
+          <Select value={advogado} onValueChange={setAdvogado}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os advogados</SelectItem>
+              {advogados.map((a) => (
+                <SelectItem key={a} value={a}>
+                  {a}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+        {estagiarios.length > 0 ? (
+          <Select value={estagiario} onValueChange={setEstagiario}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todas as estagiárias</SelectItem>
+              {estagiarios.map((e) => (
+                <SelectItem key={e} value={e}>
+                  {e}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+        {clientes.length > 0 ? (
+          <Select value={cliente} onValueChange={setCliente}>
+            <SelectTrigger className="w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os clientes</SelectItem>
+              {clientes.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {exibir(c)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
       </div>
 
       <Card>
@@ -92,6 +176,14 @@ function AdministrativosPage() {
                       <p className="text-xs text-muted-foreground">
                         {exibir(processo.autor)} x {exibir(processo.reu)}
                       </p>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {processo.responsavel ? (
+                          <Badge variant="outline">{processo.responsavel}</Badge>
+                        ) : null}
+                        {processo.estagiario ? (
+                          <Badge variant="outline">estag. {processo.estagiario}</Badge>
+                        ) : null}
+                      </div>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2">
                       {ultimoCheckIn ? (
