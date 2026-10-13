@@ -1,10 +1,21 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Phone } from "lucide-react";
+import { Pause, Phone, Play } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -12,8 +23,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { NovoAcompanhamentoDialog } from "@/components/AcompanhamentoAdministrativoProcesso";
-import { DIAS_PARA_ATRASO, listarPainelAdministrativos } from "@/lib/acompanhamentos";
+import {
+  DIAS_PARA_ATRASO,
+  listarPainelAdministrativos,
+  pausarLigacaoAdministrativa,
+  retomarLigacaoAdministrativa,
+} from "@/lib/acompanhamentos";
 import { exibir, formatarCNJ } from "@/lib/processos";
 
 export const Route = createFileRoute("/_authenticated/administrativos")({
@@ -157,7 +174,11 @@ function AdministrativosPage() {
                 <li
                   key={processo.id}
                   className={`rounded-lg border p-3 ${
-                    atrasado ? "border-destructive/40 bg-destructive/5" : "border-border"
+                    processo.administrativo_pausado
+                      ? "border-muted-foreground/30 bg-muted/30"
+                      : atrasado
+                        ? "border-destructive/40 bg-destructive/5"
+                        : "border-border"
                   }`}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -186,7 +207,9 @@ function AdministrativosPage() {
                       </div>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2">
-                      {ultimoCheckIn ? (
+                      {processo.administrativo_pausado ? (
+                        <Badge variant="secondary">Pausado</Badge>
+                      ) : ultimoCheckIn ? (
                         <div className="text-right text-sm">
                           <span className={atrasado ? "font-medium text-destructive" : ""}>
                             Última ligação:{" "}
@@ -204,24 +227,47 @@ function AdministrativosPage() {
                       ) : (
                         <Badge variant="destructive">Nunca ligaram</Badge>
                       )}
-                      <NovoAcompanhamentoDialog
-                        processoId={processo.id}
-                        trigger={
-                          <button className="text-xs font-medium text-primary hover:underline">
-                            Registrar ligação
-                          </button>
-                        }
-                      />
+                      <div className="flex items-center gap-2">
+                        {processo.administrativo_pausado ? (
+                          <RetomarLigacaoButton processoId={processo.id} />
+                        ) : (
+                          <>
+                            <PausarLigacaoDialog processoId={processo.id} />
+                            <NovoAcompanhamentoDialog
+                              processoId={processo.id}
+                              trigger={
+                                <button className="text-xs font-medium text-primary hover:underline">
+                                  Registrar ligação
+                                </button>
+                              }
+                            />
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  {ultimoCheckIn?.o_que_fez ? (
-                    <p className="mt-2 text-sm">{ultimoCheckIn.o_que_fez}</p>
-                  ) : null}
-                  {ultimoCheckIn?.proximo_passo ? (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Próximo passo: {ultimoCheckIn.proximo_passo}
+                  {processo.administrativo_pausado ? (
+                    <p className="mt-2 text-sm">
+                      {processo.administrativo_pausado_motivo ?? "Sem motivo registrado."}
+                      <span className="block text-xs text-muted-foreground">
+                        Pausado por {processo.administrativo_pausado_por ?? "—"}
+                        {processo.administrativo_pausado_em
+                          ? ` em ${new Date(processo.administrativo_pausado_em).toLocaleDateString("pt-BR")}`
+                          : ""}
+                      </span>
                     </p>
-                  ) : null}
+                  ) : (
+                    <>
+                      {ultimoCheckIn?.o_que_fez ? (
+                        <p className="mt-2 text-sm">{ultimoCheckIn.o_que_fez}</p>
+                      ) : null}
+                      {ultimoCheckIn?.proximo_passo ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Próximo passo: {ultimoCheckIn.proximo_passo}
+                        </p>
+                      ) : null}
+                    </>
+                  )}
                 </li>
               ))}
             </ul>
@@ -229,5 +275,88 @@ function AdministrativosPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function PausarLigacaoDialog({ processoId }: { processoId: string }) {
+  const queryClient = useQueryClient();
+  const [aberto, setAberto] = useState(false);
+  const [motivo, setMotivo] = useState("");
+  const [salvando, setSalvando] = useState(false);
+
+  const pausar = async () => {
+    if (!motivo.trim()) {
+      toast.error("Conta rapidinho por que não precisa ligar agora.");
+      return;
+    }
+    setSalvando(true);
+    try {
+      await pausarLigacaoAdministrativa(processoId, motivo.trim());
+      toast.success("Ligação pausada.");
+      await queryClient.invalidateQueries({ queryKey: ["painel-administrativos"] });
+      setAberto(false);
+      setMotivo("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não consegui pausar.");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <Dialog open={aberto} onOpenChange={setAberto}>
+      <DialogTrigger asChild>
+        <button className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:underline">
+          <Pause className="size-3" /> Pausar ligação
+        </button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="font-serif">Pausar ligação semanal</DialogTitle>
+          <DialogDescription>
+            Esse processo some da contagem de atrasados até alguém retomar a ligação.
+          </DialogDescription>
+        </DialogHeader>
+        <Textarea
+          placeholder="Por que não precisa ligar agora?"
+          value={motivo}
+          onChange={(e) => setMotivo(e.target.value)}
+          rows={3}
+        />
+        <DialogFooter>
+          <Button onClick={() => void pausar()} disabled={salvando}>
+            {salvando ? "Salvando..." : "Pausar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RetomarLigacaoButton({ processoId }: { processoId: string }) {
+  const queryClient = useQueryClient();
+  const [retomando, setRetomando] = useState(false);
+
+  const retomar = async () => {
+    setRetomando(true);
+    try {
+      await retomarLigacaoAdministrativa(processoId);
+      toast.success("Ligação retomada — volta a contar atrasado normalmente.");
+      await queryClient.invalidateQueries({ queryKey: ["painel-administrativos"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não consegui retomar.");
+    } finally {
+      setRetomando(false);
+    }
+  };
+
+  return (
+    <button
+      className="flex items-center gap-1 text-xs font-medium text-primary hover:underline disabled:opacity-50"
+      onClick={() => void retomar()}
+      disabled={retomando}
+    >
+      <Play className="size-3" /> {retomando ? "Retomando..." : "Retomar ligação"}
+    </button>
   );
 }

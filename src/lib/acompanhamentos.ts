@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { supabaseSolto } from "@/lib/supabase-solto";
-import type { Processo } from "@/lib/processos";
+import { siglaOuEmailAtual, type Processo } from "@/lib/processos";
 
 // Quantos dias sem ligação já contam como atrasado -- checagem é semanal,
 // por isso 7 dias corridos (não úteis: telefonema não depende de prazo
@@ -55,6 +55,10 @@ export async function listarUltimosAcompanhamentos(): Promise<
 }
 
 export type ItemPainelAdministrativo = {
+  // administrativo_pausado* ainda não estão nos tipos gerados do Supabase
+  // (coluna nova) -- por isso ficam à parte do Pick<Processo, ...>, cujo
+  // uso em outros lugares (select "*" tipado) quebraria se Processo
+  // ganhasse esses campos antes dos tipos serem regerados.
   processo: Pick<
     Processo,
     | "id"
@@ -65,7 +69,12 @@ export type ItemPainelAdministrativo = {
     | "reu"
     | "responsavel"
     | "estagiario"
-  >;
+  > & {
+    administrativo_pausado: boolean;
+    administrativo_pausado_motivo: string | null;
+    administrativo_pausado_por: string | null;
+    administrativo_pausado_em: string | null;
+  };
   ultimoCheckIn: AcompanhamentoAdministrativo | null;
   diasSemCheckIn: number | null;
   atrasado: boolean;
@@ -73,12 +82,16 @@ export type ItemPainelAdministrativo = {
 
 // Junta os processos da carteira "Administrativos" (ativos) com o último
 // check-in de cada um, pro painel que a BDR pediu pra saber quem as
-// estagiárias já ligaram essa semana e quem ficou pra trás.
+// estagiárias já ligaram essa semana e quem ficou pra trás. Processo
+// pausado (ver pausarLigacaoAdministrativa) nunca conta como atrasado --
+// é intencional não estar ligando, não esquecimento.
 export async function listarPainelAdministrativos(): Promise<ItemPainelAdministrativo[]> {
   const [{ data: processos, error }, ultimos] = await Promise.all([
     supabaseSolto
       .from("processos")
-      .select("id, numero_cnj, numero_cliente, cliente, autor, reu, responsavel, estagiario")
+      .select(
+        "id, numero_cnj, numero_cliente, cliente, autor, reu, responsavel, estagiario, administrativo_pausado, administrativo_pausado_motivo, administrativo_pausado_por, administrativo_pausado_em",
+      )
       .eq("carteira", "Administrativos")
       .eq("status", "ativo")
       .order("numero_cnj", { ascending: true }),
@@ -95,9 +108,35 @@ export async function listarPainelAdministrativos(): Promise<ItemPainelAdministr
             (1000 * 60 * 60 * 24),
         )
       : null;
-    const atrasado = !ultimoCheckIn || (diasSemCheckIn ?? 0) >= DIAS_PARA_ATRASO;
+    const atrasado =
+      !processo.administrativo_pausado &&
+      (!ultimoCheckIn || (diasSemCheckIn ?? 0) >= DIAS_PARA_ATRASO);
     return { processo, ultimoCheckIn, diasSemCheckIn, atrasado };
   });
+}
+
+export async function pausarLigacaoAdministrativa(
+  processoId: string,
+  motivo: string,
+): Promise<void> {
+  const { error } = await supabaseSolto
+    .from("processos")
+    .update({
+      administrativo_pausado: true,
+      administrativo_pausado_motivo: motivo,
+      administrativo_pausado_por: await siglaOuEmailAtual(),
+      administrativo_pausado_em: new Date().toISOString(),
+    })
+    .eq("id", processoId);
+  if (error) throw error;
+}
+
+export async function retomarLigacaoAdministrativa(processoId: string): Promise<void> {
+  const { error } = await supabaseSolto
+    .from("processos")
+    .update({ administrativo_pausado: false })
+    .eq("id", processoId);
+  if (error) throw error;
 }
 
 export async function criarAcompanhamento(input: {
