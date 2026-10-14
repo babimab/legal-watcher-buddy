@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.15"
   }
   public: {
     Tables: {
@@ -823,6 +823,10 @@ export type Database = {
       }
       processos: {
         Row: {
+          administrativo_pausado: boolean
+          administrativo_pausado_em: string | null
+          administrativo_pausado_motivo: string | null
+          administrativo_pausado_por: string | null
           area_direito: string | null
           autor: string | null
           baixa_cliente_confirmada_em: string | null
@@ -842,6 +846,7 @@ export type Database = {
           decisoes_no_ld_em: string | null
           decisoes_no_ld_por: string | null
           detalhamento_objeto: string | null
+          encerrado_em: string | null
           estagiario: string | null
           fase: string | null
           fonte: string
@@ -883,6 +888,10 @@ export type Database = {
           vara: string | null
         }
         Insert: {
+          administrativo_pausado?: boolean
+          administrativo_pausado_em?: string | null
+          administrativo_pausado_motivo?: string | null
+          administrativo_pausado_por?: string | null
           area_direito?: string | null
           autor?: string | null
           baixa_cliente_confirmada_em?: string | null
@@ -902,6 +911,7 @@ export type Database = {
           decisoes_no_ld_em?: string | null
           decisoes_no_ld_por?: string | null
           detalhamento_objeto?: string | null
+          encerrado_em?: string | null
           estagiario?: string | null
           fase?: string | null
           fonte?: string
@@ -943,6 +953,10 @@ export type Database = {
           vara?: string | null
         }
         Update: {
+          administrativo_pausado?: boolean
+          administrativo_pausado_em?: string | null
+          administrativo_pausado_motivo?: string | null
+          administrativo_pausado_por?: string | null
           area_direito?: string | null
           autor?: string | null
           baixa_cliente_confirmada_em?: string | null
@@ -962,6 +976,7 @@ export type Database = {
           decisoes_no_ld_em?: string | null
           decisoes_no_ld_por?: string | null
           detalhamento_objeto?: string | null
+          encerrado_em?: string | null
           estagiario?: string | null
           fase?: string | null
           fonte?: string
@@ -1129,6 +1144,24 @@ export type Database = {
           pode_ver_fatura?: boolean
           sigla?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      publicacoes_relatorio_enviadas: {
+        Row: {
+          chave: string
+          cnj_digits: string
+          enviado_em: string
+        }
+        Insert: {
+          chave: string
+          cnj_digits: string
+          enviado_em?: string
+        }
+        Update: {
+          chave?: string
+          cnj_digits?: string
+          enviado_em?: string
         }
         Relationships: []
       }
