@@ -33,6 +33,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { mensagemErroEdgeFunction } from "@/lib/edge-functions";
 import {
   categoriaCliente,
   exibir,
@@ -595,6 +596,282 @@ function montarLinkMailto(destinatarios: string[], assunto: string, partes: stri
   return `mailto:${destinatarios.join(",")}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
 }
 
+// Versão em HTML de verdade das mesmas seções acima (saudação,
+// Agendamentos, tabela por processo, Não Localizada, alertas, fecho) --
+// pro envio pelo servidor (ver enviar-email-publicacoes), que mostra
+// uma tabela com grade de verdade em vez do texto com tabulação do
+// mailto/Word. Mantém a mesma lógica/dados, só muda a renderização.
+function escaparHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function paragrafosHtml(texto: string): string {
+  return texto
+    .split("\n\n")
+    .map((p) => `<p style="margin:0 0 12px">${escaparHtml(p).replace(/\n/g, "<br/>")}</p>`)
+    .join("");
+}
+
+function linhaTabelaHtml(cols: string[]): string {
+  return `<tr>${cols
+    .map(
+      (c) =>
+        `<td style="padding:4px 8px;border:1px solid #ddd;font-size:13px">${escaparHtml(c)}</td>`,
+    )
+    .join("")}</tr>`;
+}
+
+function tabelaHtml(cabecalho: string[], linhas: string[]): string {
+  if (linhas.length === 0) return "";
+  const th = cabecalho
+    .map(
+      (h) =>
+        `<th style="padding:4px 8px;border:1px solid #ddd;background:#f3f3f3;font-size:13px;text-align:left">${h}</th>`,
+    )
+    .join("");
+  return `<table style="border-collapse:collapse;width:100%;margin:8px 0 16px"><thead><tr>${th}</tr></thead><tbody>${linhas.join("")}</tbody></table>`;
+}
+
+function blocoProcessoHtml(
+  l: LinhaCasada,
+  classificacao: ClassificacaoPublicacao | undefined,
+): string {
+  const clienteCod = l.processo.numero_cliente ?? exibir(l.processo.cliente) ?? "—";
+  const caso = l.processo.numero_interno ?? "—";
+  const partes = l.processo.parte_contraria
+    ? [exibir(l.processo.cliente), l.processo.parte_contraria].filter(Boolean).join(" x ") || "—"
+    : [l.processo.autor ?? l.autor, l.processo.reu ?? l.reu].filter(Boolean).join(" x ") || "—";
+  const juizo =
+    [l.processo.vara, [l.processo.comarca, l.processo.uf].filter(Boolean).join("/") || null]
+      .filter(Boolean)
+      .join(" de ") || "—";
+  const teor = classificacao?.resumo ?? l.andamento ?? "—";
+  return linhaTabelaHtml([
+    l.cnjTexto,
+    clienteCod,
+    caso,
+    l.socioReal,
+    l.advgReal,
+    partes,
+    juizo,
+    teor,
+  ]);
+}
+
+function montarAgendamentosHtml(
+  itens: LinhaCasada[],
+  classificacoes: Map<number, ClassificacaoPublicacao>,
+): string | null {
+  const comClassificacao = itens
+    .map((l) => ({ l, c: classificacoes.get(l.idx) }))
+    .filter(
+      (x): x is { l: LinhaCasada; c: ClassificacaoPublicacao } =>
+        !!x.c && (!!x.c.dataVencimento || x.c.revisar),
+    )
+    .sort((a, b) => {
+      if (!a.c.dataVencimento) return 1;
+      if (!b.c.dataVencimento) return -1;
+      return a.c.dataVencimento < b.c.dataVencimento ? -1 : 1;
+    });
+  if (comClassificacao.length === 0) return null;
+
+  const itensLi = comClassificacao
+    .map(({ l, c }) => {
+      const parteContraria =
+        l.processo.parte_contraria ||
+        [l.processo.autor ?? l.autor, l.processo.reu ?? l.reu].filter(Boolean).join(" x ") ||
+        "—";
+      const clienteCaso = [
+        l.processo.numero_cliente ? `Cliente ${l.processo.numero_cliente}` : null,
+        l.processo.numero_interno ? `Caso ${l.processo.numero_interno}` : null,
+      ]
+        .filter(Boolean)
+        .join("/");
+      const juizo =
+        [l.processo.vara, [l.processo.comarca, l.processo.uf].filter(Boolean).join("/") || null]
+          .filter(Boolean)
+          .join(" de ") || "—";
+      const advg = l.advgReal !== "—" ? ` (${l.advgReal})` : "";
+      const dataOuRevisar = c.dataVencimento
+        ? dataBR(c.dataVencimento)
+        : "Verificar prazo no sistema";
+      return `<li>${escaparHtml(`${dataOuRevisar}: ${c.tipoAto} — ${parteContraria} (${clienteCaso}) ${juizo}${advg}`)}</li>`;
+    })
+    .join("");
+
+  return `<p style="margin:12px 0 4px"><b>Agendamentos:</b></p><ul style="margin:0 0 12px;padding-left:20px">${itensLi}</ul>`;
+}
+
+function montarNaoLocalizadaHtml(
+  rotulo: string,
+  itens: LinhaPublicacao[],
+  classificacoes: Map<number, ClassificacaoPublicacao>,
+  colunas: "advg" | "geral",
+): string | null {
+  if (itens.length === 0) return null;
+  const cabecalho =
+    colunas === "advg"
+      ? ["Processo", "Referência", "Teor"]
+      : ["Processo", "Cliente", "ADVG", "Partes", "Teor"];
+  const linhas = itens.map((l) => {
+    const c = classificacoes.get(l.idx);
+    const teor = c?.resumo ?? l.andamento ?? "—";
+    if (colunas === "advg") {
+      const referencia = [l.advg, l.coord].filter(Boolean).join(" / ") || "—";
+      return linhaTabelaHtml([l.cnjTexto, referencia, teor]);
+    }
+    const partes = [l.autor, l.reu].filter(Boolean).join(" x ") || "—";
+    return linhaTabelaHtml([l.cnjTexto, l.clientePlanilha ?? "—", l.advg ?? "—", partes, teor]);
+  });
+  return `<p style="margin:12px 0 4px"><b>${escaparHtml(rotulo)}:</b></p>${tabelaHtml(cabecalho, linhas)}`;
+}
+
+function montarSemResultadoGeralHtml(totalCandidatas: number): string | null {
+  const texto = montarSemResultadoGeral(totalCandidatas);
+  return texto ? `<p style="margin:12px 0">${escaparHtml(texto)}</p>` : null;
+}
+
+function montarAlertasHtml(
+  itens: LinhaCasada[],
+  classificacoes: Map<number, ClassificacaoPublicacao>,
+  naoLocalizadaIncluida: LinhaPublicacao[],
+): string | null {
+  const alertas: string[] = [];
+  for (const l of itens) {
+    const c = classificacoes.get(l.idx);
+    if (!c) continue;
+    const parteContraria =
+      l.processo.parte_contraria ??
+      [l.processo.autor ?? l.autor, l.processo.reu ?? l.reu].filter(Boolean).join(" x ");
+    const rotuloProcesso = `Processo nº ${l.cnjTexto} (${parteContraria ?? "—"} x ${exibir(l.processo.cliente) ?? "—"})`;
+    if (c.revisar) {
+      alertas.push(`${rotuloProcesso} — não foi possível confirmar a data/prazo automaticamente.`);
+    } else if (c.dataVencimento) {
+      const urgencia = classificarUrgencia(c.dataVencimento);
+      if (urgencia === "vencido")
+        alertas.push(`${rotuloProcesso} — prazo já vencido em ${dataBR(c.dataVencimento)}.`);
+      else if (urgencia === "urgente")
+        alertas.push(`${rotuloProcesso} — prazo urgente, vence em ${dataBR(c.dataVencimento)}.`);
+    }
+  }
+  for (const l of naoLocalizadaIncluida) {
+    alertas.push(
+      `Processo nº ${l.cnjTexto} — encontrado na aba "${l.origem}", conferir cadastro no FaroLex.`,
+    );
+  }
+  if (alertas.length === 0) return null;
+  return `<p style="margin:12px 0 4px"><b>⚠️ Alertas processuais</b></p><ul style="margin:0 0 12px;padding-left:20px;color:#b45309">${alertas
+    .map((a) => `<li>${escaparHtml(a)}</li>`)
+    .join("")}</ul>`;
+}
+
+function montarSecaoHtml(
+  grupo: Grupo,
+  itens: LinhaCasada[],
+  classificacoes: Map<number, ClassificacaoPublicacao>,
+  dataPlanilha: string,
+  naoLocalizadaAdvg: LinhaPublicacao[],
+  naoLocalizadaGeral: LinhaPublicacao[],
+  naoLocalizadaGeralTotalCandidatas: number,
+): string {
+  const saudacaoInicial = SAUDACAO_INICIAL[grupo]
+    .replace("{saudacao}", saudacaoAgora())
+    .replace("{data}", dataBR(dataPlanilha));
+
+  const cabecalhoTabela = [
+    "Processo",
+    "Cliente",
+    "Caso",
+    "Sócio",
+    "ADVG",
+    "Partes",
+    "Juízo",
+    "Teor da publicação",
+  ];
+  const tabelaProcessos = tabelaHtml(
+    cabecalhoTabela,
+    itens.map((l) => blocoProcessoHtml(l, classificacoes.get(l.idx))),
+  );
+
+  const naoLocalizadaAdvgHtml =
+    grupo === "ELV"
+      ? montarNaoLocalizadaHtml(
+          'Adicionalmente, na aba "Não Localizada – Advg", foram localizadas as seguintes publicações relevantes',
+          naoLocalizadaAdvg,
+          classificacoes,
+          "advg",
+        )
+      : null;
+  const naoLocalizadaGeralHtml =
+    grupo === "ELV"
+      ? (montarNaoLocalizadaHtml(
+          'Adicionalmente, na aba "Não Localizada – Geral", foram localizadas as seguintes publicações relevantes',
+          naoLocalizadaGeral,
+          classificacoes,
+          "geral",
+        ) ?? montarSemResultadoGeralHtml(naoLocalizadaGeralTotalCandidatas))
+      : null;
+
+  const agendamentosHtml = montarAgendamentosHtml(itens, classificacoes);
+  const alertasHtml = montarAlertasHtml(
+    itens,
+    classificacoes,
+    grupo === "ELV" ? [...naoLocalizadaAdvg, ...naoLocalizadaGeral] : [],
+  );
+
+  return [
+    paragrafosHtml(saudacaoInicial),
+    agendamentosHtml,
+    tabelaProcessos,
+    naoLocalizadaAdvgHtml,
+    naoLocalizadaGeralHtml,
+    alertasHtml,
+    paragrafosHtml(FECHO[grupo]),
+  ]
+    .filter(Boolean)
+    .join("");
+}
+
+function construirConteudoPublicacoesHtml(
+  grupos: Grupo[],
+  itens: LinhaCasada[],
+  classificacoes: Map<number, ClassificacaoPublicacao>,
+  dataPlanilha: string,
+  naoLocalizadaAdvg: LinhaPublicacao[],
+  naoLocalizadaGeral: LinhaPublicacao[],
+  naoLocalizadaGeralTotalCandidatas: number,
+  avulsosSelecionados: LinhaPublicacao[],
+): { assunto: string; html: string } {
+  const assunto = `Publicações — ${grupos.join(" / ")}`;
+  const secoes: string[] = [];
+  for (const g of grupos) {
+    const doGrupo = itens.filter((l) => l.grupo === g);
+    if (doGrupo.length === 0) continue;
+    secoes.push(
+      montarSecaoHtml(
+        g,
+        doGrupo,
+        classificacoes,
+        dataPlanilha,
+        naoLocalizadaAdvg,
+        naoLocalizadaGeral,
+        naoLocalizadaGeralTotalCandidatas,
+      ),
+    );
+  }
+  const avulsosHtml = montarNaoLocalizadaHtml(
+    "Publicações do DJEN sem processo cadastrado (selecionadas manualmente)",
+    avulsosSelecionados,
+    classificacoes,
+    "geral",
+  );
+  if (avulsosHtml) secoes.push(avulsosHtml);
+
+  const separador = '<hr style="border:none;border-top:2px solid #ccc;margin:20px 0"/>';
+  const html = `<div style="font-family:sans-serif;color:#222;font-size:14px;line-height:1.5">${secoes.join(separador)}</div>`;
+  return { assunto, html };
+}
+
 const COLUNA_TEXTO_LIVRE_PUBLICACOES = new Set(["andamento"]);
 
 // Mesmo formato/estilo (cabeçalho azul, bordas, largura automática, link
@@ -800,6 +1077,7 @@ function PublicacoesPage() {
   // realmente devolveu, sem precisar confiar só no que o app já filtrou.
   const [ultimaBuscaDjenBruta, setUltimaBuscaDjenBruta] = useState<unknown[] | null>(null);
   const [baixandoDocx, setBaixandoDocx] = useState(false);
+  const [enviandoEmail, setEnviandoEmail] = useState(false);
   const [baixandoPlanilha, setBaixandoPlanilha] = useState(false);
   // Nem toda publicação do DJEN sem processo cadastrado é ruído -- a BDR
   // escolhe manualmente quais entram na planilha e/ou no e-mail (podem
@@ -1202,7 +1480,7 @@ function PublicacoesPage() {
     }
   };
 
-  const enviarEmailDoGrupo = () => {
+  const enviarEmailDoGrupo = async () => {
     const destinatarios = emails
       .split(",")
       .map((e) => e.trim())
@@ -1215,7 +1493,7 @@ function PublicacoesPage() {
       toast.error("Nenhuma publicação desses grupos (nem avulsa selecionada) pra mandar.");
       return;
     }
-    const { assunto, partes } = construirConteudoPublicacoes(
+    const { assunto, html } = construirConteudoPublicacoesHtml(
       gruposAtivos.size === 0 ? [...GRUPOS] : [...gruposAtivos],
       exibidas,
       classificacoes,
@@ -1225,7 +1503,19 @@ function PublicacoesPage() {
       naoLocalizadaGeralTotalCandidatas,
       avulsosParaEmail,
     );
-    window.location.href = montarLinkMailto(destinatarios, assunto, partes);
+    setEnviandoEmail(true);
+    try {
+      const { error } = await supabase.functions.invoke("enviar-email-publicacoes", {
+        body: { destinatarios, assunto, html },
+      });
+      if (error)
+        throw new Error(await mensagemErroEdgeFunction(error, "Não consegui enviar o e-mail."));
+      toast.success("E-mail enviado.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não consegui enviar o e-mail.");
+    } finally {
+      setEnviandoEmail(false);
+    }
   };
 
   const baixarWordDoGrupo = async () => {
@@ -1862,11 +2152,15 @@ function PublicacoesPage() {
                 </div>
                 <Button
                   type="button"
-                  onClick={enviarEmailDoGrupo}
-                  disabled={exibidas.length === 0 && avulsosParaEmail.length === 0}
+                  onClick={() => void enviarEmailDoGrupo()}
+                  disabled={
+                    (exibidas.length === 0 && avulsosParaEmail.length === 0) || enviandoEmail
+                  }
                 >
                   <Mail className="size-4" />
-                  Mandar e-mail — {gruposAtivos.size === 0 ? "todos" : [...gruposAtivos].join(", ")}
+                  {enviandoEmail
+                    ? "Enviando..."
+                    : `Mandar e-mail — ${gruposAtivos.size === 0 ? "todos" : [...gruposAtivos].join(", ")}`}
                 </Button>
                 <Button
                   type="button"
