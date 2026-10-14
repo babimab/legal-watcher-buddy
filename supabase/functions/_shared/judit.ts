@@ -124,11 +124,14 @@ export type ResumoGravacao = {
 // sempre como pendente de revisão (validado = false, mesmo padrão de
 // citações/publicações). Dados de capa (vara, fase etc.) não são tocados
 // de propósito, só andamentos.
+// O rpc() do supabase-js devolve um builder que só é "awaitable" (tem
+// then, não tem catch/finally), então prometemos um PromiseLike aqui --
+// Promise puro não casa com o tipo real do cliente.
 type ClienteComRpc = {
   rpc: (
     fn: string,
     args: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: { message: string } | null }>;
+  ) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
 };
 
 export async function gravarAndamentos(
