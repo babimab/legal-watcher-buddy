@@ -1203,10 +1203,6 @@ function PublicacoesPage() {
   };
 
   const enviarEmailDoGrupo = () => {
-    if (gruposAtivos.size === 0) {
-      toast.error("Escolha ao menos um grupo (ELV, GFC, Astro ou Outros) pra montar o e-mail.");
-      return;
-    }
     const destinatarios = emails
       .split(",")
       .map((e) => e.trim())
@@ -1220,7 +1216,7 @@ function PublicacoesPage() {
       return;
     }
     const { assunto, partes } = construirConteudoPublicacoes(
-      [...gruposAtivos],
+      gruposAtivos.size === 0 ? [...GRUPOS] : [...gruposAtivos],
       exibidas,
       classificacoes,
       dataPlanilha,
@@ -1233,10 +1229,6 @@ function PublicacoesPage() {
   };
 
   const baixarWordDoGrupo = async () => {
-    if (gruposAtivos.size === 0) {
-      toast.error("Escolha ao menos um grupo (ELV, GFC, Astro ou Outros) pra baixar o Word.");
-      return;
-    }
     if (exibidas.length === 0 && avulsosParaEmail.length === 0) {
       toast.error("Nenhuma publicação desses grupos (nem avulsa selecionada) pra baixar.");
       return;
@@ -1244,7 +1236,7 @@ function PublicacoesPage() {
     setBaixandoDocx(true);
     try {
       const { assunto, partes } = construirConteudoPublicacoes(
-        [...gruposAtivos],
+        gruposAtivos.size === 0 ? [...GRUPOS] : [...gruposAtivos],
         exibidas,
         classificacoes,
         dataPlanilha,
@@ -1871,17 +1863,18 @@ function PublicacoesPage() {
                 <Button
                   type="button"
                   onClick={enviarEmailDoGrupo}
-                  disabled={gruposAtivos.size === 0}
+                  disabled={exibidas.length === 0 && avulsosParaEmail.length === 0}
                 >
                   <Mail className="size-4" />
-                  Mandar e-mail —{" "}
-                  {gruposAtivos.size === 0 ? "escolha um grupo" : [...gruposAtivos].join(", ")}
+                  Mandar e-mail — {gruposAtivos.size === 0 ? "todos" : [...gruposAtivos].join(", ")}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => void baixarWordDoGrupo()}
-                  disabled={gruposAtivos.size === 0 || baixandoDocx}
+                  disabled={
+                    (exibidas.length === 0 && avulsosParaEmail.length === 0) || baixandoDocx
+                  }
                 >
                   <FileDown className="size-4" />
                   {baixandoDocx ? "Gerando..." : "Baixar em Word"}
