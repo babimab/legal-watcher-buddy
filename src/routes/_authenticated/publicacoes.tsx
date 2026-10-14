@@ -231,6 +231,12 @@ function lerPublicacoes(buffer: ArrayBuffer): LinhaLida[] {
 
 function montarLinhas(linhas: LinhaLida[]): LinhaPublicacao[] {
   const resultado: LinhaPublicacao[] = [];
+  // A planilha do TI já pode trazer a mesma publicação repetida (mesmo
+  // processo, mesma data, mesmo texto) -- sem isso ela ia direto pra
+  // tabela do e-mail duplicada. Mesma chave usada no merge com o DJEN
+  // (cnjDigits|dataPublicacao|andamento), mesmo critério de "andamento
+  // duplicado" já usado em Importar/Citações.
+  const chavesVistas = new Set<string>();
   for (const linha of linhas) {
     const l: Partial<Record<Campo, unknown>> = {};
     for (const [col, valor] of Object.entries(linha.dados)) {
@@ -247,6 +253,12 @@ function montarLinhas(linhas: LinhaLida[]): LinhaPublicacao[] {
     // esses processos também podem estar cadastrados no FaroLex.
     if (linha.origem === "Localizada" && !cnjDigits) continue;
 
+    const dataPublicacao = dataISO(l.data);
+    const andamento = texto(l.andamento);
+    const chave = `${cnjDigits}|${dataPublicacao}|${andamento}`;
+    if (chavesVistas.has(chave)) continue;
+    chavesVistas.add(chave);
+
     resultado.push({
       idx: resultado.length,
       linha: linha.numero,
@@ -259,8 +271,8 @@ function montarLinhas(linhas: LinhaLida[]): LinhaPublicacao[] {
       autor: texto(l.autor),
       reu: texto(l.reu),
       fase: texto(l.fase),
-      dataPublicacao: dataISO(l.data),
-      andamento: texto(l.andamento),
+      dataPublicacao,
+      andamento,
     });
   }
   return resultado;
@@ -646,8 +658,14 @@ function blocoProcessoHtml(
       .filter(Boolean)
       .join(" de ") || "—";
   const teor = classificacao?.resumo ?? l.andamento ?? "—";
+  const dataPublicacao = dataBR(l.dataPublicacao);
+  // Só difere da data de publicação quando o teor indica "disponibilização"
+  // (regra do 1º dia útil seguinte -- ver publicacoes-regras.ts).
+  const dataDisponibilizacao = dataBR(classificacao?.dataPublicacaoEfetiva ?? l.dataPublicacao);
   return linhaTabelaHtml([
     l.cnjTexto,
+    dataPublicacao,
+    dataDisponibilizacao,
     clienteCod,
     caso,
     l.socioReal,
@@ -780,6 +798,8 @@ function montarSecaoHtml(
 
   const cabecalhoTabela = [
     "Processo",
+    "Data publicação",
+    "Disponibilização",
     "Cliente",
     "Caso",
     "Sócio",

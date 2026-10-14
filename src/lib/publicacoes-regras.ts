@@ -48,6 +48,13 @@ const TIPOS_ATO: { rotulo: string; termos: string[] }[] = [
   },
   { rotulo: "Acórdão", termos: ["acordao"] },
   { rotulo: "Sentença", termos: ["sentenca"] },
+  // "audiencia" sozinho pega qualquer variação (virtual, de conciliação, de
+  // instrução e julgamento) sem depender da ordem exata das palavras --
+  // "instrucao e julgamento"/"aij" cobre quando só aparece como sigla.
+  {
+    rotulo: "Audiência designada",
+    termos: ["audiencia", "instrucao e julgamento", " aij "],
+  },
   { rotulo: "Contrarrazões", termos: ["contrarrazoes", "contra-razoes", "contra razoes"] },
   { rotulo: "Decisão Interlocutória", termos: ["decisao interlocutoria", "decisao"] },
   { rotulo: "Despacho", termos: ["despacho"] },
@@ -67,6 +74,19 @@ function classificarTipoAto(alvo: string): string {
 // esse padrão de redação (muito comum) nunca batia com a regra.
 const REGEX_PRAZO_EXPLICITO = /prazo\s+de\s+(\d{1,3})\s*(?:\([^)]*\))?\s*dias?/i;
 const TERMOS_MANIFESTACAO = ["manifeste-se", "manifestacao", "intime-se", "manifestar-se"];
+
+// Pega a data de audiência/sessão quando o texto traz essa fórmula padrão
+// de ato ordinatório ("designada/designado para o dia DD/MM/AAAA") -- bem
+// mais confiável que tentar calcular um prazo nesses casos, porque é uma
+// data marcada, não uma contagem a partir da publicação.
+const REGEX_DATA_DESIGNADA = /designad[ao]\s+para\s+o\s+dia\s+(\d{2})\/(\d{2})\/(\d{4})/i;
+
+function extrairDataDesignada(alvo: string): string | null {
+  const m = REGEX_DATA_DESIGNADA.exec(alvo);
+  if (!m) return null;
+  const [, dd, mm, aaaa] = m;
+  return `${aaaa}-${mm}-${dd}`;
+}
 
 function classificarPrazo(alvo: string): {
   dias: number | null;
@@ -128,6 +148,26 @@ export function classificarLinha(item: ItemParaClassificar): ClassificacaoPublic
     : ehDisponibilizacao
       ? proximoDiaUtil(item.dataPublicacao)
       : item.dataPublicacao;
+
+  // Data marcada no próprio texto (audiência/sessão) tem prioridade sobre
+  // qualquer cálculo de prazo a partir da publicação -- é a data real do
+  // ato, não uma contagem de dias.
+  const dataDesignada = extrairDataDesignada(alvo);
+  if (dataDesignada) {
+    return {
+      id: item.id,
+      tipoAto,
+      tipoDataEncontrada,
+      dataEncontrada: item.dataPublicacao,
+      ehJEC: false,
+      diasUteisSugeridos: null,
+      regraAplicada: `Data extraída do texto ("designada para o dia") — ${dataDesignada}`,
+      revisar: false,
+      resumo: null,
+      dataPublicacaoEfetiva,
+      dataVencimento: dataDesignada,
+    };
+  }
 
   const { dias, ehJEC, regra, incerto } = classificarPrazo(alvo);
   const dataVencimento =
