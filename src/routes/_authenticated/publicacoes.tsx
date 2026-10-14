@@ -1225,9 +1225,18 @@ function PublicacoesPage() {
   const { casadas, semProcesso } = useMemo(() => {
     const casadas: LinhaCasada[] = [];
     const semProcesso: LinhaPublicacao[] = [];
+    // Segunda camada de deduplicação (além da que já roda na leitura da
+    // planilha): mesmo CNJ + mesma data + mesmo teor nunca deveriam virar
+    // duas linhas aqui, não importa por qual caminho vieram -- protege a
+    // tela mesmo se a planilha trouxer o mesmo registro mais de uma vez
+    // por algum motivo que a dedup na leitura não previu.
+    const chavesVistas = new Set<string>();
     for (const l of linhas) {
       const processo = l.cnjDigits ? processoPorCnj.get(l.cnjDigits) : undefined;
       if (processo) {
+        const chave = `${l.cnjDigits}|${l.dataPublicacao}|${chaveComparacao(l.andamento)}`;
+        if (chavesVistas.has(chave)) continue;
+        chavesVistas.add(chave);
         casadas.push({
           ...l,
           processo,
