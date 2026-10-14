@@ -358,6 +358,102 @@ function dataBR(iso: string | null | undefined) {
   return iso ? new Date(`${iso}T12:00:00`).toLocaleDateString("pt-BR") : "—";
 }
 
+// Formato pedido pela Eliane pra lista de prazos do escritório: ano com
+// 2 dígitos ("10/11/26"), não 4.
+function dataCompacta(iso: string): string {
+  const [aaaa, mm, dd] = iso.split("-");
+  return `${dd}/${mm}/${aaaa!.slice(2)}`;
+}
+
+const PREPOSICOES_NOME = new Set(["de", "da", "do", "das", "dos", "e"]);
+
+// Nome das partes vem em CAIXA ALTA do cadastro/planilha -- a lista de
+// prazos da Eliane usa capitalização normal, não "GILVANE SOUPINSKI".
+function capitalizarNome(nome: string): string {
+  return nome
+    .toLowerCase()
+    .split(" ")
+    .map((palavra, i) =>
+      i > 0 && PREPOSICOES_NOME.has(palavra)
+        ? palavra
+        : palavra.charAt(0).toUpperCase() + palavra.slice(1),
+    )
+    .join(" ");
+}
+
+// "Parte: nome da parte contrária... evitando repetir o nome do
+// cliente" -- prefere parte_contraria (já é exatamente isso no
+// cadastro); sem ela, escolhe entre autor/réu o que não bate com o
+// nome do cliente (Souza Cruz/Astro normalmente é o cliente, o outro
+// lado é quem entra na entrada de agendamento).
+function nomeParteContraria(l: LinhaCasada): string {
+  if (l.processo.parte_contraria) return capitalizarNome(l.processo.parte_contraria);
+  const clienteChave = chaveComparacao(exibir(l.processo.cliente));
+  const candidatos = [l.processo.autor ?? l.autor, l.processo.reu ?? l.reu].filter(
+    (v): v is string => !!v,
+  );
+  const outroLado = candidatos.find((c) => {
+    const chave = chaveComparacao(c);
+    return (
+      clienteChave.length > 0 && !chave.includes(clienteChave) && !clienteChave.includes(chave)
+    );
+  });
+  return capitalizarNome(outroLado ?? candidatos[0] ?? "—");
+}
+
+// Mesma composição de "juízo" usada na tabela, só sem a palavra "de"
+// entre vara e comarca -- é o formato compacto que a Eliane pediu
+// ("1ª VC JEC Canoinhas/SC", não "1ª VC JEC de Canoinhas/SC").
+function juizoCompacto(l: LinhaCasada): string {
+  return (
+    [l.processo.vara, [l.processo.comarca, l.processo.uf].filter(Boolean).join("/") || null]
+      .filter(Boolean)
+      .join(" ") || "—"
+  );
+}
+
+function clienteCasoCompacto(l: LinhaCasada): string {
+  const cliente = l.processo.numero_cliente ?? "—";
+  const caso = l.processo.numero_interno ?? "—";
+  return `(${cliente}/${caso})`;
+}
+
+// Entrada pronta pra copiar na lista de prazos do escritório: "DD/MM/AA:
+// Providência Nome (cliente/caso) [horário] Juízo ADVG" -- sem
+// travessões entre os campos, só espaço (ver prompt da Eliane).
+function montarEntradaAgendamento(l: LinhaCasada, c: ClassificacaoPublicacao): string {
+  const data = c.dataVencimento ? dataCompacta(c.dataVencimento) : "??/??/??";
+  const campos = [
+    c.providencia,
+    nomeParteContraria(l),
+    clienteCasoCompacto(l),
+    c.horario,
+    juizoCompacto(l),
+    l.advgReal !== "—" ? l.advgReal : null,
+  ].filter((v): v is string => !!v);
+  return `${data}: ${campos.join(" ")}`;
+}
+
+// Mesmo formato da entrada de agendamento, mas sem assumir uma data de
+// vencimento que a regra não tem certeza, e sinalizando explicitamente
+// por que precisa de conferência manual (CONFIRMAR PRAZO = sabemos a
+// providência mas não o prazo; AVALIAR PROVIDÊNCIA = peça relevante sem
+// providência concreta identificada por regra).
+function montarEntradaConferencia(l: LinhaCasada, c: ClassificacaoPublicacao): string {
+  const prefixoData = c.dataVencimento ? `${dataCompacta(c.dataVencimento)}: ` : "";
+  const campos = [
+    c.providencia,
+    nomeParteContraria(l),
+    clienteCasoCompacto(l),
+    c.horario,
+    juizoCompacto(l),
+    l.advgReal !== "—" ? l.advgReal : null,
+  ].filter((v): v is string => !!v);
+  const motivo =
+    c.motivoConferencia === "CONFIRMAR_PRAZO" ? "CONFIRMAR PRAZO" : "AVALIAR PROVIDÊNCIA";
+  return `${prefixoData}${campos.join(" ")} — ${motivo}`;
+}
+
 // Formato de tabela (cabeçalho + uma linha de dados, separados por tab)
 // pedido pela BDR pra bater com o formato do projeto de Claude dela --
 // cada processo repete o cabeçalho, já que os blocos ficam separados por
@@ -389,46 +485,38 @@ function montarAgendamentos(
   itens: LinhaCasada[],
   classificacoes: Map<number, ClassificacaoPublicacao>,
 ) {
-  const comClassificacao = itens
+  const confirmados = itens
     .map((l) => ({ l, c: classificacoes.get(l.idx) }))
-    // Entra em Agendamentos sempre que houver prazo calculado OU a
-    // classificação tiver ficado incerta ("revisar") -- nesse caso
-    // aparece como "Verificar prazo no sistema" em vez de sumir da lista.
-    .filter(
-      (x): x is { l: LinhaCasada; c: ClassificacaoPublicacao } =>
-        !!x.c && (!!x.c.dataVencimento || x.c.revisar),
-    )
+    .filter((x): x is { l: LinhaCasada; c: ClassificacaoPublicacao } => x.c?.tier === "confirmado")
+    .sort((a, b) => (a.c.dataVencimento! < b.c.dataVencimento! ? -1 : 1));
+
+  if (confirmados.length === 0) return null;
+
+  const linhas = confirmados.map(({ l, c }) => montarEntradaAgendamento(l, c));
+  return `Agendamentos:\n${linhas.join("\n")}`;
+}
+
+// "Pontos para conferência": prazo/providência que a regra fixa não
+// identificou com segurança suficiente pra virar Agendamentos -- cada
+// item já vem com o motivo (CONFIRMAR PRAZO ou AVALIAR PROVIDÊNCIA),
+// pra equipe não precisar reler a publicação inteira de novo.
+function montarPontosConferencia(
+  itens: LinhaCasada[],
+  classificacoes: Map<number, ClassificacaoPublicacao>,
+) {
+  const pendentes = itens
+    .map((l) => ({ l, c: classificacoes.get(l.idx) }))
+    .filter((x): x is { l: LinhaCasada; c: ClassificacaoPublicacao } => x.c?.tier === "conferencia")
     .sort((a, b) => {
       if (!a.c.dataVencimento) return 1;
       if (!b.c.dataVencimento) return -1;
       return a.c.dataVencimento < b.c.dataVencimento ? -1 : 1;
     });
 
-  if (comClassificacao.length === 0) return null;
+  if (pendentes.length === 0) return null;
 
-  const linhas = comClassificacao.map(({ l, c }) => {
-    const parteContraria =
-      l.processo.parte_contraria ||
-      [l.processo.autor ?? l.autor, l.processo.reu ?? l.reu].filter(Boolean).join(" x ") ||
-      "—";
-    const clienteCaso = [
-      l.processo.numero_cliente ? `Cliente ${l.processo.numero_cliente}` : null,
-      l.processo.numero_interno ? `Caso ${l.processo.numero_interno}` : null,
-    ]
-      .filter(Boolean)
-      .join("/");
-    const juizo =
-      [l.processo.vara, [l.processo.comarca, l.processo.uf].filter(Boolean).join("/") || null]
-        .filter(Boolean)
-        .join(" de ") || "—";
-    const advg = l.advgReal !== "—" ? ` (${l.advgReal})` : "";
-    const dataOuRevisar = c.dataVencimento
-      ? dataBR(c.dataVencimento)
-      : "Verificar prazo no sistema";
-    return `${dataOuRevisar}: ${c.tipoAto} — ${parteContraria} (${clienteCaso}) ${juizo}${advg}`;
-  });
-
-  return `Agendamentos:\n${linhas.join("\n")}`;
+  const linhas = pendentes.map(({ l, c }) => montarEntradaConferencia(l, c));
+  return `Pontos para conferência:\n${linhas.join("\n")}`;
 }
 
 function montarNaoLocalizada(
@@ -480,9 +568,10 @@ function montarAlertas(
       l.processo.parte_contraria ??
       [l.processo.autor ?? l.autor, l.processo.reu ?? l.reu].filter(Boolean).join(" x ");
     const rotuloProcesso = `Processo nº ${l.cnjTexto} (${parteContraria ?? "—"} x ${exibir(l.processo.cliente) ?? "—"})`;
-    if (c.revisar) {
-      alertas.push(`${rotuloProcesso} — não foi possível confirmar a data/prazo automaticamente.`);
-    } else if (c.dataVencimento) {
+    // Item "conferencia" já tem sua própria entrada em "Pontos para
+    // conferência" -- aqui só sobra o alerta de urgência pros itens
+    // confirmados mesmo (perto de vencer ou já vencidos).
+    if (c.tier === "confirmado" && c.dataVencimento) {
       const urgencia = classificarUrgencia(c.dataVencimento);
       if (urgencia === "vencido")
         alertas.push(`${rotuloProcesso} — prazo já vencido em ${dataBR(c.dataVencimento)}.`);
@@ -543,6 +632,7 @@ function montarPartesPublicacoes(
       : null;
 
   const agendamentos = montarAgendamentos(itens, classificacoes);
+  const pontosConferencia = montarPontosConferencia(itens, classificacoes);
   const alertas = montarAlertas(
     itens,
     classificacoes,
@@ -560,9 +650,16 @@ function montarPartesPublicacoes(
       ? `${SEPARADOR_EMAIL}\n\n${secoesComTabela.join(`\n\n${SEPARADOR_EMAIL}\n\n`)}`
       : null;
 
-  const partes = [saudacaoInicial, agendamentos, blocoTabelas, alertas, FECHO[grupo]].filter(
-    (p): p is string => !!p,
-  );
+  // Ordem pedida: Agendamentos, Pontos para conferência, tabela de
+  // publicações (inalterada), alertas de urgência, fecho.
+  const partes = [
+    saudacaoInicial,
+    agendamentos,
+    pontosConferencia,
+    blocoTabelas,
+    alertas,
+    FECHO[grupo],
+  ].filter((p): p is string => !!p);
 
   return { assunto, partes };
 }
@@ -690,44 +787,38 @@ function montarAgendamentosHtml(
   itens: LinhaCasada[],
   classificacoes: Map<number, ClassificacaoPublicacao>,
 ): string | null {
-  const comClassificacao = itens
+  const confirmados = itens
     .map((l) => ({ l, c: classificacoes.get(l.idx) }))
-    .filter(
-      (x): x is { l: LinhaCasada; c: ClassificacaoPublicacao } =>
-        !!x.c && (!!x.c.dataVencimento || x.c.revisar),
-    )
+    .filter((x): x is { l: LinhaCasada; c: ClassificacaoPublicacao } => x.c?.tier === "confirmado")
+    .sort((a, b) => (a.c.dataVencimento! < b.c.dataVencimento! ? -1 : 1));
+  if (confirmados.length === 0) return null;
+
+  const itensLi = confirmados
+    .map(({ l, c }) => `<li>${escaparHtml(montarEntradaAgendamento(l, c))}</li>`)
+    .join("");
+
+  return `<p style="margin:12px 0 4px"><b>Agendamentos:</b></p><ul style="margin:0 0 12px;padding-left:20px">${itensLi}</ul>`;
+}
+
+function montarPontosConferenciaHtml(
+  itens: LinhaCasada[],
+  classificacoes: Map<number, ClassificacaoPublicacao>,
+): string | null {
+  const pendentes = itens
+    .map((l) => ({ l, c: classificacoes.get(l.idx) }))
+    .filter((x): x is { l: LinhaCasada; c: ClassificacaoPublicacao } => x.c?.tier === "conferencia")
     .sort((a, b) => {
       if (!a.c.dataVencimento) return 1;
       if (!b.c.dataVencimento) return -1;
       return a.c.dataVencimento < b.c.dataVencimento ? -1 : 1;
     });
-  if (comClassificacao.length === 0) return null;
+  if (pendentes.length === 0) return null;
 
-  const itensLi = comClassificacao
-    .map(({ l, c }) => {
-      const parteContraria =
-        l.processo.parte_contraria ||
-        [l.processo.autor ?? l.autor, l.processo.reu ?? l.reu].filter(Boolean).join(" x ") ||
-        "—";
-      const clienteCaso = [
-        l.processo.numero_cliente ? `Cliente ${l.processo.numero_cliente}` : null,
-        l.processo.numero_interno ? `Caso ${l.processo.numero_interno}` : null,
-      ]
-        .filter(Boolean)
-        .join("/");
-      const juizo =
-        [l.processo.vara, [l.processo.comarca, l.processo.uf].filter(Boolean).join("/") || null]
-          .filter(Boolean)
-          .join(" de ") || "—";
-      const advg = l.advgReal !== "—" ? ` (${l.advgReal})` : "";
-      const dataOuRevisar = c.dataVencimento
-        ? dataBR(c.dataVencimento)
-        : "Verificar prazo no sistema";
-      return `<li>${escaparHtml(`${dataOuRevisar}: ${c.tipoAto} — ${parteContraria} (${clienteCaso}) ${juizo}${advg}`)}</li>`;
-    })
+  const itensLi = pendentes
+    .map(({ l, c }) => `<li>${escaparHtml(montarEntradaConferencia(l, c))}</li>`)
     .join("");
 
-  return `<p style="margin:12px 0 4px"><b>Agendamentos:</b></p><ul style="margin:0 0 12px;padding-left:20px">${itensLi}</ul>`;
+  return `<p style="margin:12px 0 4px"><b>Pontos para conferência:</b></p><ul style="margin:0 0 12px;padding-left:20px;color:#92400e">${itensLi}</ul>`;
 }
 
 function montarNaoLocalizadaHtml(
@@ -772,9 +863,10 @@ function montarAlertasHtml(
       l.processo.parte_contraria ??
       [l.processo.autor ?? l.autor, l.processo.reu ?? l.reu].filter(Boolean).join(" x ");
     const rotuloProcesso = `Processo nº ${l.cnjTexto} (${parteContraria ?? "—"} x ${exibir(l.processo.cliente) ?? "—"})`;
-    if (c.revisar) {
-      alertas.push(`${rotuloProcesso} — não foi possível confirmar a data/prazo automaticamente.`);
-    } else if (c.dataVencimento) {
+    // Item "conferencia" já tem sua própria entrada em "Pontos para
+    // conferência" -- aqui só sobra o alerta de urgência pros itens
+    // confirmados mesmo (perto de vencer ou já vencidos).
+    if (c.tier === "confirmado" && c.dataVencimento) {
       const urgencia = classificarUrgencia(c.dataVencimento);
       if (urgencia === "vencido")
         alertas.push(`${rotuloProcesso} — prazo já vencido em ${dataBR(c.dataVencimento)}.`);
@@ -843,15 +935,19 @@ function montarSecaoHtml(
       : null;
 
   const agendamentosHtml = montarAgendamentosHtml(itens, classificacoes);
+  const pontosConferenciaHtml = montarPontosConferenciaHtml(itens, classificacoes);
   const alertasHtml = montarAlertasHtml(
     itens,
     classificacoes,
     grupo === "ELV" ? [...naoLocalizadaAdvg, ...naoLocalizadaGeral] : [],
   );
 
+  // Ordem pedida: Agendamentos, Pontos para conferência, tabela de
+  // publicações (inalterada), alertas de urgência, fecho.
   return [
     paragrafosHtml(saudacaoInicial),
     agendamentosHtml,
+    pontosConferenciaHtml,
     tabelaProcessos,
     naoLocalizadaAdvgHtml,
     naoLocalizadaGeralHtml,
@@ -1323,7 +1419,10 @@ function PublicacoesPage() {
         linhas.map((l) => `${l.cnjDigits}|${l.dataPublicacao}|${chaveComparacao(l.andamento)}`),
       );
       const novas = linhasDeDjen(comunicacoes, linhas.length).filter(
-        (l) => !chavesExistentes.has(`${l.cnjDigits}|${l.dataPublicacao}|${chaveComparacao(l.andamento)}`),
+        (l) =>
+          !chavesExistentes.has(
+            `${l.cnjDigits}|${l.dataPublicacao}|${chaveComparacao(l.andamento)}`,
+          ),
       );
       setLinhas((atual) => [...atual, ...novas]);
       setSelecionadas((atual) => {

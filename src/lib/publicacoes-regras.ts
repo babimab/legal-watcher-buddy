@@ -4,20 +4,38 @@ import { proximoDiaUtil, somarDiasUteis } from "@/lib/dias-uteis";
 // troca a versão anterior que mandava o teor pra Anthropic
 // (classificar-publicacoes). Fica mais rápido e sem custo de API, em
 // troca de ser mais grosseiro em casos ambíguos: por isso as regras
-// preferem marcar "revisar" a arriscar um prazo errado, mesma filosofia
-// do prompt da BDR.
+// preferem marcar "revisar"/"conferência" a arriscar um prazo errado,
+// mesma filosofia do prompt da BDR.
 //
 // A data efetiva NUNCA foi extraída de texto por regra nenhuma (nem pela
 // IA antes) -- ela já vem estruturada (coluna da planilha ou campo do
 // DJEN). A única decisão sobre a data é se o texto indica que é uma mera
 // "disponibilização" (aplica a regra do 1º dia útil seguinte) ou já é a
-// publicação/intimação em si.
+// publicação/intimação em si. Exceção: data de audiência/sessão marcada
+// no próprio texto ("designada para o dia"), que é extraída porque é uma
+// data fixa do ato, não uma contagem a partir da publicação.
+//
+// Padrão de "Agendamentos" (out/2026, a pedido da Eliane/BDR): a seção
+// precisa sair pronta pra copiar pra lista de prazos do escritório, não
+// só identificar o tipo de ato genérico (ver TIPOS_ATO) -- por isso toda
+// publicação também ganha uma "providência" concreta (classificarProvidencia)
+// e um "tier": "confirmado" (entra em Agendamentos), "conferencia" (entra
+// em "Pontos para conferência", com motivo CONFIRMAR_PRAZO ou
+// AVALIAR_PROVIDENCIA) ou "sem_acao" (fica só na tabela). Uma decisão/
+// sentença/despacho sem providência concreta identificada NUNCA vira
+// "confirmado" só por ter um prazo calculado por regra genérica (era
+// esse o bug relatado: uma decisão de cancelamento de custas, sem
+// determinação de resposta, virando "Sentença" com prazo de 28/10) --
+// nesse caso cai em "conferencia"/AVALIAR_PROVIDENCIA.
 
 export type ItemParaClassificar = {
   id: string;
   texto: string;
   dataPublicacao: string | null;
 };
+
+export type Tier = "confirmado" | "conferencia" | "sem_acao";
+export type MotivoConferencia = "CONFIRMAR_PRAZO" | "AVALIAR_PROVIDENCIA" | null;
 
 export type ClassificacaoPublicacao = {
   id: string;
@@ -31,6 +49,11 @@ export type ClassificacaoPublicacao = {
   resumo: string | null;
   dataPublicacaoEfetiva: string | null;
   dataVencimento: string | null;
+  // Campos do padrão de Agendamentos da Eliane (ver comentário acima).
+  providencia: string;
+  horario: string | null;
+  tier: Tier;
+  motivoConferencia: MotivoConferencia;
 };
 
 function normalizar(texto: string): string {
@@ -41,6 +64,10 @@ function contem(alvo: string, ...termos: string[]): boolean {
   return termos.some((t) => alvo.includes(t));
 }
 
+// Família de atos "decisórios" -- sempre merecem o olho da equipe mesmo
+// sem providência concreta identificada (nunca viram "sem_acao" por
+// omissão nossa, só quando a própria Eliane/BDR confirmar que não
+// precisam). Ordem importa: primeiro match vence.
 const TIPOS_ATO: { rotulo: string; termos: string[] }[] = [
   {
     rotulo: "Embargos de Declaração",
@@ -48,9 +75,6 @@ const TIPOS_ATO: { rotulo: string; termos: string[] }[] = [
   },
   { rotulo: "Acórdão", termos: ["acordao"] },
   { rotulo: "Sentença", termos: ["sentenca"] },
-  // "audiencia" sozinho pega qualquer variação (virtual, de conciliação, de
-  // instrução e julgamento) sem depender da ordem exata das palavras --
-  // "instrucao e julgamento"/"aij" cobre quando só aparece como sigla.
   {
     rotulo: "Audiência designada",
     termos: ["audiencia", "instrucao e julgamento", " aij "],
@@ -61,6 +85,13 @@ const TIPOS_ATO: { rotulo: string; termos: string[] }[] = [
   { rotulo: "Citação", termos: ["citacao"] },
   { rotulo: "Intimação", termos: ["intimacao"] },
 ];
+const FAMILIA_DECISORIA = new Set([
+  "Embargos de Declaração",
+  "Acórdão",
+  "Sentença",
+  "Decisão Interlocutória",
+  "Despacho",
+]);
 
 function classificarTipoAto(alvo: string): string {
   for (const { rotulo, termos } of TIPOS_ATO) {
@@ -86,6 +117,20 @@ function extrairDataDesignada(alvo: string): string | null {
   if (!m) return null;
   const [, dd, mm, aaaa] = m;
   return `${aaaa}-${mm}-${dd}`;
+}
+
+// "às 16:00" / "as 16h30" (acento já foi removido por normalizar()) --
+// exige a palavra "as" logo antes pra não confundir com número de
+// processo/vara. Formato de saída igual ao da lista da Eliane: "16h"
+// quando minutos é 00, "09h30" quando não é.
+const REGEX_HORARIO = /\bas\s+(\d{1,2})[:h](\d{2})\b/;
+
+function extrairHorario(alvo: string): string | null {
+  const m = REGEX_HORARIO.exec(alvo);
+  if (!m) return null;
+  const hh = m[1]!.padStart(2, "0");
+  const mm = m[2]!;
+  return mm === "00" ? `${hh}h` : `${hh}h${mm}`;
 }
 
 function classificarPrazo(alvo: string): {
@@ -133,6 +178,96 @@ function classificarPrazo(alvo: string): {
   };
 }
 
+type Providencia = {
+  label: string;
+  tier: Tier;
+  motivo: MotivoConferencia;
+};
+
+function detectarModalidade(alvo: string): string {
+  if (contem(alvo, "virtual")) return " virtual";
+  if (contem(alvo, "hibrid", "semipresencial")) return " híbrida";
+  if (contem(alvo, "presencial")) return " presencial";
+  return "";
+}
+
+// Identifica a providência CONCRETA (o que precisa ser feito/comparecido),
+// não só o tipo de peça -- é isso que permite montar a entrada de
+// Agendamentos pronta pra copiar, em vez de um rótulo genérico tipo
+// "Sentença"/"Despacho" que não diz o que fazer.
+function classificarProvidencia(alvo: string, dias: number | null, tipoAto: string): Providencia {
+  const ehAIJ = contem(alvo, "instrucao e julgamento", " aij ");
+  const ehAC = contem(alvo, "audiencia") && contem(alvo, "concilia");
+  if (ehAIJ || ehAC || (contem(alvo, "audiencia") && !ehAC)) {
+    const base = ehAC ? "AC" : "AIJ";
+    const modalidade = detectarModalidade(alvo);
+    const temContestacao = contem(alvo, "contestacao");
+    return {
+      label: temContestacao ? `${base}${modalidade}/contestação` : `${base}${modalidade}`,
+      tier: "confirmado",
+      motivo: null,
+    };
+  }
+
+  if (contem(alvo, "sessao") && contem(alvo, "julgamento")) {
+    if (contem(alvo, "encerra"))
+      return { label: "Encerramento do julgamento virtual", tier: "confirmado", motivo: null };
+    if (contem(alvo, "inicio"))
+      return { label: "Início da sessão virtual", tier: "confirmado", motivo: null };
+    return { label: "Julgamento", tier: "confirmado", motivo: null };
+  }
+
+  if (contem(alvo, "especifica") && contem(alvo, "provas")) {
+    return dias != null
+      ? { label: "Especificação de provas", tier: "confirmado", motivo: null }
+      : { label: "Especificação de provas", tier: "conferencia", motivo: "AVALIAR_PROVIDENCIA" };
+  }
+
+  if (contem(alvo, "recolh") && contem(alvo, "custas")) {
+    return dias != null
+      ? { label: "Recolhimento de custas", tier: "confirmado", motivo: null }
+      : { label: "Recolhimento de custas", tier: "conferencia", motivo: "AVALIAR_PROVIDENCIA" };
+  }
+
+  if (contem(alvo, "contrarraz")) {
+    let label = "Contrarrazões";
+    if (contem(alvo, "apelacao")) label = "Contrarrazões de apelação";
+    else if (contem(alvo, "agravo de instrumento")) label = "CR AI";
+    else if (contem(alvo, "embargos de declaracao")) label = "CR EDs";
+    return { label, tier: "confirmado", motivo: null };
+  }
+
+  if (contem(alvo, "manifeste-se", "manifestar-se") && contem(alvo, "documento")) {
+    return { label: "Manifestação sobre documentos", tier: "confirmado", motivo: null };
+  }
+
+  if (contem(alvo, "junte", "junta-se", "apresente", "comprove") && contem(alvo, "documento")) {
+    return dias != null
+      ? { label: "Juntada de documentos", tier: "confirmado", motivo: null }
+      : { label: "Juntada de documentos", tier: "conferencia", motivo: "AVALIAR_PROVIDENCIA" };
+  }
+
+  if (contem(alvo, ...TERMOS_MANIFESTACAO)) {
+    return dias != null
+      ? { label: "Manifestação", tier: "confirmado", motivo: null }
+      : { label: "Manifestação", tier: "conferencia", motivo: "AVALIAR_PROVIDENCIA" };
+  }
+
+  // Nenhuma providência concreta identificada. Peça da família decisória
+  // (sentença/decisão/despacho/acórdão/embargos) nunca é descartada
+  // silenciosamente -- vai pra conferência, mesmo sem prazo claro (foi
+  // exatamente esse o caso relatado: uma decisão de cancelamento de
+  // custas, sem determinação de resposta, virando prazo de "Sentença").
+  if (FAMILIA_DECISORIA.has(tipoAto)) {
+    return { label: tipoAto, tier: "conferencia", motivo: "AVALIAR_PROVIDENCIA" };
+  }
+
+  // Resto (citação/intimação/"Outro" puramente informativo, sem verbo de
+  // determinação e sem prazo) -- fica só na tabela, nem Agendamentos nem
+  // conferência.
+  return { label: tipoAto, tier: "sem_acao", motivo: null };
+}
+
 export function classificarLinha(item: ItemParaClassificar): ClassificacaoPublicacao {
   const alvo = normalizar(item.texto);
 
@@ -149,11 +284,14 @@ export function classificarLinha(item: ItemParaClassificar): ClassificacaoPublic
       ? proximoDiaUtil(item.dataPublicacao)
       : item.dataPublicacao;
 
+  const horario = extrairHorario(alvo);
+
   // Data marcada no próprio texto (audiência/sessão) tem prioridade sobre
   // qualquer cálculo de prazo a partir da publicação -- é a data real do
   // ato, não uma contagem de dias.
   const dataDesignada = extrairDataDesignada(alvo);
   if (dataDesignada) {
+    const providenciaAudiencia = classificarProvidencia(alvo, null, tipoAto);
     return {
       id: item.id,
       tipoAto,
@@ -166,6 +304,10 @@ export function classificarLinha(item: ItemParaClassificar): ClassificacaoPublic
       resumo: null,
       dataPublicacaoEfetiva,
       dataVencimento: dataDesignada,
+      providencia: providenciaAudiencia.label,
+      horario,
+      tier: "confirmado",
+      motivoConferencia: null,
     };
   }
 
@@ -173,7 +315,22 @@ export function classificarLinha(item: ItemParaClassificar): ClassificacaoPublic
   const dataVencimento =
     dataPublicacaoEfetiva && dias != null ? somarDiasUteis(dataPublicacaoEfetiva, dias) : null;
 
-  const revisar = !dataPublicacaoEfetiva || incerto || (tipoAto === "Outro" && dias != null);
+  const providencia = classificarProvidencia(alvo, dias, tipoAto);
+  // "incerto" (menciona "prazo" mas nenhuma regra de dias bateu) sempre
+  // vira CONFIRMAR_PRAZO, mesmo quando a providência já foi identificada
+  // com confiança -- o que falta aqui é a contagem, não o tipo de ato.
+  // "confirmado" sem data (ex.: menciona audiência/sessão, mas sem a
+  // fórmula "designada para o dia" nem prazo de dias calculado) nunca
+  // vira uma entrada de Agendamentos sem data -- cai pra conferência.
+  const semData = dataVencimento == null;
+  const tier: Tier =
+    incerto || (providencia.tier === "confirmado" && semData) ? "conferencia" : providencia.tier;
+  const motivoConferencia: MotivoConferencia =
+    incerto || (providencia.tier === "confirmado" && semData)
+      ? "CONFIRMAR_PRAZO"
+      : providencia.motivo;
+
+  const revisar = tier !== "confirmado";
 
   return {
     id: item.id,
@@ -187,6 +344,10 @@ export function classificarLinha(item: ItemParaClassificar): ClassificacaoPublic
     resumo: null,
     dataPublicacaoEfetiva,
     dataVencimento,
+    providencia: providencia.label,
+    horario,
+    tier,
+    motivoConferencia,
   };
 }
 
