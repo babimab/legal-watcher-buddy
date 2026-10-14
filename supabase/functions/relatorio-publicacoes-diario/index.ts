@@ -80,6 +80,14 @@ function texto(v: unknown): string {
   return s === "" ? "—" : s;
 }
 
+const TAMANHO_TEOR = 220;
+
+function resumir(v: unknown): string {
+  const s = texto(v);
+  if (s === "—" || s.length <= TAMANHO_TEOR) return s;
+  return `${s.slice(0, TAMANHO_TEOR).trimEnd()}…`;
+}
+
 function escapar(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -197,6 +205,7 @@ Deno.serve(async (req: Request) => {
       "Tipo de ato",
       "Prazo",
       "Situação",
+      "Teor",
     ]
       .map(
         (h) =>
@@ -227,6 +236,7 @@ Deno.serve(async (req: Request) => {
         texto(a.tipo ?? "Publicação"),
         prazo,
         a.validado ? "Validado" : "A validar",
+        resumir(a.descricao),
       ]);
     };
 
