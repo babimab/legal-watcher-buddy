@@ -85,15 +85,27 @@ Deno.serve(async (req: Request) => {
       .order("created_at", { ascending: true });
     if (erroMovs) throw erroMovs;
 
-    const andamentos = (movs ?? []).map((m) => ({
-      numero_cnj: m.processos?.numero_cnj ?? null,
-      cliente: m.processos?.cliente ?? null,
-      numero_cliente: m.processos?.numero_cliente ?? null,
-      data_movimentacao: m.data_movimentacao,
-      descricao: m.descricao,
-      tipo: m.tipo,
-      cadastrado_em: m.created_at,
-    }));
+    // A relação movimentacao -> processo é muitos-para-um, então o PostgREST
+    // devolve um objeto. O verificador de tipos do Deno declara esse embutido
+    // como lista, então normalizamos pra um objeto antes de ler os campos.
+    type ProcessoEmb = {
+      numero_cnj: string | null;
+      cliente: string | null;
+      numero_cliente: string | null;
+    };
+    const andamentos = (movs ?? []).map((m) => {
+      const embutido = m.processos as unknown as ProcessoEmb | ProcessoEmb[] | null;
+      const p = Array.isArray(embutido) ? embutido[0] : embutido;
+      return {
+        numero_cnj: p?.numero_cnj ?? null,
+        cliente: p?.cliente ?? null,
+        numero_cliente: p?.numero_cliente ?? null,
+        data_movimentacao: m.data_movimentacao,
+        descricao: m.descricao,
+        tipo: m.tipo,
+        cadastrado_em: m.created_at,
+      };
+    });
 
     return new Response(JSON.stringify({ andamentos }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
