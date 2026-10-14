@@ -9,7 +9,7 @@ import {
   type Movimentacao,
   type Processo,
 } from "@/lib/processos";
-import type { GrupoParteAdversa } from "@/lib/saude";
+import type { GrupoParteAdversa, ProcessoSemClienteOuCaso } from "@/lib/saude";
 import { linkTribunalEfetivo } from "@/lib/tribunais";
 
 // Mesmo azul escuro usado no cabeçalho do site (--primary), pra planilha
@@ -339,6 +339,40 @@ export async function exportarGruposParteAdversaExcel(
   estilizarCabecalho(planilha);
   centralizarLinhas(planilha, new Set(["classe"]));
   estilizarComoLink(planilha, new Set(["numero_cnj"]));
+  finalizarPlanilha(planilha);
+
+  await baixarPlanilha(workbook, nomeArquivo);
+}
+
+export async function exportarSemClienteOuCasoExcel(
+  processos: ProcessoSemClienteOuCaso[],
+  nomeArquivo = "processos-sem-cliente-ou-caso",
+) {
+  const workbook = new ExcelJS.Workbook();
+  const planilha = workbook.addWorksheet("Sem cliente ou caso");
+
+  planilha.columns = [
+    { header: "Processo", key: "numero_cnj", width: 22 },
+    { header: "Cliente", key: "cliente", width: 30 },
+    { header: "Nº cliente", key: "numero_cliente", width: 12 },
+    { header: "Nº caso", key: "numero_interno", width: 12 },
+    { header: "Responsável", key: "responsavel", width: 14 },
+    { header: "Status", key: "status", width: 12 },
+  ];
+
+  for (const p of processos) {
+    planilha.addRow({
+      numero_cnj: formatarCNJ(p.numero_cnj),
+      cliente: exibir(p.cliente) ?? "",
+      numero_cliente: p.numero_cliente ?? "",
+      numero_interno: p.numero_interno ?? "",
+      responsavel: p.responsavel ?? "",
+      status: p.status,
+    });
+  }
+
+  estilizarCabecalho(planilha);
+  centralizarLinhas(planilha, new Set(["cliente"]));
   finalizarPlanilha(planilha);
 
   await baixarPlanilha(workbook, nomeArquivo);

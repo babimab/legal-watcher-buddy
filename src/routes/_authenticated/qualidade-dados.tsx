@@ -23,7 +23,7 @@ import {
   TIPOS_DESDOBRAMENTO,
 } from "@/lib/processos";
 import { listarGrupos, listarPastas } from "@/lib/grupos";
-import { exportarGruposParteAdversaExcel } from "@/lib/excel";
+import { exportarGruposParteAdversaExcel, exportarSemClienteOuCasoExcel } from "@/lib/excel";
 import {
   cnjsDuplicados,
   corrigirAcento,
@@ -71,6 +71,7 @@ function QualidadeDadosPage() {
   const [corrigindoTodos, setCorrigindoTodos] = useState(false);
   const [excluindoDuplicatas, setExcluindoDuplicatas] = useState(false);
   const [exportandoParteAdversa, setExportandoParteAdversa] = useState(false);
+  const [exportandoSemClienteOuCaso, setExportandoSemClienteOuCaso] = useState(false);
 
   const semPasta = processos.data ? processosSemPasta(processos.data) : [];
   const semClienteOuCaso = processos.data ? processosSemClienteOuCaso(processos.data) : [];
@@ -129,6 +130,17 @@ function QualidadeDadosPage() {
       toast.error("Não consegui gerar a planilha.");
     } finally {
       setExportandoParteAdversa(false);
+    }
+  };
+
+  const exportarSemClienteOuCaso = async () => {
+    setExportandoSemClienteOuCaso(true);
+    try {
+      await exportarSemClienteOuCasoExcel(semClienteOuCaso, "processos-sem-cliente-ou-caso");
+    } catch {
+      toast.error("Não consegui gerar a planilha.");
+    } finally {
+      setExportandoSemClienteOuCaso(false);
     }
   };
 
@@ -271,14 +283,28 @@ function QualidadeDadosPage() {
       {semClienteOuCaso.length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 font-serif text-lg">
-              <AlertTriangle className="size-5 text-amber-500" />
-              {semClienteOuCaso.length} processo(s) sem número de cliente ou de caso
-            </CardTitle>
-            <CardDescription>
-              Sem isso, o Cliente/Caso aparece incompleto na lista, na busca e nas exportações.
-              Desdobramento não entra aqui (ele herda o número de caso do processo principal).
-            </CardDescription>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <CardTitle className="flex items-center gap-2 font-serif text-lg">
+                  <AlertTriangle className="size-5 text-amber-500" />
+                  {semClienteOuCaso.length} processo(s) sem número de cliente ou de caso
+                </CardTitle>
+                <CardDescription>
+                  Sem isso, o Cliente/Caso aparece incompleto na lista, na busca e nas exportações.
+                  Desdobramento não entra aqui (ele herda o número de caso do processo principal).
+                </CardDescription>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => void exportarSemClienteOuCaso()}
+                disabled={exportandoSemClienteOuCaso}
+              >
+                <Download className="size-4" />
+                {exportandoSemClienteOuCaso ? "Gerando..." : "Baixar planilha"}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto rounded-md border border-border">
