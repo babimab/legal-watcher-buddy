@@ -23,6 +23,10 @@
 // de leitura pode ser maior que 24h sem repetir publicação no dia
 // seguinte: se um dia o agendamento falhar, o do dia seguinte alcança o
 // que ficou pra trás.
+//
+// Vai em dois e-mails separados -- um pra Astro, outro pra Souza Cruz
+// (e demais clientes) -- cada um só é mandado se tiver pelo menos uma
+// publicação daquele grupo no período.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -84,6 +88,21 @@ function linhaHtml(cols: string[]): string {
   return `<tr>${cols
     .map((c) => `<td style="padding:4px 8px;border:1px solid #ddd;font-size:13px">${escapar(c)}</td>`)
     .join("")}</tr>`;
+}
+
+function normalizarNome(valor: string): string {
+  return valor
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+}
+
+// Mesmo critério de categoriaCliente (src/lib/processos.ts), só com as
+// duas categorias que importam pra esse relatório -- Astro e Souza
+// Cruz/demais entram em e-mails separados, a pedido da BDR.
+function ehAstro(cliente: string): boolean {
+  return normalizarNome(cliente).includes("astro");
 }
 
 Deno.serve(async (req: Request) => {
@@ -160,34 +179,15 @@ Deno.serve(async (req: Request) => {
     }
 
     const semProcesso = novos.filter((a) => !a.processos);
-
-    const linhas = novos
-      .filter((a) => a.processos)
-      .map((a) => {
-        const p = a.processos!;
-        const partes = p.parte_contraria
-          ? `${p.cliente} x ${p.parte_contraria}`
-          : [p.autor, p.reu].filter(Boolean).join(" x ") || "—";
-        const juizo =
-          [p.vara, [p.comarca, p.uf].filter(Boolean).join("/") || null].filter(Boolean).join(" de ") || "—";
-        const prazo = a.prazo ? dataBR(a.prazo) : a.prazo_revisar ? "Revisar manualmente" : "—";
-        return linhaHtml([
-          texto(p.numero_cnj),
-          texto(p.cliente),
-          [p.numero_cliente, p.numero_interno].filter(Boolean).join("/") || "—",
-          texto(p.socio),
-          texto(p.responsavel),
-          partes,
-          juizo,
-          texto(a.tipo ?? "Publicação"),
-          prazo,
-          a.validado ? "Validado" : "A validar",
-        ]);
-      })
-      .join("");
+    const comProcesso = novos.filter((a) => a.processos);
+    const grupos: { nome: string; itens: AndamentoImportado[] }[] = [
+      { nome: "Astro", itens: comProcesso.filter((a) => ehAstro(a.processos!.cliente)) },
+      { nome: "Souza Cruz", itens: comProcesso.filter((a) => !ehAstro(a.processos!.cliente)) },
+    ].filter((g) => g.itens.length > 0);
 
     const cabecalho = [
       "Processo",
+      "Data publicação",
       "Cliente",
       "Caso",
       "Sócio",
@@ -204,41 +204,66 @@ Deno.serve(async (req: Request) => {
       )
       .join("");
 
-    const tabela =
-      linhas.length > 0
-        ? `<table style="border-collapse:collapse;width:100%"><thead><tr>${cabecalho}</tr></thead><tbody>${linhas}</tbody></table>`
-        : `<p>Nenhuma publicação com processo correspondente no período.</p>`;
-
     const dataInicio = desde.toISOString().slice(0, 10);
     const dataFim = new Date().toISOString().slice(0, 10);
 
-    const corpoHtml = `<div style="font-family:sans-serif;color:#222">
-<h2 style="color:#1f3b73;margin:0 0 6px">Publicações importadas no FaroLex</h2>
+    const montarLinha = (a: AndamentoImportado) => {
+      const p = a.processos!;
+      const partes = p.parte_contraria
+        ? `${p.cliente} x ${p.parte_contraria}`
+        : [p.autor, p.reu].filter(Boolean).join(" x ") || "—";
+      const juizo =
+        [p.vara, [p.comarca, p.uf].filter(Boolean).join("/") || null].filter(Boolean).join(" de ") || "—";
+      const prazo = a.prazo ? dataBR(a.prazo) : a.prazo_revisar ? "Revisar manualmente" : "—";
+      return linhaHtml([
+        texto(p.numero_cnj),
+        dataBR(a.data_movimentacao),
+        texto(p.cliente),
+        [p.numero_cliente, p.numero_interno].filter(Boolean).join("/") || "—",
+        texto(p.socio),
+        texto(p.responsavel),
+        partes,
+        juizo,
+        texto(a.tipo ?? "Publicação"),
+        prazo,
+        a.validado ? "Validado" : "A validar",
+      ]);
+    };
+
+    for (const grupo of grupos) {
+      const linhas = grupo.itens.map(montarLinha).join("");
+      const tabela = `<table style="border-collapse:collapse;width:100%"><thead><tr>${cabecalho}</tr></thead><tbody>${linhas}</tbody></table>`;
+
+      const corpoHtml = `<div style="font-family:sans-serif;color:#222">
+<h2 style="color:#1f3b73;margin:0 0 6px">Publicações importadas no FaroLex — ${grupo.nome}</h2>
 <p style="margin:0 0 12px">Relatório automático, período de ${dataBR(dataInicio)} a ${dataBR(dataFim)}.
 Lista os andamentos que a tela <b>Publicações</b> já trouxe do DJEN e importou para os processos
-(${novos.length} ${novos.length === 1 ? "publicação" : "publicações"}).</p>
+(${grupo.itens.length} ${grupo.itens.length === 1 ? "publicação" : "publicações"}).</p>
 ${tabela}
 <p style="color:#666;font-size:13px;margin-top:14px">Publicações do DJEN sem processo cadastrado não ficam
 salvas no FaroLex, então não entram neste relatório -- elas continuam aparecendo na própria tela
 Publicações, na seção "sem processo cadastrado".</p>
 </div>`;
 
-    const respostaResend = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: resendFrom,
-        to: destinatarios,
-        subject: `Publicações importadas no FaroLex — ${dataBR(dataFim)}`,
-        html: corpoHtml,
-      }),
-    });
-    if (!respostaResend.ok) {
-      const detalhe = await respostaResend.text();
-      throw new Error(`Resend recusou o envio (${respostaResend.status}): ${detalhe.slice(0, 300)}`);
+      const respostaResend = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: resendFrom,
+          to: destinatarios,
+          subject: `Publicações importadas no FaroLex — ${grupo.nome} — ${dataBR(dataFim)}`,
+          html: corpoHtml,
+        }),
+      });
+      if (!respostaResend.ok) {
+        const detalhe = await respostaResend.text();
+        throw new Error(
+          `Resend recusou o envio do grupo ${grupo.nome} (${respostaResend.status}): ${detalhe.slice(0, 300)}`,
+        );
+      }
     }
 
     const { error: erroInsercao } = await admin.from("publicacoes_relatorio_enviadas").insert(
@@ -249,7 +274,8 @@ Publicações, na seção "sem processo cadastrado".</p>
     return new Response(
       JSON.stringify({
         ok: true,
-        reportadas: novos.length,
+        reportadas: comProcesso.length,
+        grupos: grupos.map((g) => ({ nome: g.nome, itens: g.itens.length })),
         semProcesso: semProcesso.length,
         destinatarios: destinatarios.length,
       }),
