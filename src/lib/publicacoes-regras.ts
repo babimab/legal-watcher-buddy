@@ -74,6 +74,14 @@ const TIPOS_ATO: { rotulo: string; termos: string[] }[] = [
     termos: ["embargos de declaracao", "embargos declaratorios"],
   },
   { rotulo: "Acórdão", termos: ["acordao"] },
+  // Cabeçalho "DESPACHO/DECISÃO" tem prioridade sobre "Sentença" -- é um
+  // marcador bem específico e comum em cumprimento de sentença, onde a
+  // palavra "sentença" aparece só como referência ao título já existente
+  // ("cumprimento de sentença", "conforme sentença do evento X"), não
+  // como o tipo do ato publicado agora (foi exatamente esse o caso
+  // relatado: decisão sobre custas, dentro de um cumprimento de
+  // sentença, virando "Sentença" por engano).
+  { rotulo: "Decisão Interlocutória", termos: ["despacho/decisao", "decisao/despacho"] },
   { rotulo: "Sentença", termos: ["sentenca"] },
   {
     rotulo: "Audiência designada",
