@@ -229,6 +229,14 @@ function lerPublicacoes(buffer: ArrayBuffer): LinhaLida[] {
   return linhas;
 }
 
+// Normaliza só pra efeito de comparação (espaço/quebra de linha a mais
+// entre células da planilha não deveria contar como publicação
+// diferente -- sem isso, duas linhas visualmente idênticas escapavam da
+// deduplicação por causa de um espaço a mais vindo da planilha do TI).
+function chaveComparacao(s: string | null): string {
+  return (s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
 function montarLinhas(linhas: LinhaLida[]): LinhaPublicacao[] {
   const resultado: LinhaPublicacao[] = [];
   // A planilha do TI já pode trazer a mesma publicação repetida (mesmo
@@ -255,7 +263,7 @@ function montarLinhas(linhas: LinhaLida[]): LinhaPublicacao[] {
 
     const dataPublicacao = dataISO(l.data);
     const andamento = texto(l.andamento);
-    const chave = `${cnjDigits}|${dataPublicacao}|${andamento}`;
+    const chave = `${cnjDigits}|${dataPublicacao}|${chaveComparacao(andamento)}`;
     if (chavesVistas.has(chave)) continue;
     chavesVistas.add(chave);
 
@@ -658,14 +666,16 @@ function blocoProcessoHtml(
       .filter(Boolean)
       .join(" de ") || "—";
   const teor = classificacao?.resumo ?? l.andamento ?? "—";
-  const dataPublicacao = dataBR(l.dataPublicacao);
-  // Só difere da data de publicação quando o teor indica "disponibilização"
-  // (regra do 1º dia útil seguinte -- ver publicacoes-regras.ts).
-  const dataDisponibilizacao = dataBR(classificacao?.dataPublicacaoEfetiva ?? l.dataPublicacao);
+  // A data que vem da planilha/DJEN é a disponibilização (quando saiu no
+  // Diário) -- a publicação "oficial" pra contar prazo (art. 224 do CPC)
+  // só é o 1º dia útil seguinte quando o teor fala em disponibilização;
+  // senão, é a própria data (ver publicacoes-regras.ts).
+  const dataDisponibilizacao = dataBR(l.dataPublicacao);
+  const dataPublicacao = dataBR(classificacao?.dataPublicacaoEfetiva ?? l.dataPublicacao);
   return linhaTabelaHtml([
     l.cnjTexto,
-    dataPublicacao,
     dataDisponibilizacao,
+    dataPublicacao,
     clienteCod,
     caso,
     l.socioReal,
@@ -798,8 +808,8 @@ function montarSecaoHtml(
 
   const cabecalhoTabela = [
     "Processo",
-    "Data publicação",
     "Disponibilização",
+    "Data publicação",
     "Cliente",
     "Caso",
     "Sócio",
@@ -1310,10 +1320,10 @@ function PublicacoesPage() {
       }
 
       const chavesExistentes = new Set(
-        linhas.map((l) => `${l.cnjDigits}|${l.dataPublicacao}|${l.andamento}`),
+        linhas.map((l) => `${l.cnjDigits}|${l.dataPublicacao}|${chaveComparacao(l.andamento)}`),
       );
       const novas = linhasDeDjen(comunicacoes, linhas.length).filter(
-        (l) => !chavesExistentes.has(`${l.cnjDigits}|${l.dataPublicacao}|${l.andamento}`),
+        (l) => !chavesExistentes.has(`${l.cnjDigits}|${l.dataPublicacao}|${chaveComparacao(l.andamento)}`),
       );
       setLinhas((atual) => [...atual, ...novas]);
       setSelecionadas((atual) => {
