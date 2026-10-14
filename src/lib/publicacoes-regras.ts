@@ -292,17 +292,20 @@ export function classificarLinha(item: ItemParaClassificar): ClassificacaoPublic
   const alvo = normalizar(item.texto);
 
   const tipoAto = classificarTipoAto(alvo);
-  const ehDisponibilizacao = contem(alvo, "disponibiliz");
+  // A data que chega aqui (planilha do TI ou busca no DJEN -- em
+  // linhasDeDjen() ela literalmente vem de "dataDisponibilizacao") É a
+  // disponibilização no Diário Eletrônico, sempre -- é pra isso que o
+  // Diário serve. A contagem de prazo (art. 224 do CPC) considera
+  // publicação o 1º dia útil SEGUINTE a essa data, não a própria data,
+  // então o deslocamento sempre se aplica -- nunca dependeu de o texto
+  // conter a palavra "disponibilização" (esse era o bug: ela quase nunca
+  // aparece no corpo do ato em si, só no cabeçalho do Diário, que não
+  // faz parte do teor recebido aqui -- por isso as duas colunas saíam
+  // sempre iguais).
   const tipoDataEncontrada: ClassificacaoPublicacao["tipoDataEncontrada"] = !item.dataPublicacao
     ? "nao_identificada"
-    : ehDisponibilizacao
-      ? "disponibilizacao"
-      : "publicacao_intimacao";
-  const dataPublicacaoEfetiva = !item.dataPublicacao
-    ? null
-    : ehDisponibilizacao
-      ? proximoDiaUtil(item.dataPublicacao)
-      : item.dataPublicacao;
+    : "disponibilizacao";
+  const dataPublicacaoEfetiva = !item.dataPublicacao ? null : proximoDiaUtil(item.dataPublicacao);
 
   const horario = extrairHorario(alvo);
 
