@@ -1015,44 +1015,43 @@ async function exportarPublicacoesExcel(
   const workbook = new ExcelJS.Workbook();
   const planilha = workbook.addWorksheet("Publicações");
 
+  // Mesmas colunas (e mesma lógica de montagem de Partes/Juízo/Teor) da
+  // tabela que vai no e-mail (ver blocoProcessoHtml) -- antes essa
+  // planilha tinha um recorte diferente (Autor/Réu/UF/Comarca/Foro/Vara
+  // separados), inconsistente com o que a Eliane já recebe por e-mail.
   planilha.columns = [
+    { header: "Processo", key: "processo", width: 22 },
+    { header: "Disponibilização", key: "disponibilizacao", width: 16 },
+    { header: "Data publicação", key: "dataPublicacao", width: 16 },
     { header: "Cliente", key: "cliente", width: 12 },
     { header: "Caso", key: "caso", width: 12 },
     { header: "Sócio", key: "socio", width: 10 },
-    { header: "Advg", key: "advg", width: 10 },
-    { header: "Nome do Autor", key: "autor", width: 26 },
-    { header: "Nome do Réu", key: "reu", width: 26 },
-    { header: "Processo", key: "processo", width: 22 },
-    { header: "UF", key: "uf", width: 8 },
-    { header: "Comarca", key: "comarca", width: 22 },
-    { header: "Foro", key: "foro", width: 20 },
-    { header: "Vara", key: "vara", width: 20 },
-    { header: "Status", key: "status", width: 12 },
-    { header: "Fase", key: "fase", width: 16 },
-    { header: "Data Disponibilização", key: "disponibilizacao", width: 16 },
-    { header: "Data Publicação", key: "data", width: 14 },
-    { header: "Andamento", key: "andamento", width: 80 },
+    { header: "ADVG", key: "advg", width: 10 },
+    { header: "Partes", key: "partes", width: 30 },
+    { header: "Juízo", key: "juizo", width: 30 },
+    { header: "Teor da publicação", key: "andamento", width: 80 },
   ];
 
   for (const l of itens) {
     const c = classificacoes.get(l.idx);
+    const partes = l.processo.parte_contraria
+      ? [exibir(l.processo.cliente), l.processo.parte_contraria].filter(Boolean).join(" x ") || "—"
+      : [l.processo.autor ?? l.autor, l.processo.reu ?? l.reu].filter(Boolean).join(" x ") || "—";
+    const juizo =
+      [l.processo.vara, [l.processo.comarca, l.processo.uf].filter(Boolean).join("/") || null]
+        .filter(Boolean)
+        .join(" de ") || "—";
     planilha.addRow({
+      processo: { text: l.cnjTexto, hyperlink: linkTribunalEfetivo(l.processo) },
+      disponibilizacao: dataBR(l.dataPublicacao),
+      dataPublicacao: dataBR(c?.dataPublicacaoEfetiva ?? l.dataPublicacao),
       cliente: l.processo.numero_cliente ?? "—",
       caso: l.processo.numero_interno ?? "—",
       socio: l.socioReal,
       advg: l.advgReal,
-      autor: l.processo.autor ?? l.autor ?? "—",
-      reu: l.processo.reu ?? l.reu ?? "—",
-      processo: { text: l.cnjTexto, hyperlink: linkTribunalEfetivo(l.processo) },
-      uf: l.processo.uf ?? "—",
-      comarca: l.processo.comarca ?? "—",
-      foro: "—",
-      vara: l.processo.vara ?? "—",
-      status: l.processo.status ?? "—",
-      fase: l.processo.fase ?? "—",
-      disponibilizacao: dataBR(l.dataPublicacao),
-      data: dataBR(c?.dataPublicacaoEfetiva ?? l.dataPublicacao),
-      andamento: l.andamento ?? "—",
+      partes,
+      juizo,
+      andamento: c?.resumo ?? l.andamento ?? "—",
     });
   }
 
@@ -1061,23 +1060,18 @@ async function exportarPublicacoesExcel(
   // CNJ não vira link.
   for (const l of avulsos) {
     const c = classificacoes.get(l.idx);
+    const partes = [l.autor, l.reu].filter(Boolean).join(" x ") || "—";
     planilha.addRow({
-      cliente: "—",
+      processo: l.cnjTexto,
+      disponibilizacao: dataBR(l.dataPublicacao),
+      dataPublicacao: dataBR(c?.dataPublicacaoEfetiva ?? l.dataPublicacao),
+      cliente: l.clientePlanilha ?? "—",
       caso: "—",
       socio: "—",
       advg: l.advg ?? "—",
-      autor: l.autor ?? "—",
-      reu: l.reu ?? "—",
-      processo: l.cnjTexto,
-      uf: "—",
-      comarca: "—",
-      foro: "—",
-      vara: "—",
-      status: "—",
-      fase: "—",
-      disponibilizacao: dataBR(l.dataPublicacao),
-      data: dataBR(c?.dataPublicacaoEfetiva ?? l.dataPublicacao),
-      andamento: l.andamento ?? "—",
+      partes,
+      juizo: "—",
+      andamento: c?.resumo ?? l.andamento ?? "—",
     });
   }
 
