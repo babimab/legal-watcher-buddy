@@ -231,6 +231,18 @@ function classificarProvidencia(alvo: string, dias: number | null, tipoAto: stri
       : { label: "Especificação de provas", tier: "conferencia", motivo: "AVALIAR_PROVIDENCIA" };
   }
 
+  // Deserção (recurso negado por falta de pagamento de custas) é sempre
+  // do RECORRENTE -- quem tinha o ônus de pagar e não pagou. Quando essa
+  // decisão aparece numa publicação nossa, normalmente é porque o
+  // recurso é da parte contrária, e a decisão é favorável/neutra pro
+  // nosso cliente (nada a fazer) -- sem essa checagem, a simples menção
+  // a "custas" virava uma falsa pendência de "Recolhimento de custas"
+  // nossa (caso relatado: processo I M Costa, deserção do recurso da
+  // outra parte, sem nenhuma obrigação da Souza Cruz).
+  if (contem(alvo, "deserc") && contem(alvo, "recurso")) {
+    return { label: tipoAto, tier: "sem_acao", motivo: null };
+  }
+
   if (contem(alvo, "recolh") && contem(alvo, "custas")) {
     return dias != null
       ? { label: "Recolhimento de custas", tier: "confirmado", motivo: null }
