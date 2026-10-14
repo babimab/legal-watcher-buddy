@@ -8,3 +8,17 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+> [!IMPORTANT]
+> ## Publicações e Diário de Justiça (DJEN)
+> - A API do DJEN (`comunicaapi.pje.jus.br`) é bloqueada por país: CloudFront
+>   devolve 403 para pedidos vindos de fora do Brasil, então qualquer busca
+>   feita pelo servidor do app (edge functions `buscar-djen` e
+>   `relatorio-publicacoes-diario`) falha nesse passo. Antes de suspeitar do
+>   mapeamento de campos, confirme se a recusa é geográfica.
+> - O agendamento do relatório diário mora no `cron.job` do banco
+>   (`relatorio-publicacoes-diario`, 14h UTC), com chave e segredo reais já
+>   aplicados. O arquivo `supabase/migrations/20261013140007_relatorio_publicacoes_diario.sql`
+>   mantém os marcadores `<ANON_KEY>` / `<MESMO_VALOR...>`: ao reaplicá-lo, o
+>   job é recriado com marcadores e para de funcionar — reescreva o job com os
+>   valores reais depois.
