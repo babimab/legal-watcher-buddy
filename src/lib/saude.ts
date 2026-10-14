@@ -309,6 +309,7 @@ export type ProcessoSemClienteOuCaso = Pick<
 
 export function processosSemClienteOuCaso(processos: Processo[]): ProcessoSemClienteOuCaso[] {
   return processos
+    .filter((p) => p.status === "ativo")
     .filter((p) => !p.processo_pai_id)
     .filter((p) => !p.numero_cliente || !p.numero_interno)
     .map((p) => ({
