@@ -240,16 +240,26 @@ function paragrafoOutraDespesa(valor: number, moeda: string, tipoDespesa: string
 }
 
 // --- Juízo: "{vara} de {comarca} - {uf}" ------------------------------
-// A coluna de cartório/foro vem tipo "Foro de Santana de Parnaiba - Vara
-// Cível" ou "Foro Central - 16ª Vara Cível" -- o nome da vara é sempre o
-// que vem depois do último " - ". Comarca vem com "(UF)" redundante no
-// fim, que aqui é descartado em favor da coluna UF (mais confiável --
-// vi um erro de UF digitado à mão no invoice real que isso evita).
+// A coluna de cartório/foro costuma vir tipo "Foro de Santana de Parnaiba
+// - Vara Cível" ou "Foro Central - 16ª Vara Cível" (nome da vara depois
+// do último " - ") -- mas já vi o formato invertido na prática, tipo "XX
+// Juizado Especial Cível - Ilha do Governador" (nome do juizado ANTES do
+// " - ", com bairro/regional depois). Pra não descartar o nome do
+// juizado nesse segundo formato, só separa o pedaço depois do " - " como
+// vara quando ELE MESMO parece nome de vara/juizado -- senão mantém o
+// cartório inteiro.
+const PADRAO_NOME_VARA = /\b(vara|ju[íi]zo|juizado|jec|jd|uj|turma|c[âa]mara|gabinete)\b/i;
+
 type Juizo = { texto: string | null; vara: string | null; comarcaUf: string | null };
 
 function compuserJuizo(foro: string | null, comarca: string | null, uf: string | null): Juizo {
-  const partes = (foro ?? "").split(" - ").map((p) => p.trim());
-  const vara = partes.length > 1 ? partes[partes.length - 1] : (foro?.trim() ?? null);
+  const foroLimpo = foro?.trim() ?? null;
+  const partes = (foroLimpo ?? "").split(" - ").map((p) => p.trim());
+  const ultimaParte = partes[partes.length - 1];
+  const vara =
+    partes.length > 1 && ultimaParte && PADRAO_NOME_VARA.test(ultimaParte)
+      ? ultimaParte
+      : foroLimpo;
   const comarcaLimpa = comarca ? comarca.replace(/\s*\([^)]*\)\s*$/, "").trim() : null;
   if (!vara && !comarcaLimpa) return { texto: null, vara: null, comarcaUf: null };
   const sufixoUf = uf ? ` - ${uf.toUpperCase()}` : "";
