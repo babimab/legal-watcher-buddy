@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { supabaseSolto } from "@/lib/supabase-solto";
 import { formatarCNJ, exibir, type Processo } from "@/lib/processos";
 
 export function NovoPrazoDialog({
@@ -56,13 +57,14 @@ export function NovoPrazoDialog({
     setSalvando(true);
     const { data: userData } = await supabase.auth.getUser();
 
-    const { error } = await supabase.from("movimentacoes").insert({
+    const { error } = await supabaseSolto.from("movimentacoes").insert({
       processo_id: processoId,
       data_movimentacao: new Date().toISOString().slice(0, 10),
       descricao: String(form.get("descricao") ?? "").trim(),
       tipo,
       exige_acao: true,
       prazo: String(form.get("prazo") ?? "") || null,
+      horario: String(form.get("horario") ?? "").trim() || null,
       created_by: userData.user?.id ?? null,
     });
     setSalvando(false);
@@ -145,9 +147,15 @@ export function NovoPrazoDialog({
             <Label htmlFor="descricao">Descrição</Label>
             <Textarea id="descricao" name="descricao" rows={3} required />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="prazo">Prazo</Label>
-            <Input id="prazo" name="prazo" type="date" required />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="prazo">Prazo</Label>
+              <Input id="prazo" name="prazo" type="date" required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="horario">Horário (opcional)</Label>
+              <Input id="horario" name="horario" placeholder="Ex.: 16h, 09h30" />
+            </div>
           </div>
           <DialogFooter>
             <Button type="submit" disabled={salvando}>

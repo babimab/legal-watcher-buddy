@@ -1,4 +1,5 @@
 import { startOfWeek } from "date-fns";
+import JSZip from "jszip";
 
 import { supabase } from "@/integrations/supabase/client";
 import { supabaseSolto } from "@/lib/supabase-solto";
@@ -36,7 +37,12 @@ export type ItemListaPrazos = {
   texto: string;
   concluida: boolean;
 } & (
-  | { tipo: "automatico"; movimentacaoId: string; observacao: string | null }
+  | {
+      tipo: "automatico";
+      movimentacaoId: string;
+      observacao: string | null;
+      tipoMovimentacao: string | null;
+    }
   | { tipo: "manual"; manualId: string }
 );
 
@@ -135,6 +141,7 @@ export function montarItensUnificados(
     tipo: "automatico",
     movimentacaoId: m.id,
     observacao: m.observacao,
+    tipoMovimentacao: m.tipo,
   }));
   const itensManuais: ItemListaPrazos[] = manuais.map((item) => ({
     chave: `manual-${item.id}`,
@@ -215,4 +222,78 @@ export async function exportarListaPrazosWord(grupos: GrupoSemanaPrazos[]): Prom
     .join("");
 
   await gerarDocumentoWord(titulo + subtitulo + corpo, "lista-de-prazos");
+}
+
+// --- Importação do Word da chefe (só pra começar) ------------------------
+// Lê o .docx parágrafo por parágrafo (cada <w:p> vira uma string, juntando
+// os <w:t> de dentro) -- o documento real da chefe é só texto corrido, sem
+// tabela, então não precisa de nada além disso.
+export async function extrairParagrafosDocx(buffer: ArrayBuffer): Promise<string[]> {
+  const zip = await JSZip.loadAsync(buffer);
+  const arquivo = zip.file("word/document.xml");
+  if (!arquivo) throw new Error("Não parece um .docx válido (word/document.xml não encontrado).");
+  const xml = await arquivo.async("text");
+  const doc = new DOMParser().parseFromString(xml, "application/xml");
+  return Array.from(doc.getElementsByTagName("w:p")).map((p) =>
+    Array.from(p.getElementsByTagName("w:t"))
+      .map((t) => t.textContent ?? "")
+      .join(""),
+  );
+}
+
+export type ItemImportadoWord = { texto: string; dataOrdenacao: string | null };
+
+const REGEX_DATA_COMPLETA = /^(\d{2})\/(\d{2})\/(\d{2,4}):?\s*(.+)$/;
+const REGEX_BRACKET_DATADO = /^\[(\d{2})\/(\d{2}):?\s*(.+?)\]\s*$/;
+
+function anoCompleto(ano: string): string {
+  return ano.length === 2 ? `20${ano}` : ano;
+}
+
+// O Word da chefe é uma lista corrida de parágrafos no formato "DD/MM/AA:
+// texto" (às vezes sem os 2 pontos, ou com ano de 4 dígitos -- o documento
+// real tem as duas variações), intercalada com divisores "***" e notas
+// soltas entre colchetes (com ou sem data embutida). Qualquer parágrafo
+// que não bate com nenhum desses formatos (cabeçalho de seção, texto
+// corrido de outro controle que não é a lista de prazos semanal etc.) é
+// ignorado -- não tenta adivinhar.
+export function interpretarParagrafosListaPrazos(paragrafos: string[]): ItemImportadoWord[] {
+  const itens: ItemImportadoWord[] = [];
+  let anoAtual: string | null = null;
+
+  for (const paragrafoBruto of paragrafos) {
+    const linha = paragrafoBruto.trim();
+    if (!linha || linha === "***") continue;
+
+    const completa = linha.match(REGEX_DATA_COMPLETA);
+    if (completa) {
+      const [, dd, mm, aaBruto, resto] = completa;
+      const aaaa = anoCompleto(aaBruto!);
+      anoAtual = aaaa;
+      itens.push({ texto: resto!.trim(), dataOrdenacao: `${aaaa}-${mm}-${dd}` });
+      continue;
+    }
+
+    const bracketDatado = linha.match(REGEX_BRACKET_DATADO);
+    if (bracketDatado) {
+      const [, dd, mm, resto] = bracketDatado;
+      itens.push({
+        texto: `[${resto!.trim()}]`,
+        dataOrdenacao: anoAtual ? `${anoAtual}-${mm}-${dd}` : null,
+      });
+      continue;
+    }
+
+    if (linha.startsWith("[") && linha.endsWith("]")) {
+      // Nota solta sem data reconhecível (ex.: "[Férias BDR: 28/12 a
+      // 12/01]") -- importa sem data; dá pra ajustar na tela depois.
+      itens.push({ texto: linha, dataOrdenacao: null });
+    }
+  }
+  return itens;
+}
+
+export async function importarListaPrazosWord(buffer: ArrayBuffer): Promise<ItemImportadoWord[]> {
+  const paragrafos = await extrairParagrafosDocx(buffer);
+  return interpretarParagrafosListaPrazos(paragrafos);
 }

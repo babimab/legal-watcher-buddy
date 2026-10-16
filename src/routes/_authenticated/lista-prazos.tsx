@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { addDays, format } from "date-fns";
-import { CalendarPlus, FileDown, FileSpreadsheet, Trash2 } from "lucide-react";
+import { CalendarPlus, FileDown, FileSpreadsheet, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
+import { NovoPrazoDialog } from "@/components/NovoPrazoDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,12 +30,14 @@ import {
   criarPrazoManual,
   excluirPrazoManual,
   exportarListaPrazosWord,
+  importarListaPrazosWord,
   listarPrazosAutomaticos,
   listarPrazosManuais,
   montarItensUnificados,
   salvarObservacaoAutomatico,
   type ItemListaPrazos,
 } from "@/lib/lista-prazos";
+import { listarProcessos } from "@/lib/processos";
 
 export const Route = createFileRoute("/_authenticated/lista-prazos")({
   ssr: false,
@@ -50,8 +53,10 @@ function tituloSemana(inicioSemana: string): string {
 
 function ListaPrazos() {
   const queryClient = useQueryClient();
+  const inputWordRef = useRef<HTMLInputElement>(null);
   const [mostrarConcluidos, setMostrarConcluidos] = useState(false);
   const [exportando, setExportando] = useState<"word" | "excel" | null>(null);
+  const [importando, setImportando] = useState(false);
   const [novaNotaAberta, setNovaNotaAberta] = useState(false);
   const [salvandoNota, setSalvandoNota] = useState(false);
 
@@ -63,6 +68,7 @@ function ListaPrazos() {
     queryKey: ["lista-prazos-manuais"],
     queryFn: listarPrazosManuais,
   });
+  const processos = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
 
   const carregando = automaticos.isLoading || manuais.isLoading;
   const itens = montarItensUnificados(automaticos.data ?? [], manuais.data ?? []);
@@ -172,6 +178,27 @@ function ListaPrazos() {
     }
   };
 
+  const importarWord = async (arquivo: File) => {
+    setImportando(true);
+    try {
+      const itensImportados = await importarListaPrazosWord(await arquivo.arrayBuffer());
+      if (itensImportados.length === 0) {
+        toast.error("Não encontrei nenhuma linha no formato de prazo nesse Word.");
+        return;
+      }
+      for (const item of itensImportados) {
+        await criarPrazoManual(item.texto, item.dataOrdenacao);
+      }
+      await invalidar();
+      toast.success(`${itensImportados.length} item(ns) importado(s) como notas manuais.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? `Não consegui importar: ${e.message}` : "Não consegui importar o Word.");
+    } finally {
+      setImportando(false);
+      if (inputWordRef.current) inputWordRef.current.value = "";
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -232,6 +259,63 @@ function ListaPrazos() {
             {exportando === "word" ? "Gerando..." : "Baixar Word"}
           </Button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium text-muted-foreground">Novo prazo:</span>
+        <NovoPrazoDialog
+          tipo="Prazo"
+          processos={processos.data ?? []}
+          trigger={
+            <Button variant="outline" size="sm">
+              Prazo
+            </Button>
+          }
+        />
+        <NovoPrazoDialog
+          tipo="Audiência"
+          processos={processos.data ?? []}
+          trigger={
+            <Button variant="outline" size="sm">
+              Audiência
+            </Button>
+          }
+        />
+        <NovoPrazoDialog
+          tipo="Julgamento"
+          processos={processos.data ?? []}
+          trigger={
+            <Button variant="outline" size="sm">
+              Julgamento
+            </Button>
+          }
+        />
+        <NovoPrazoDialog
+          tipo="Providência interna"
+          processos={processos.data ?? []}
+          trigger={
+            <Button variant="outline" size="sm">
+              Providência interna
+            </Button>
+          }
+        />
+        <input
+          ref={inputWordRef}
+          type="file"
+          accept=".doc,.docx"
+          className="hidden"
+          onChange={(e) => e.target.files?.[0] && importarWord(e.target.files[0])}
+        />
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto"
+          onClick={() => inputWordRef.current?.click()}
+          disabled={importando}
+        >
+          <Upload className="size-4" />
+          {importando ? "Importando..." : "Importar Word (início)"}
+        </Button>
       </div>
 
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -299,67 +383,73 @@ function ItemLinha({
 }) {
   if (item.tipo === "automatico") {
     return (
-      <div className="flex items-start gap-3 border-b border-border pb-3 last:border-0 last:pb-0">
-        <Checkbox
-          className="mt-0.5"
-          checked={item.concluida}
-          onCheckedChange={(v) => onAlternarAutomatico(item.movimentacaoId, v === true)}
-        />
-        <div className="min-w-0 flex-1 space-y-1">
-          <p className="text-sm">{item.texto}</p>
-          <Input
-            defaultValue={item.observacao ?? ""}
-            placeholder="Observação (ex.: OK, resultado 14/10...)"
-            className="h-7 text-xs"
-            onBlur={(e) => {
-              if (e.target.value !== (item.observacao ?? "")) {
-                onSalvarObservacao(item.movimentacaoId, e.target.value);
-              }
-            }}
+      <div
+        className={`rounded-lg border border-border p-4 ${item.concluida ? "bg-muted/40" : "bg-card"}`}
+      >
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          {item.tipoMovimentacao ? <Badge variant="outline">{item.tipoMovimentacao}</Badge> : null}
+          <Checkbox
+            className="ml-auto"
+            checked={item.concluida}
+            onCheckedChange={(v) => onAlternarAutomatico(item.movimentacaoId, v === true)}
+            aria-label="Marcar concluído"
           />
         </div>
+        <p className={`font-serif text-lg ${item.concluida ? "line-through text-muted-foreground" : ""}`}>
+          {item.texto}
+        </p>
+        <Input
+          defaultValue={item.observacao ?? ""}
+          placeholder="Observação (ex.: OK, resultado 14/10...)"
+          className="mt-2 h-8 text-sm"
+          onBlur={(e) => {
+            if (e.target.value !== (item.observacao ?? "")) {
+              onSalvarObservacao(item.movimentacaoId, e.target.value);
+            }
+          }}
+        />
       </div>
     );
   }
 
   return (
-    <div className="flex items-start gap-3 border-b border-border pb-3 last:border-0 last:pb-0">
-      <Checkbox
-        className="mt-0.5"
-        checked={item.concluida}
-        onCheckedChange={(v) => onAlternarManual(item.manualId, v === true)}
-      />
-      <div className="min-w-0 flex-1 space-y-1">
-        <Textarea
-          defaultValue={item.texto}
-          rows={2}
-          className="text-sm"
-          onBlur={(e) => {
-            if (e.target.value.trim() !== item.texto) onEditarTextoManual(item.manualId, e.target.value);
-          }}
+    <div
+      className={`rounded-lg border border-border p-4 ${item.concluida ? "bg-muted/40" : "bg-card"}`}
+    >
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <Badge variant="outline">nota manual</Badge>
+        <Checkbox
+          className="ml-auto"
+          checked={item.concluida}
+          onCheckedChange={(v) => onAlternarManual(item.manualId, v === true)}
+          aria-label="Marcar concluído"
         />
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="shrink-0 text-xs">
-            nota manual
-          </Badge>
-          <Input
-            type="date"
-            defaultValue={item.data ?? ""}
-            className="h-7 w-36 text-xs"
-            onBlur={(e) => {
-              if (e.target.value !== (item.data ?? "")) onEditarDataManual(item.manualId, e.target.value);
-            }}
-          />
-        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-destructive"
+          onClick={() => onExcluirManual(item.manualId)}
+          aria-label="Excluir nota"
+        >
+          <Trash2 className="size-4" />
+        </Button>
       </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="shrink-0 text-muted-foreground hover:text-destructive"
-        onClick={() => onExcluirManual(item.manualId)}
-      >
-        <Trash2 className="size-4" />
-      </Button>
+      <Textarea
+        defaultValue={item.texto}
+        rows={2}
+        className={`font-serif text-base ${item.concluida ? "line-through text-muted-foreground" : ""}`}
+        onBlur={(e) => {
+          if (e.target.value.trim() !== item.texto) onEditarTextoManual(item.manualId, e.target.value);
+        }}
+      />
+      <Input
+        type="date"
+        defaultValue={item.data ?? ""}
+        className="mt-2 h-8 w-40 text-sm"
+        onBlur={(e) => {
+          if (e.target.value !== (item.data ?? "")) onEditarDataManual(item.manualId, e.target.value);
+        }}
+      />
     </div>
   );
 }
