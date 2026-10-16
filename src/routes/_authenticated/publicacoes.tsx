@@ -35,10 +35,16 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { mensagemErroEdgeFunction } from "@/lib/edge-functions";
 import {
+  capitalizarNome,
   categoriaCliente,
+  chaveComparacao,
+  clienteCasoCompactoDe,
+  dataCompacta,
   exibir,
   formatarCNJ,
+  juizoCompactoDe,
   listarProcessos,
+  nomeParteContrariaDe,
   NOMES_CLIENTES_CONHECIDOS,
   type Processo,
 } from "@/lib/processos";
@@ -229,14 +235,6 @@ function lerPublicacoes(buffer: ArrayBuffer): LinhaLida[] {
   return linhas;
 }
 
-// Normaliza só pra efeito de comparação (espaço/quebra de linha a mais
-// entre células da planilha não deveria contar como publicação
-// diferente -- sem isso, duas linhas visualmente idênticas escapavam da
-// deduplicação por causa de um espaço a mais vindo da planilha do TI).
-function chaveComparacao(s: string | null): string {
-  return (s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
-}
-
 function montarLinhas(linhas: LinhaLida[]): LinhaPublicacao[] {
   const resultado: LinhaPublicacao[] = [];
   // A planilha do TI já pode trazer a mesma publicação repetida (mesmo
@@ -358,64 +356,26 @@ function dataBR(iso: string | null | undefined) {
   return iso ? new Date(`${iso}T12:00:00`).toLocaleDateString("pt-BR") : "—";
 }
 
-// Formato pedido pela Eliane pra lista de prazos do escritório: ano com
-// 2 dígitos ("10/11/26"), não 4.
-function dataCompacta(iso: string): string {
-  const [aaaa, mm, dd] = iso.split("-");
-  return `${dd}/${mm}/${aaaa!.slice(2)}`;
-}
-
-const PREPOSICOES_NOME = new Set(["de", "da", "do", "das", "dos", "e"]);
-
-// Nome das partes vem em CAIXA ALTA do cadastro/planilha -- a lista de
-// prazos da Eliane usa capitalização normal, não "GILVANE SOUPINSKI".
-function capitalizarNome(nome: string): string {
-  return nome
-    .toLowerCase()
-    .split(" ")
-    .map((palavra, i) =>
-      i > 0 && PREPOSICOES_NOME.has(palavra)
-        ? palavra
-        : palavra.charAt(0).toUpperCase() + palavra.slice(1),
-    )
-    .join(" ");
-}
-
-// "Parte: nome da parte contrária... evitando repetir o nome do
-// cliente" -- prefere parte_contraria (já é exatamente isso no
-// cadastro); sem ela, escolhe entre autor/réu o que não bate com o
-// nome do cliente (Souza Cruz/Astro normalmente é o cliente, o outro
-// lado é quem entra na entrada de agendamento).
+// nomeParteContraria/juizoCompacto/clienteCasoCompacto abaixo só adaptam
+// as versões genéricas de processos.ts (que recebem um Processo direto)
+// pro formato de LinhaCasada -- preservando o fallback pro autor/réu que
+// vieram da própria publicação (l.autor/l.reu), que o processo cadastrado
+// pode não ter preenchido.
 function nomeParteContraria(l: LinhaCasada): string {
-  if (l.processo.parte_contraria) return capitalizarNome(l.processo.parte_contraria);
-  const clienteChave = chaveComparacao(exibir(l.processo.cliente));
-  const candidatos = [l.processo.autor ?? l.autor, l.processo.reu ?? l.reu].filter(
-    (v): v is string => !!v,
-  );
-  const outroLado = candidatos.find((c) => {
-    const chave = chaveComparacao(c);
-    return (
-      clienteChave.length > 0 && !chave.includes(clienteChave) && !clienteChave.includes(chave)
-    );
+  return nomeParteContrariaDe({
+    parte_contraria: l.processo.parte_contraria,
+    autor: l.processo.autor ?? l.autor,
+    reu: l.processo.reu ?? l.reu,
+    cliente: l.processo.cliente,
   });
-  return capitalizarNome(outroLado ?? candidatos[0] ?? "—");
 }
 
-// Mesma composição de "juízo" usada na tabela, só sem a palavra "de"
-// entre vara e comarca -- é o formato compacto que a Eliane pediu
-// ("1ª VC JEC Canoinhas/SC", não "1ª VC JEC de Canoinhas/SC").
 function juizoCompacto(l: LinhaCasada): string {
-  return (
-    [l.processo.vara, [l.processo.comarca, l.processo.uf].filter(Boolean).join("/") || null]
-      .filter(Boolean)
-      .join(" ") || "—"
-  );
+  return juizoCompactoDe(l.processo);
 }
 
 function clienteCasoCompacto(l: LinhaCasada): string {
-  const cliente = l.processo.numero_cliente ?? "—";
-  const caso = l.processo.numero_interno ?? "—";
-  return `(${cliente}/${caso})`;
+  return clienteCasoCompactoDe(l.processo);
 }
 
 // Entrada pronta pra copiar na lista de prazos do escritório: "DD/MM/AA:

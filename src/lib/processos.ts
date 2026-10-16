@@ -531,6 +531,71 @@ export function exibir(texto: string | null | undefined): string | null {
   return TEXTOS_PARA_EXIBICAO[texto] ?? texto;
 }
 
+// Compara nomes ignorando espaço a mais/maiúscula -- usado tanto pra
+// deduplicar quanto pra achar "o outro lado" de um processo (ver
+// nomeParteContrariaDe mais abaixo).
+export function chaveComparacao(s: string | null | undefined): string {
+  return (s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+// Formato compacto pedido pela Eliane pra lista de prazos do escritório
+// ("10/11/26", ano com 2 dígitos) -- reaproveitado tanto no e-mail de
+// Publicações quanto na Lista de prazos.
+export function dataCompacta(iso: string): string {
+  const [aaaa, mm, dd] = iso.split("-");
+  return `${dd}/${mm}/${aaaa!.slice(2)}`;
+}
+
+const PREPOSICOES_NOME = new Set(["de", "da", "do", "das", "dos", "e"]);
+
+// Nome das partes costuma vir em CAIXA ALTA do cadastro/planilha -- a
+// lista de prazos usa capitalização normal, não "GILVANE SOUPINSKI".
+export function capitalizarNome(nome: string): string {
+  return nome
+    .toLowerCase()
+    .split(" ")
+    .map((palavra, i) =>
+      i > 0 && PREPOSICOES_NOME.has(palavra)
+        ? palavra
+        : palavra.charAt(0).toUpperCase() + palavra.slice(1),
+    )
+    .join(" ");
+}
+
+// "Nome da parte contrária, evitando repetir o nome do cliente" --
+// prefere parte_contraria (já é exatamente isso no cadastro); sem ela,
+// escolhe entre autor/réu o que não bate com o nome do cliente.
+export function nomeParteContrariaDe(
+  p: Pick<Processo, "parte_contraria" | "autor" | "reu" | "cliente">,
+): string {
+  if (p.parte_contraria) return capitalizarNome(p.parte_contraria);
+  const clienteChave = chaveComparacao(exibir(p.cliente));
+  const candidatos = [p.autor, p.reu].filter((v): v is string => !!v);
+  const outroLado = candidatos.find((c) => {
+    const chave = chaveComparacao(c);
+    return (
+      clienteChave.length > 0 && !chave.includes(clienteChave) && !clienteChave.includes(chave)
+    );
+  });
+  return capitalizarNome(outroLado ?? candidatos[0] ?? "—");
+}
+
+// Mesma composição de "juízo" usada nas tabelas, só sem a palavra "de"
+// entre vara e comarca -- formato compacto ("1ª VC JEC Canoinhas/SC").
+export function juizoCompactoDe(p: Pick<Processo, "vara" | "comarca" | "uf">): string {
+  return (
+    [p.vara, [p.comarca, p.uf].filter(Boolean).join("/") || null].filter(Boolean).join(" ") || "—"
+  );
+}
+
+export function clienteCasoCompactoDe(
+  p: Pick<Processo, "numero_cliente" | "numero_interno">,
+): string {
+  const cliente = p.numero_cliente ?? "—";
+  const caso = p.numero_interno ?? "—";
+  return `(${cliente}/${caso})`;
+}
+
 // Termos que marcam um andamento como referência importante na trilha de
 // revisão (lista definida pela BDR) -- comparação sem acento/caixa contra a
 // descrição, então cobre variações como "decisão saneadora" dentro de
