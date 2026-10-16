@@ -9,6 +9,7 @@ import {
   type Movimentacao,
   type Processo,
 } from "@/lib/processos";
+import type { GrupoSemanaPrazos } from "@/lib/lista-prazos";
 import type { GrupoParteAdversa, ProcessoSemClienteOuCaso } from "@/lib/saude";
 import { linkTribunalEfetivo } from "@/lib/tribunais";
 
@@ -373,6 +374,36 @@ export async function exportarSemClienteOuCasoExcel(
 
   estilizarCabecalho(planilha);
   centralizarLinhas(planilha, new Set(["cliente"]));
+  finalizarPlanilha(planilha);
+
+  await baixarPlanilha(workbook, nomeArquivo);
+}
+
+export async function exportarListaPrazosExcel(
+  grupos: GrupoSemanaPrazos[],
+  nomeArquivo = "lista-de-prazos",
+) {
+  const workbook = new ExcelJS.Workbook();
+  const planilha = workbook.addWorksheet("Lista de prazos");
+
+  planilha.columns = [
+    { header: "Data", key: "data", width: 12 },
+    { header: "Item", key: "item", width: 80 },
+    { header: "Concluída", key: "concluida", width: 12 },
+  ];
+
+  for (const grupo of grupos) {
+    for (const item of grupo.itens) {
+      planilha.addRow({
+        data: item.data ? new Date(`${item.data}T12:00:00`).toLocaleDateString("pt-BR") : "",
+        item: item.texto,
+        concluida: item.concluida ? "Sim" : "",
+      });
+    }
+  }
+
+  estilizarCabecalho(planilha);
+  centralizarLinhas(planilha, new Set(["item"]));
   finalizarPlanilha(planilha);
 
   await baixarPlanilha(workbook, nomeArquivo);

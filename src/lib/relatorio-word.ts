@@ -9,10 +9,10 @@ import {
 } from "@/lib/processos";
 
 // Mesmo azul da marca BCW (sample de word/media/image2.png do timbrado).
-const COR_BCW = "005C85";
+export const COR_BCW = "005C85";
 
-const CAMINHO_MODELO = "/documentos/timbrado-bcw.docx";
-const CAMINHO_DOCUMENT_XML = "word/document.xml";
+export const CAMINHO_MODELO = "/documentos/timbrado-bcw.docx";
+export const CAMINHO_DOCUMENT_XML = "word/document.xml";
 
 function escaparXml(texto: string): string {
   return texto
@@ -23,7 +23,7 @@ function escaparXml(texto: string): string {
     .replace(/'/g, "&apos;");
 }
 
-function run(
+export function run(
   texto: string,
   opts: { negrito?: boolean; tamanho?: number; cor?: string } = {},
 ): string {
@@ -35,7 +35,7 @@ function run(
   return `<w:r>${rPr}<w:t xml:space="preserve">${escaparXml(texto)}</w:t></w:r>`;
 }
 
-function paragrafo(
+export function paragrafo(
   conteudoXml: string,
   opts: { centralizado?: boolean; antes?: number; depois?: number; linhaSeparadora?: boolean } = {},
 ): string {
@@ -160,17 +160,9 @@ export function montarCorpoRelatorioXml(
   );
 }
 
-export async function gerarRelatorioProcessosWord(
-  processos: Processo[],
-  opts: { subtitulo: string; nomeArquivo: string; titulo?: string },
-): Promise<void> {
-  const [respostaModelo, andamentosPorProcesso] = await Promise.all([
-    fetch(CAMINHO_MODELO),
-    listarUltimosAndamentosPorProcessos(
-      processos.map((p) => p.id),
-      3,
-    ),
-  ]);
+/** Carrega o timbrado, injeta o corpo XML dado e dispara o download -- reaproveitado por qualquer exportação Word baseada no mesmo modelo (relatório de processos, Lista de prazos etc.). */
+export async function gerarDocumentoWord(corpoXml: string, nomeArquivo: string): Promise<void> {
+  const respostaModelo = await fetch(CAMINHO_MODELO);
   if (!respostaModelo.ok) {
     throw new Error("Não consegui carregar o modelo timbrado (documentos/timbrado-bcw.docx).");
   }
@@ -182,7 +174,30 @@ export async function gerarRelatorioProcessosWord(
     throw new Error("Modelo de timbrado inválido: word/document.xml não encontrado.");
   }
   const xmlOriginal = await arquivoDocumentXml.async("text");
+  zip.file(CAMINHO_DOCUMENT_XML, injetarCorpoNoTemplate(xmlOriginal, corpoXml));
 
+  const blob = await zip.generateAsync({
+    type: "blob",
+    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${nomeArquivo}-${new Date().toISOString().slice(0, 10)}.docx`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+export async function gerarRelatorioProcessosWord(
+  processos: Processo[],
+  opts: { subtitulo: string; nomeArquivo: string; titulo?: string },
+): Promise<void> {
+  const andamentosPorProcesso = await listarUltimosAndamentosPorProcessos(
+    processos.map((p) => p.id),
+    3,
+  );
   const ultimosAndamentosPorProcesso = new Map(
     processos.map((p) => [p.id, andamentosPorProcesso.get(p.id) ?? []]),
   );
@@ -192,18 +207,5 @@ export async function gerarRelatorioProcessosWord(
     processos,
     ultimosAndamentosPorProcesso,
   );
-  zip.file(CAMINHO_DOCUMENT_XML, injetarCorpoNoTemplate(xmlOriginal, corpo));
-
-  const blob = await zip.generateAsync({
-    type: "blob",
-    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `${opts.nomeArquivo}-${new Date().toISOString().slice(0, 10)}.docx`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  await gerarDocumentoWord(corpo, opts.nomeArquivo);
 }

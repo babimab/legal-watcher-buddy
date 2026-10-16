@@ -22,6 +22,7 @@ import { Route as AuthenticatedFaturaRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedGruposRouteImport } from './routes/_authenticated/grupos'
 import { Route as AuthenticatedImportarRouteImport } from './routes/_authenticated/importar'
 import { Route as AuthenticatedIntegracaoRouteImport } from './routes/_authenticated/integracao'
+import { Route as AuthenticatedListaPrazosRouteImport } from './routes/_authenticated/lista-prazos'
 import { Route as AuthenticatedMonitoramentoRouteImport } from './routes/_authenticated/monitoramento'
 import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
 import { Route as AuthenticatedPerfilRouteImport } from './routes/_authenticated/perfil'
@@ -100,6 +101,11 @@ const AuthenticatedIntegracaoRoute = AuthenticatedIntegracaoRouteImport.update({
   path: '/integracao',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedListaPrazosRoute = AuthenticatedListaPrazosRouteImport.update({
+  id: '/lista-prazos',
+  path: '/lista-prazos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedMonitoramentoRoute =
   AuthenticatedMonitoramentoRouteImport.update({
     id: '/monitoramento',
@@ -165,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/grupos': typeof AuthenticatedGruposRoute
   '/importar': typeof AuthenticatedImportarRoute
   '/integracao': typeof AuthenticatedIntegracaoRoute
+  '/lista-prazos': typeof AuthenticatedListaPrazosRoute
   '/monitoramento': typeof AuthenticatedMonitoramentoRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/perfil': typeof AuthenticatedPerfilRoute
@@ -188,6 +195,7 @@ export interface FileRoutesByTo {
   '/grupos': typeof AuthenticatedGruposRoute
   '/importar': typeof AuthenticatedImportarRoute
   '/integracao': typeof AuthenticatedIntegracaoRoute
+  '/lista-prazos': typeof AuthenticatedListaPrazosRoute
   '/monitoramento': typeof AuthenticatedMonitoramentoRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/perfil': typeof AuthenticatedPerfilRoute
@@ -213,6 +221,7 @@ export interface FileRoutesById {
   '/_authenticated/grupos': typeof AuthenticatedGruposRoute
   '/_authenticated/importar': typeof AuthenticatedImportarRoute
   '/_authenticated/integracao': typeof AuthenticatedIntegracaoRoute
+  '/_authenticated/lista-prazos': typeof AuthenticatedListaPrazosRoute
   '/_authenticated/monitoramento': typeof AuthenticatedMonitoramentoRoute
   '/_authenticated/painel': typeof AuthenticatedPainelRoute
   '/_authenticated/perfil': typeof AuthenticatedPerfilRoute
@@ -238,6 +247,7 @@ export interface FileRouteTypes {
     | '/grupos'
     | '/importar'
     | '/integracao'
+    | '/lista-prazos'
     | '/monitoramento'
     | '/painel'
     | '/perfil'
@@ -261,6 +271,7 @@ export interface FileRouteTypes {
     | '/grupos'
     | '/importar'
     | '/integracao'
+    | '/lista-prazos'
     | '/monitoramento'
     | '/painel'
     | '/perfil'
@@ -285,6 +296,7 @@ export interface FileRouteTypes {
     | '/_authenticated/grupos'
     | '/_authenticated/importar'
     | '/_authenticated/integracao'
+    | '/_authenticated/lista-prazos'
     | '/_authenticated/monitoramento'
     | '/_authenticated/painel'
     | '/_authenticated/perfil'
@@ -396,6 +408,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedIntegracaoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/lista-prazos': {
+      id: '/_authenticated/lista-prazos'
+      path: '/lista-prazos'
+      fullPath: '/lista-prazos'
+      preLoaderRoute: typeof AuthenticatedListaPrazosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/monitoramento': {
       id: '/_authenticated/monitoramento'
       path: '/monitoramento'
@@ -473,6 +492,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedGruposRoute: typeof AuthenticatedGruposRoute
   AuthenticatedImportarRoute: typeof AuthenticatedImportarRoute
   AuthenticatedIntegracaoRoute: typeof AuthenticatedIntegracaoRoute
+  AuthenticatedListaPrazosRoute: typeof AuthenticatedListaPrazosRoute
   AuthenticatedMonitoramentoRoute: typeof AuthenticatedMonitoramentoRoute
   AuthenticatedPainelRoute: typeof AuthenticatedPainelRoute
   AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRoute
@@ -494,6 +514,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedGruposRoute: AuthenticatedGruposRoute,
   AuthenticatedImportarRoute: AuthenticatedImportarRoute,
   AuthenticatedIntegracaoRoute: AuthenticatedIntegracaoRoute,
+  AuthenticatedListaPrazosRoute: AuthenticatedListaPrazosRoute,
   AuthenticatedMonitoramentoRoute: AuthenticatedMonitoramentoRoute,
   AuthenticatedPainelRoute: AuthenticatedPainelRoute,
   AuthenticatedPerfilRoute: AuthenticatedPerfilRoute,

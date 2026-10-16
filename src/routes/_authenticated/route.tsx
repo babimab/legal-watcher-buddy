@@ -9,6 +9,7 @@ import {
   Inbox,
   LayoutDashboard,
   List,
+  ListChecks,
   LineChart,
   LogOut,
   Newspaper,
@@ -132,6 +133,12 @@ function AppLayout() {
         label="Meus prazos"
         search={{ aba: "pendencias", advogado: "eu" }}
         contador={meusPrazosUrgentes}
+      />
+      <NavItem
+        to="/lista-prazos"
+        icon={<ListChecks className="size-4" />}
+        label="Lista de prazos"
+        tourId="nav-lista-prazos"
       />
       <NavItem
         to="/calculos"
