@@ -37,21 +37,43 @@ export function run(
 
 export function paragrafo(
   conteudoXml: string,
-  opts: { centralizado?: boolean; antes?: number; depois?: number; linhaSeparadora?: boolean } = {},
+  opts: {
+    centralizado?: boolean;
+    antes?: number;
+    depois?: number;
+    linhaSeparadora?: boolean;
+    // "Caixinha" (card) ao redor do parágrafo -- borda nos 4 lados +
+    // preenchimento, pro Word ficar com a mesma cara de card azul da
+    // tela (ver exportarListaPrazosWord). recuo (em twips) simula o
+    // padding interno, já que OOXML não tem padding de parágrafo de
+    // verdade -- a borda acompanha a indentação.
+    caixa?: { corBorda?: string; preenchimento?: string };
+    recuo?: number;
+  } = {},
 ): string {
-  // Ordem dos filhos de w:pPr é fixa pelo schema OOXML (CT_PPr): pBdr vem
-  // antes de spacing, que vem antes de jc. Fora dessa ordem o Word recusa
-  // o arquivo como corrompido.
+  // Ordem dos filhos de w:pPr é fixa pelo schema OOXML (CT_PPr): pBdr,
+  // depois shd, depois spacing, depois ind, depois jc. Fora dessa ordem
+  // o Word recusa o arquivo como corrompido.
   const pPrParts: string[] = [];
   if (opts.linhaSeparadora) {
     pPrParts.push(
       `<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="4" w:color="${COR_BCW}"/></w:pBdr>`,
     );
+  } else if (opts.caixa) {
+    const cor = opts.caixa.corBorda ?? COR_BCW;
+    const lado = (nome: string) => `<w:${nome} w:val="single" w:sz="4" w:space="6" w:color="${cor}"/>`;
+    pPrParts.push(`<w:pBdr>${lado("top")}${lado("left")}${lado("bottom")}${lado("right")}</w:pBdr>`);
+  }
+  if (opts.caixa?.preenchimento) {
+    pPrParts.push(`<w:shd w:val="clear" w:color="auto" w:fill="${opts.caixa.preenchimento}"/>`);
   }
   if (opts.antes != null || opts.depois != null) {
     const antes = opts.antes != null ? ` w:before="${opts.antes}"` : "";
     const depois = opts.depois != null ? ` w:after="${opts.depois}"` : "";
     pPrParts.push(`<w:spacing${antes}${depois}/>`);
+  }
+  if (opts.recuo != null) {
+    pPrParts.push(`<w:ind w:left="${opts.recuo}" w:right="${opts.recuo}"/>`);
   }
   if (opts.centralizado) pPrParts.push(`<w:jc w:val="center"/>`);
   const pPr = pPrParts.length ? `<w:pPr>${pPrParts.join("")}</w:pPr>` : "";

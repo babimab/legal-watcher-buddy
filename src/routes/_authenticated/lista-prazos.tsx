@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { addDays, format } from "date-fns";
 import { CalendarPlus, FileDown, FileSpreadsheet, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
@@ -37,6 +36,7 @@ import {
   listarPrazosManuais,
   montarItensUnificados,
   salvarObservacaoAutomatico,
+  tituloSemanaWord as tituloSemana,
   type FiltrosListaPrazos,
   type ItemListaPrazos,
 } from "@/lib/lista-prazos";
@@ -46,13 +46,6 @@ export const Route = createFileRoute("/_authenticated/lista-prazos")({
   ssr: false,
   component: ListaPrazos,
 });
-
-function tituloSemana(inicioSemana: string): string {
-  if (inicioSemana === "—") return "Sem data definida";
-  const inicio = new Date(`${inicioSemana}T12:00:00`);
-  const fim = addDays(inicio, 6);
-  return `${format(inicio, "dd/MM")} a ${format(fim, "dd/MM")}`;
-}
 
 function ListaPrazos() {
   const queryClient = useQueryClient();

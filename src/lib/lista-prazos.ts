@@ -1,4 +1,4 @@
-import { startOfWeek } from "date-fns";
+import { addDays, format, startOfWeek } from "date-fns";
 import JSZip from "jszip";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -248,6 +248,16 @@ export function agruparPorSemana(itens: ItemListaPrazos[]): GrupoSemanaPrazos[] 
   return resultado;
 }
 
+// Rótulo "DD/MM a DD/MM" (ou "Sem data definida") de uma semana -- usado
+// tanto no título de cada card na tela quanto no cabeçalho de seção do
+// Word exportado, pra não duplicar a lógica nos dois lugares.
+export function tituloSemanaWord(inicioSemana: string): string {
+  if (inicioSemana === "—") return "Sem data definida";
+  const inicio = new Date(`${inicioSemana}T12:00:00`);
+  const fim = addDays(inicio, 6);
+  return `${format(inicio, "dd/MM")} a ${format(fim, "dd/MM")}`;
+}
+
 export async function exportarListaPrazosWord(grupos: GrupoSemanaPrazos[]): Promise<void> {
   const dataGeracao = new Date().toLocaleDateString("pt-BR");
   const totalItens = grupos.reduce((soma, g) => soma + g.itens.length, 0);
@@ -263,22 +273,30 @@ export async function exportarListaPrazosWord(grupos: GrupoSemanaPrazos[]): Prom
     { centralizado: true, depois: 360 },
   );
 
+  // Cada prazo vira um "card" (borda + preenchimento azul clarinho),
+  // igual ao visual aprovado na tela -- concluído fica cinza em vez de
+  // azul, mesma lógica de cor que o card da tela usa.
   const corpo = grupos
     .map((grupo, i) => {
+      const cabecalhoSemana =
+        grupo.inicioSemana === "—"
+          ? ""
+          : paragrafo(run(tituloSemanaWord(grupo.inicioSemana), { negrito: true, cor: COR_BCW }), {
+              antes: i === 0 ? 0 : 240,
+              depois: 120,
+            });
       const itensXml = grupo.itens
         .map((item) =>
-          paragrafo(run(item.texto, item.concluida ? { cor: "999999" } : {}), { depois: 80 }),
+          paragrafo(run(item.texto, item.concluida ? { cor: "999999" } : {}), {
+            depois: 80,
+            recuo: 120,
+            caixa: item.concluida
+              ? { corBorda: "CCCCCC", preenchimento: "F0F0F0" }
+              : { corBorda: "B9D6E2", preenchimento: "EAF3F7" },
+          }),
         )
         .join("");
-      const divisor =
-        i < grupos.length - 1
-          ? paragrafo(run("***", { negrito: true, cor: COR_BCW }), {
-              centralizado: true,
-              antes: 120,
-              depois: 240,
-            })
-          : "";
-      return itensXml + divisor;
+      return cabecalhoSemana + itensXml;
     })
     .join("");
 
