@@ -9,6 +9,7 @@ import {
   juizoCompactoDe,
   listarPendencias,
   nomeParteContrariaDe,
+  normalizarNome,
   type MovimentacaoComProcesso,
 } from "@/lib/processos";
 import { COR_BCW, gerarDocumentoWord, paragrafo, run } from "@/lib/relatorio-word";
@@ -42,6 +43,10 @@ export type ItemListaPrazos = {
       movimentacaoId: string;
       observacao: string | null;
       tipoMovimentacao: string | null;
+      responsavel: string | null;
+      parteAdversa: string | null;
+      numeroCliente: string | null;
+      numeroInterno: string | null;
     }
   | { tipo: "manual"; manualId: string }
 );
@@ -142,6 +147,10 @@ export function montarItensUnificados(
     movimentacaoId: m.id,
     observacao: m.observacao,
     tipoMovimentacao: m.tipo,
+    responsavel: m.processos?.responsavel ?? null,
+    parteAdversa: m.processos ? nomeParteContrariaDe(m.processos) : null,
+    numeroCliente: m.processos?.numero_cliente ?? null,
+    numeroInterno: m.processos?.numero_interno ?? null,
   }));
   const itensManuais: ItemListaPrazos[] = manuais.map((item) => ({
     chave: `manual-${item.id}`,
@@ -158,6 +167,58 @@ export function montarItensUnificados(
       return a.data.localeCompare(b.data);
     }
     return a.texto.localeCompare(b.texto, "pt-BR");
+  });
+}
+
+// --- Filtros ---------------------------------------------------------
+export type FiltrosListaPrazos = {
+  advogado: string;
+  dataDe: string | null;
+  dataAte: string | null;
+  parteAdversa: string;
+  clienteCaso: string;
+};
+
+export const FILTROS_VAZIOS: FiltrosListaPrazos = {
+  advogado: "",
+  dataDe: null,
+  dataAte: null,
+  parteAdversa: "",
+  clienteCaso: "",
+};
+
+function contemFiltro(alvo: string | null, filtro: string): boolean {
+  if (!filtro.trim()) return true;
+  if (!alvo) return false;
+  return normalizarNome(alvo).includes(normalizarNome(filtro));
+}
+
+// Advogado/parte adversa/cliente-caso só existem nos itens automáticos
+// (nota manual não tem processo ligado) -- com qualquer um desses 3
+// preenchido, nota manual some do resultado (não tem como ela "bater"
+// com um filtro de processo). Data filtra os dois tipos normalmente.
+export function filtrarItens(
+  itens: ItemListaPrazos[],
+  filtros: FiltrosListaPrazos,
+): ItemListaPrazos[] {
+  const temFiltroDeProcesso = !!(
+    filtros.advogado.trim() ||
+    filtros.parteAdversa.trim() ||
+    filtros.clienteCaso.trim()
+  );
+
+  return itens.filter((item) => {
+    if (filtros.dataDe && (!item.data || item.data < filtros.dataDe)) return false;
+    if (filtros.dataAte && (!item.data || item.data > filtros.dataAte)) return false;
+    if (!temFiltroDeProcesso) return true;
+    if (item.tipo !== "automatico") return false;
+    if (!contemFiltro(item.responsavel, filtros.advogado)) return false;
+    if (!contemFiltro(item.parteAdversa, filtros.parteAdversa)) return false;
+    if (filtros.clienteCaso.trim()) {
+      const alvo = `${item.numeroCliente ?? ""}/${item.numeroInterno ?? ""}`;
+      if (!alvo.toLowerCase().includes(filtros.clienteCaso.trim().toLowerCase())) return false;
+    }
+    return true;
   });
 }
 

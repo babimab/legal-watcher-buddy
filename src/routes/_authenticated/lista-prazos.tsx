@@ -30,11 +30,14 @@ import {
   criarPrazoManual,
   excluirPrazoManual,
   exportarListaPrazosWord,
+  filtrarItens,
+  FILTROS_VAZIOS,
   importarListaPrazosWord,
   listarPrazosAutomaticos,
   listarPrazosManuais,
   montarItensUnificados,
   salvarObservacaoAutomatico,
+  type FiltrosListaPrazos,
   type ItemListaPrazos,
 } from "@/lib/lista-prazos";
 import { listarProcessos } from "@/lib/processos";
@@ -55,6 +58,7 @@ function ListaPrazos() {
   const queryClient = useQueryClient();
   const inputWordRef = useRef<HTMLInputElement>(null);
   const [mostrarConcluidos, setMostrarConcluidos] = useState(false);
+  const [filtros, setFiltros] = useState<FiltrosListaPrazos>(FILTROS_VAZIOS);
   const [exportando, setExportando] = useState<"word" | "excel" | null>(null);
   const [importando, setImportando] = useState(false);
   const [novaNotaAberta, setNovaNotaAberta] = useState(false);
@@ -72,8 +76,15 @@ function ListaPrazos() {
 
   const carregando = automaticos.isLoading || manuais.isLoading;
   const itens = montarItensUnificados(automaticos.data ?? [], manuais.data ?? []);
-  const itensVisiveis = itens.filter((item) => mostrarConcluidos || !item.concluida);
+  const itensFiltrados = filtrarItens(itens, filtros);
+  const itensVisiveis = itensFiltrados.filter((item) => mostrarConcluidos || !item.concluida);
   const grupos = agruparPorSemana(itensVisiveis);
+  const filtrosAtivos =
+    !!filtros.advogado.trim() ||
+    !!filtros.parteAdversa.trim() ||
+    !!filtros.clienteCaso.trim() ||
+    !!filtros.dataDe ||
+    !!filtros.dataAte;
 
   const invalidar = () =>
     queryClient.invalidateQueries({ queryKey: ["lista-prazos-automaticos"] }) &&
@@ -318,6 +329,73 @@ function ListaPrazos() {
         </Button>
       </div>
 
+      <Card>
+        <CardContent className="grid gap-3 py-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="space-y-1">
+            <Label htmlFor="filtro-advogado" className="text-xs text-muted-foreground">
+              Advogado
+            </Label>
+            <Input
+              id="filtro-advogado"
+              placeholder="Ex.: BDR"
+              value={filtros.advogado}
+              onChange={(e) => setFiltros((f) => ({ ...f, advogado: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="filtro-parte" className="text-xs text-muted-foreground">
+              Parte adversa
+            </Label>
+            <Input
+              id="filtro-parte"
+              placeholder="Nome da parte"
+              value={filtros.parteAdversa}
+              onChange={(e) => setFiltros((f) => ({ ...f, parteAdversa: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="filtro-caso" className="text-xs text-muted-foreground">
+              Nº cliente/caso
+            </Label>
+            <Input
+              id="filtro-caso"
+              placeholder="Ex.: 4608/4450"
+              value={filtros.clienteCaso}
+              onChange={(e) => setFiltros((f) => ({ ...f, clienteCaso: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="filtro-data-de" className="text-xs text-muted-foreground">
+              De
+            </Label>
+            <Input
+              id="filtro-data-de"
+              type="date"
+              value={filtros.dataDe ?? ""}
+              onChange={(e) => setFiltros((f) => ({ ...f, dataDe: e.target.value || null }))}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="filtro-data-ate" className="text-xs text-muted-foreground">
+              Até
+            </Label>
+            <Input
+              id="filtro-data-ate"
+              type="date"
+              value={filtros.dataAte ?? ""}
+              onChange={(e) => setFiltros((f) => ({ ...f, dataAte: e.target.value || null }))}
+            />
+          </div>
+          {filtrosAtivos ? (
+            <div className="flex items-end sm:col-span-2 lg:col-span-5">
+              <Button variant="ghost" size="sm" onClick={() => setFiltros(FILTROS_VAZIOS)}>
+                Limpar filtros
+              </Button>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Checkbox
           id="mostrar-concluidos"
@@ -334,7 +412,9 @@ function ListaPrazos() {
       ) : itensVisiveis.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Nenhum prazo pendente nem nota cadastrada.
+            {filtrosAtivos
+              ? "Nenhum item bate com esses filtros."
+              : "Nenhum prazo pendente nem nota cadastrada."}
           </CardContent>
         </Card>
       ) : (
@@ -343,7 +423,7 @@ function ListaPrazos() {
             <CardHeader className="pb-2">
               <CardTitle className="font-serif text-base">{tituloSemana(grupo.inicioSemana)}</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-1.5">
               {grupo.itens.map((item) => (
                 <ItemLinha
                   key={item.chave}
@@ -384,24 +464,31 @@ function ItemLinha({
   if (item.tipo === "automatico") {
     return (
       <div
-        className={`rounded-lg border border-border p-4 ${item.concluida ? "bg-muted/40" : "bg-card"}`}
+        className={`rounded-md border p-1.5 ${
+          item.concluida ? "border-border bg-muted/40" : "border-primary/20 bg-primary/5"
+        }`}
       >
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          {item.tipoMovimentacao ? <Badge variant="outline">{item.tipoMovimentacao}</Badge> : null}
+        <div className="flex items-center gap-2">
+          {item.tipoMovimentacao ? (
+            <Badge className="shrink-0 px-2 py-0 text-[10px]">{item.tipoMovimentacao}</Badge>
+          ) : null}
+          <p
+            className={`min-w-0 flex-1 truncate text-sm ${item.concluida ? "text-muted-foreground line-through" : ""}`}
+            title={item.texto}
+          >
+            {item.texto}
+          </p>
           <Checkbox
-            className="ml-auto"
+            className="shrink-0"
             checked={item.concluida}
             onCheckedChange={(v) => onAlternarAutomatico(item.movimentacaoId, v === true)}
             aria-label="Marcar concluído"
           />
         </div>
-        <p className={`font-serif text-lg ${item.concluida ? "line-through text-muted-foreground" : ""}`}>
-          {item.texto}
-        </p>
         <Input
           defaultValue={item.observacao ?? ""}
           placeholder="Observação (ex.: OK, resultado 14/10...)"
-          className="mt-2 h-8 text-sm"
+          className="mt-1 h-6 border-0 border-b border-dashed border-border/60 bg-transparent px-1 text-xs shadow-none focus-visible:ring-0"
           onBlur={(e) => {
             if (e.target.value !== (item.observacao ?? "")) {
               onSalvarObservacao(item.movimentacaoId, e.target.value);
@@ -414,12 +501,24 @@ function ItemLinha({
 
   return (
     <div
-      className={`rounded-lg border border-border p-4 ${item.concluida ? "bg-muted/40" : "bg-card"}`}
+      className={`rounded-md border p-1.5 ${
+        item.concluida ? "border-border bg-muted/40" : "border-dashed border-primary/30 bg-primary/5"
+      }`}
     >
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        <Badge variant="outline">nota manual</Badge>
+      <div className="flex items-center gap-2">
+        <Badge variant="outline" className="shrink-0 px-2 py-0 text-[10px]">
+          nota
+        </Badge>
+        <Textarea
+          defaultValue={item.texto}
+          rows={1}
+          className="min-h-0 flex-1 resize-none overflow-hidden border-0 bg-transparent px-1 py-0 text-sm leading-6 shadow-none focus-visible:ring-0"
+          onBlur={(e) => {
+            if (e.target.value.trim() !== item.texto) onEditarTextoManual(item.manualId, e.target.value);
+          }}
+        />
         <Checkbox
-          className="ml-auto"
+          className="shrink-0"
           checked={item.concluida}
           onCheckedChange={(v) => onAlternarManual(item.manualId, v === true)}
           aria-label="Marcar concluído"
@@ -427,25 +526,17 @@ function ItemLinha({
         <Button
           variant="ghost"
           size="icon"
-          className="text-muted-foreground hover:text-destructive"
+          className="size-6 shrink-0 text-muted-foreground hover:text-destructive"
           onClick={() => onExcluirManual(item.manualId)}
           aria-label="Excluir nota"
         >
-          <Trash2 className="size-4" />
+          <Trash2 className="size-3.5" />
         </Button>
       </div>
-      <Textarea
-        defaultValue={item.texto}
-        rows={2}
-        className={`font-serif text-base ${item.concluida ? "line-through text-muted-foreground" : ""}`}
-        onBlur={(e) => {
-          if (e.target.value.trim() !== item.texto) onEditarTextoManual(item.manualId, e.target.value);
-        }}
-      />
       <Input
         type="date"
         defaultValue={item.data ?? ""}
-        className="mt-2 h-8 w-40 text-sm"
+        className="mt-1 h-6 w-36 border-0 border-b border-dashed border-border/60 bg-transparent px-1 text-xs shadow-none focus-visible:ring-0"
         onBlur={(e) => {
           if (e.target.value !== (item.data ?? "")) onEditarDataManual(item.manualId, e.target.value);
         }}
