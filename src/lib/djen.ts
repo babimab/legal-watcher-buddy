@@ -213,21 +213,31 @@ export async function salvarAdvogadosFixados(
   if (insError) throw insError;
 }
 
-// Nomes de parte/cliente que a BDR quer esconder dos resultados de
-// "Publicações BDR" -- a busca ali é só por nome/OAB dela, então traz
-// publicação de qualquer processo onde ela aparece, mesmo os que não são
-// da equipe dela. Tabela própria (nomes_ocultos_publicacoes_bdr), sem
-// nenhuma relação com advogados_fixados_djen.
-export async function listarNomesOcultosPublicacoesBdr(): Promise<string[]> {
+// Nomes de parte/cliente que o usuário quer esconder dos resultados de
+// Publicações -- quando a busca é por nome/OAB (contexto "bdr", card
+// "Publicações BDR") ou pela lista geral de advogados/grupo (contexto
+// "geral"), qualquer uma delas pode trazer publicação de processo que
+// não é da equipe de quem buscou. Tabela única (nomes_ocultos_publicacoes_bdr,
+// mantém o nome por já existir em produção), listas independentes por
+// contexto -- mesmo padrão já usado em advogados_fixados_djen.
+export type ContextoNomesOcultos = "bdr" | "geral";
+
+export async function listarNomesOcultosPublicacoesBdr(
+  contexto: ContextoNomesOcultos = "bdr",
+): Promise<string[]> {
   const { data, error } = await supabaseSolto
     .from("nomes_ocultos_publicacoes_bdr")
     .select("nome")
+    .eq("contexto", contexto)
     .order("ordem");
   if (error) throw error;
   return (data ?? []).map((r: { nome: string }) => r.nome);
 }
 
-export async function salvarNomesOcultosPublicacoesBdr(nomes: string[]): Promise<void> {
+export async function salvarNomesOcultosPublicacoesBdr(
+  nomes: string[],
+  contexto: ContextoNomesOcultos = "bdr",
+): Promise<void> {
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError) throw userError;
   const userId = userData.user?.id;
@@ -236,13 +246,15 @@ export async function salvarNomesOcultosPublicacoesBdr(nomes: string[]): Promise
   const { error: delError } = await supabaseSolto
     .from("nomes_ocultos_publicacoes_bdr")
     .delete()
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .eq("contexto", contexto);
   if (delError) throw delError;
   if (nomes.length === 0) return;
 
   const { error: insError } = await supabaseSolto.from("nomes_ocultos_publicacoes_bdr").insert(
     nomes.map((nome, i) => ({
       user_id: userId,
+      contexto,
       nome,
       ordem: i,
     })),

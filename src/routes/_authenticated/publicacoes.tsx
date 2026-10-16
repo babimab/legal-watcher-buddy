@@ -1392,6 +1392,44 @@ function PublicacoesPage() {
       atual.map((a, idx) => (idx === i ? { ...a, fixado: !a.fixado } : a)),
     );
 
+  // Nomes de parte/cliente pra esconder dos resultados da busca geral no
+  // DJEN (mesma ideia do filtro já existente no card "Publicações BDR",
+  // contexto "geral" em vez de "bdr" -- ver nomesOcultosBdr mais abaixo).
+  const [nomesOcultosGeral, setNomesOcultosGeral] = useState<string[]>([""]);
+  const [nomesOcultosGeralCarregados, setNomesOcultosGeralCarregados] = useState(false);
+  const nomesOcultosGeralQuery = useQuery({
+    queryKey: ["nomesOcultosPublicacoesBdr", "geral"],
+    queryFn: () => listarNomesOcultosPublicacoesBdr("geral"),
+  });
+  const avisouErroNomesOcultosGeralRef = useRef(false);
+  useEffect(() => {
+    if (nomesOcultosGeralCarregados) return;
+    if (nomesOcultosGeralQuery.isSuccess) {
+      if (nomesOcultosGeralQuery.data.length > 0) setNomesOcultosGeral(nomesOcultosGeralQuery.data);
+      setNomesOcultosGeralCarregados(true);
+    } else if (nomesOcultosGeralQuery.isError && !avisouErroNomesOcultosGeralRef.current) {
+      avisouErroNomesOcultosGeralRef.current = true;
+      toast.error(
+        "Não consegui carregar os nomes ocultados da busca geral. Pra não apagar o que já está gravado, nada aqui vai ser salvo nesta sessão -- recarregue a página.",
+      );
+    }
+  }, [
+    nomesOcultosGeralQuery.isSuccess,
+    nomesOcultosGeralQuery.isError,
+    nomesOcultosGeralQuery.data,
+    nomesOcultosGeralCarregados,
+  ]);
+  useEffect(() => {
+    if (!nomesOcultosGeralCarregados) return;
+    const timer = setTimeout(() => {
+      salvarNomesOcultosPublicacoesBdr(
+        nomesOcultosGeral.map((n) => n.trim()).filter(Boolean),
+        "geral",
+      ).catch(() => toast.error("Não foi possível salvar os nomes ocultados da busca geral."));
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [nomesOcultosGeral, nomesOcultosGeralCarregados]);
+
   const buscarNoDjen = async () => {
     const advogadosValidos = advogadosDjen
       .filter((a) => a.nome.trim() || (a.numeroOab.trim() && a.ufOab.trim()))
@@ -1421,12 +1459,18 @@ function PublicacoesPage() {
       const chavesExistentes = new Set(
         linhas.map((l) => `${l.cnjDigits}|${l.dataPublicacao}|${chaveComparacao(l.andamento)}`),
       );
-      const novas = linhasDeDjen(comunicacoes, linhas.length).filter(
+      const novasBrutas = linhasDeDjen(comunicacoes, linhas.length).filter(
         (l) =>
           !chavesExistentes.has(
             `${l.cnjDigits}|${l.dataPublicacao}|${chaveComparacao(l.andamento)}`,
           ),
       );
+      const nomesOcultos = nomesOcultosGeral.map((n) => n.trim()).filter(Boolean);
+      const novas =
+        nomesOcultos.length > 0
+          ? novasBrutas.filter((l) => !partesContemNomeOculto(l, nomesOcultos))
+          : novasBrutas;
+      const ocultadas = novasBrutas.length - novas.length;
       setLinhas((atual) => [...atual, ...novas]);
       setSelecionadas((atual) => {
         const novo = new Set(atual);
@@ -1436,7 +1480,7 @@ function PublicacoesPage() {
       if (novas.length > 0) {
         toast.success(
           `Recebi ${totalRecebido} do DJEN — ${novas.length} publicação(ões) nova(s) ` +
-            "adicionada(s) à lista abaixo.",
+            `adicionada(s) à lista abaixo${ocultadas > 0 ? ` (${ocultadas} ocultada(s))` : ""}.`,
         );
       } else {
         toast.info(`Recebi ${totalRecebido} do DJEN — nenhuma nova (todas já estavam na lista).`);
@@ -1539,8 +1583,8 @@ function PublicacoesPage() {
   const [nomesOcultosBdr, setNomesOcultosBdr] = useState<string[]>([""]);
   const [nomesOcultosBdrCarregados, setNomesOcultosBdrCarregados] = useState(false);
   const nomesOcultosBdrQuery = useQuery({
-    queryKey: ["nomesOcultosPublicacoesBdr"],
-    queryFn: listarNomesOcultosPublicacoesBdr,
+    queryKey: ["nomesOcultosPublicacoesBdr", "bdr"],
+    queryFn: () => listarNomesOcultosPublicacoesBdr("bdr"),
   });
   const avisouErroNomesOcultosRef = useRef(false);
   useEffect(() => {
@@ -1963,6 +2007,48 @@ function PublicacoesPage() {
             <Button type="button" variant="outline" size="sm" onClick={adicionarAdvogadoDjen}>
               <Plus className="size-4" />
               Adicionar advogado
+            </Button>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">
+              Ocultar partes/clientes — some da lista se aparecer como autor ou réu (ex.: cliente do
+              escritório que não é da sua equipe)
+            </Label>
+            {nomesOcultosGeral.map((nome, i) => (
+              <div key={i} className="flex gap-2">
+                <Input
+                  aria-label="Nome a ocultar"
+                  placeholder="Ex.: Aerolineas Argentinas"
+                  value={nome}
+                  onChange={(e) =>
+                    setNomesOcultosGeral((atual) =>
+                      atual.map((n, idx) => (idx === i ? e.target.value : n)),
+                    )
+                  }
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() =>
+                    setNomesOcultosGeral((atual) =>
+                      atual.length <= 1 ? [""] : atual.filter((_, idx) => idx !== i),
+                    )
+                  }
+                  aria-label="Remover nome ocultado"
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setNomesOcultosGeral((atual) => [...atual, ""])}
+            >
+              <Plus className="size-4" />
+              Adicionar nome
             </Button>
           </div>
           <div className="flex flex-wrap items-end gap-4">
