@@ -18,6 +18,7 @@ import {
   RadioTower,
   Receipt,
   ScrollText,
+  Ship,
   ShieldCheck,
   Upload,
   User,
@@ -194,6 +195,12 @@ function AppLayout() {
         icon={<Gavel className="size-4" />}
         label="Citações"
         tourId="nav-citacoes"
+      />
+      <NavItem
+        to="/alerta-astro"
+        icon={<Ship className="size-4" />}
+        label="Alerta Astro"
+        tourId="nav-alerta-astro"
       />
       <NavItem
         to="/administrativos"
