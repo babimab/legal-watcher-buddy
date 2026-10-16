@@ -329,6 +329,11 @@ function grupoDaLinha(p: Processo): Grupo {
 // troca de navegador/dispositivo ou preview em iframe do Lovable.
 type AdvogadoDjenRow = AdvogadoFiltro & { fixado: boolean };
 
+// Mesma ideia de "fixar" aplicada ao filtro de nomes ocultos: um nome só
+// digitado (não fixado) vale pra esta sessão e some ao recarregar; fixado
+// fica salvo na conta, igual advogado fixado.
+type NomeOcultoRow = { nome: string; fixado: boolean };
+
 function saudacaoAgora() {
   const hora = new Date().getHours();
   if (hora < 12) return "bom dia";
@@ -1355,7 +1360,9 @@ function PublicacoesPage() {
   // Nomes de parte/cliente pra esconder dos resultados da busca geral no
   // DJEN (mesma ideia do filtro já existente no card "Publicações BDR",
   // contexto "geral" em vez de "bdr" -- ver nomesOcultosBdr mais abaixo).
-  const [nomesOcultosGeral, setNomesOcultosGeral] = useState<string[]>([""]);
+  const [nomesOcultosGeral, setNomesOcultosGeral] = useState<NomeOcultoRow[]>([
+    { nome: "", fixado: false },
+  ]);
   const [nomesOcultosGeralCarregados, setNomesOcultosGeralCarregados] = useState(false);
   const nomesOcultosGeralQuery = useQuery({
     queryKey: ["nomesOcultosPublicacoesBdr", "geral"],
@@ -1365,7 +1372,9 @@ function PublicacoesPage() {
   useEffect(() => {
     if (nomesOcultosGeralCarregados) return;
     if (nomesOcultosGeralQuery.isSuccess) {
-      if (nomesOcultosGeralQuery.data.length > 0) setNomesOcultosGeral(nomesOcultosGeralQuery.data);
+      if (nomesOcultosGeralQuery.data.length > 0) {
+        setNomesOcultosGeral(nomesOcultosGeralQuery.data.map((nome) => ({ nome, fixado: true })));
+      }
       setNomesOcultosGeralCarregados(true);
     } else if (nomesOcultosGeralQuery.isError && !avisouErroNomesOcultosGeralRef.current) {
       avisouErroNomesOcultosGeralRef.current = true;
@@ -1383,12 +1392,28 @@ function PublicacoesPage() {
     if (!nomesOcultosGeralCarregados) return;
     const timer = setTimeout(() => {
       salvarNomesOcultosPublicacoesBdr(
-        nomesOcultosGeral.map((n) => n.trim()).filter(Boolean),
+        nomesOcultosGeral
+          .filter((r) => r.fixado)
+          .map((r) => r.nome.trim())
+          .filter(Boolean),
         "geral",
       ).catch(() => toast.error("Não foi possível salvar os nomes ocultados da busca geral."));
     }, 600);
     return () => clearTimeout(timer);
   }, [nomesOcultosGeral, nomesOcultosGeralCarregados]);
+
+  const adicionarNomeOcultoGeral = () =>
+    setNomesOcultosGeral((atual) => [...atual, { nome: "", fixado: false }]);
+  const removerNomeOcultoGeral = (i: number) =>
+    setNomesOcultosGeral((atual) =>
+      atual.length <= 1 ? [{ nome: "", fixado: false }] : atual.filter((_, idx) => idx !== i),
+    );
+  const atualizarNomeOcultoGeral = (i: number, nome: string) =>
+    setNomesOcultosGeral((atual) => atual.map((r, idx) => (idx === i ? { ...r, nome } : r)));
+  const alternarFixarNomeOcultoGeral = (i: number) =>
+    setNomesOcultosGeral((atual) =>
+      atual.map((r, idx) => (idx === i ? { ...r, fixado: !r.fixado } : r)),
+    );
 
   const buscarNoDjen = async () => {
     const advogadosValidos = advogadosDjen
@@ -1425,7 +1450,7 @@ function PublicacoesPage() {
             `${l.cnjDigits}|${l.dataPublicacao}|${chaveComparacao(l.andamento)}`,
           ),
       );
-      const nomesOcultos = nomesOcultosGeral.map((n) => n.trim()).filter(Boolean);
+      const nomesOcultos = nomesOcultosGeral.map((r) => r.nome.trim()).filter(Boolean);
       const novas =
         nomesOcultos.length > 0
           ? novasBrutas.filter((l) => !partesContemNomeOculto(l, nomesOcultos))
@@ -1540,7 +1565,9 @@ function PublicacoesPage() {
   // (ex.: cliente do escritório que não é da equipe dela) -- mesma trava
   // contra apagar sem querer que o resto desse card usa: só libera
   // salvar depois que o carregamento funcionar.
-  const [nomesOcultosBdr, setNomesOcultosBdr] = useState<string[]>([""]);
+  const [nomesOcultosBdr, setNomesOcultosBdr] = useState<NomeOcultoRow[]>([
+    { nome: "", fixado: false },
+  ]);
   const [nomesOcultosBdrCarregados, setNomesOcultosBdrCarregados] = useState(false);
   const nomesOcultosBdrQuery = useQuery({
     queryKey: ["nomesOcultosPublicacoesBdr", "bdr"],
@@ -1550,7 +1577,9 @@ function PublicacoesPage() {
   useEffect(() => {
     if (nomesOcultosBdrCarregados) return;
     if (nomesOcultosBdrQuery.isSuccess) {
-      if (nomesOcultosBdrQuery.data.length > 0) setNomesOcultosBdr(nomesOcultosBdrQuery.data);
+      if (nomesOcultosBdrQuery.data.length > 0) {
+        setNomesOcultosBdr(nomesOcultosBdrQuery.data.map((nome) => ({ nome, fixado: true })));
+      }
       setNomesOcultosBdrCarregados(true);
     } else if (nomesOcultosBdrQuery.isError && !avisouErroNomesOcultosRef.current) {
       avisouErroNomesOcultosRef.current = true;
@@ -1567,12 +1596,28 @@ function PublicacoesPage() {
   useEffect(() => {
     if (!nomesOcultosBdrCarregados) return;
     const timer = setTimeout(() => {
-      salvarNomesOcultosPublicacoesBdr(nomesOcultosBdr.map((n) => n.trim()).filter(Boolean)).catch(
-        () => toast.error("Não foi possível salvar os nomes ocultados de Publicações BDR."),
-      );
+      salvarNomesOcultosPublicacoesBdr(
+        nomesOcultosBdr
+          .filter((r) => r.fixado)
+          .map((r) => r.nome.trim())
+          .filter(Boolean),
+      ).catch(() => toast.error("Não foi possível salvar os nomes ocultados de Publicações BDR."));
     }, 600);
     return () => clearTimeout(timer);
   }, [nomesOcultosBdr, nomesOcultosBdrCarregados]);
+
+  const adicionarNomeOcultoBdr = () =>
+    setNomesOcultosBdr((atual) => [...atual, { nome: "", fixado: false }]);
+  const removerNomeOcultoBdr = (i: number) =>
+    setNomesOcultosBdr((atual) =>
+      atual.length <= 1 ? [{ nome: "", fixado: false }] : atual.filter((_, idx) => idx !== i),
+    );
+  const atualizarNomeOcultoBdr = (i: number, nome: string) =>
+    setNomesOcultosBdr((atual) => atual.map((r, idx) => (idx === i ? { ...r, nome } : r)));
+  const alternarFixarNomeOcultoBdr = (i: number) =>
+    setNomesOcultosBdr((atual) =>
+      atual.map((r, idx) => (idx === i ? { ...r, fixado: !r.fixado } : r)),
+    );
 
   const [linhasBdr, setLinhasBdr] = useState<LinhaPublicacao[]>([]);
   const [buscandoBdr, setBuscandoBdr] = useState(false);
@@ -1592,7 +1637,7 @@ function PublicacoesPage() {
         advogados: advogadosBdr,
         ...periodoDjen,
       });
-      const nomesOcultos = nomesOcultosBdr.map((n) => n.trim()).filter(Boolean);
+      const nomesOcultos = nomesOcultosBdr.map((r) => r.nome.trim()).filter(Boolean);
       const todasLinhas = linhasDeDjen(comunicacoes, 0);
       const linhasVisiveis =
         nomesOcultos.length > 0
@@ -1974,27 +2019,30 @@ function PublicacoesPage() {
               Ocultar partes/clientes — some da lista se aparecer como autor ou réu (ex.: cliente do
               escritório que não é da sua equipe)
             </Label>
-            {nomesOcultosGeral.map((nome, i) => (
+            {nomesOcultosGeral.map((r, i) => (
               <div key={i} className="flex gap-2">
                 <Input
                   aria-label="Nome a ocultar"
                   placeholder="Ex.: Aerolineas Argentinas"
-                  value={nome}
-                  onChange={(e) =>
-                    setNomesOcultosGeral((atual) =>
-                      atual.map((n, idx) => (idx === i ? e.target.value : n)),
-                    )
-                  }
+                  value={r.nome}
+                  onChange={(e) => atualizarNomeOcultoGeral(i, e.target.value)}
                 />
+                <Button
+                  type="button"
+                  variant={r.fixado ? "default" : "outline"}
+                  size="icon"
+                  onClick={() => alternarFixarNomeOcultoGeral(i)}
+                  aria-label={r.fixado ? "Desfixar nome" : "Fixar nome"}
+                  title={r.fixado ? "Desfixar (não lembrar da próxima vez)" : "Fixar pra próxima vez"}
+                >
+                  {r.fixado ? <Pin className="size-4" /> : <PinOff className="size-4" />}
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
                   size="icon"
-                  onClick={() =>
-                    setNomesOcultosGeral((atual) =>
-                      atual.length <= 1 ? [""] : atual.filter((_, idx) => idx !== i),
-                    )
-                  }
+                  onClick={() => removerNomeOcultoGeral(i)}
+                  disabled={nomesOcultosGeral.length <= 1}
                   aria-label="Remover nome ocultado"
                 >
                   <Trash2 className="size-4" />
@@ -2005,7 +2053,7 @@ function PublicacoesPage() {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setNomesOcultosGeral((atual) => [...atual, ""])}
+              onClick={adicionarNomeOcultoGeral}
             >
               <Plus className="size-4" />
               Adicionar nome
@@ -2137,27 +2185,30 @@ function PublicacoesPage() {
               Ocultar partes/clientes — some da lista se aparecer como autor ou réu (ex.: cliente do
               escritório que não é da sua equipe)
             </Label>
-            {nomesOcultosBdr.map((nome, i) => (
+            {nomesOcultosBdr.map((r, i) => (
               <div key={i} className="flex gap-2">
                 <Input
                   aria-label="Nome a ocultar"
                   placeholder="Ex.: Aerolineas Argentinas"
-                  value={nome}
-                  onChange={(e) =>
-                    setNomesOcultosBdr((atual) =>
-                      atual.map((n, idx) => (idx === i ? e.target.value : n)),
-                    )
-                  }
+                  value={r.nome}
+                  onChange={(e) => atualizarNomeOcultoBdr(i, e.target.value)}
                 />
+                <Button
+                  type="button"
+                  variant={r.fixado ? "default" : "outline"}
+                  size="icon"
+                  onClick={() => alternarFixarNomeOcultoBdr(i)}
+                  aria-label={r.fixado ? "Desfixar nome" : "Fixar nome"}
+                  title={r.fixado ? "Desfixar (não lembrar da próxima vez)" : "Fixar pra próxima vez"}
+                >
+                  {r.fixado ? <Pin className="size-4" /> : <PinOff className="size-4" />}
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
                   size="icon"
-                  onClick={() =>
-                    setNomesOcultosBdr((atual) =>
-                      atual.length <= 1 ? [""] : atual.filter((_, idx) => idx !== i),
-                    )
-                  }
+                  onClick={() => removerNomeOcultoBdr(i)}
+                  disabled={nomesOcultosBdr.length <= 1}
                   aria-label="Remover nome ocultado"
                 >
                   <Trash2 className="size-4" />
@@ -2168,7 +2219,7 @@ function PublicacoesPage() {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setNomesOcultosBdr((atual) => [...atual, ""])}
+              onClick={adicionarNomeOcultoBdr}
             >
               <Plus className="size-4" />
               Adicionar nome
