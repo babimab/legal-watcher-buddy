@@ -120,6 +120,13 @@ function objStream(conteudo: Uint8Array, dicionario = "") {
 async function carregarImagem(url: string) {
   return await new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
+    // Sem isso, uma imagem de outra origem (ex.: assinatura vinda do
+    // Storage do Supabase por URL assinada) "suja" o canvas -- desenha
+    // normal, mas canvas.toDataURL() (usado logo depois, em
+    // imagemComoJpeg) lança "Tainted canvases may not be exported" na
+    // hora de exportar. O logo (mesma origem, /bcw-logo.png) não é
+    // afetado por isso.
+    img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error(`Não foi possível carregar a imagem ${url}.`));
     img.src = url;
