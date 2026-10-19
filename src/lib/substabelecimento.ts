@@ -43,6 +43,13 @@ export type ItemSubstabelecimento = {
   comReserva: boolean;
   cidade: string;
   data: string; // ISO yyyy-mm-dd
+  // Texto cru da coluna "Cia aérea"/"Cliente" da planilha, se tiver --
+  // usado só pra tentar casar automaticamente com o cadastro de
+  // clientes de Docs de Representação (ver encontrarClientePorNome).
+  // Planilha com várias companhias misturadas (cada linha é de uma
+  // cia diferente) precisa disso pra não sair tudo com o outorgante
+  // errado.
+  ciaAereaTexto: string | null;
 };
 
 // Exportadas pra reaproveitar na leitura da planilha de Carta de
@@ -79,11 +86,34 @@ export function dataISO(valor: unknown): string | null {
 }
 
 type CampoBase =
-  "processo" | "autor" | "juizo" | "vara" | "comarca" | "uf" | "reserva" | "cidade" | "data";
+  | "processo"
+  | "autor"
+  | "juizo"
+  | "vara"
+  | "comarca"
+  | "uf"
+  | "reserva"
+  | "cidade"
+  | "data"
+  | "ciaAerea";
 
 const CAMPOS_BASE: Record<CampoBase, string[]> = {
-  processo: ["processo", "numero do processo", "cnj"],
-  autor: ["autor", "movido por", "reclamante"],
+  // "nº única"/"n° única" depois de normalizar() vira "nº unica" (o "º"
+  // não é acento, não some) -- planilha real da Joanice (coordenadora
+  // das aéreas) usa exatamente esse rótulo pro número do processo.
+  processo: [
+    "processo",
+    "numero do processo",
+    "cnj",
+    "nº unica",
+    "n° unica",
+    "no unica",
+    "numero unica",
+    "numero unico",
+    "numero único",
+  ],
+  // "polo ativo" é como a planilha de aéreas chama a parte autora.
+  autor: ["autor", "movido por", "reclamante", "polo ativo"],
   juizo: ["juizo", "juízo", "em tramite perante", "vara/comarca"],
   vara: ["vara"],
   comarca: ["comarca"],
@@ -91,6 +121,10 @@ const CAMPOS_BASE: Record<CampoBase, string[]> = {
   reserva: ["reserva", "com ou sem reserva", "reserva de poderes"],
   cidade: ["cidade"],
   data: ["data", "data do documento"],
+  // Não inclui "cliente" de propósito -- em planilhas reais essa coluna
+  // costuma ser um código interno (ex.: "8075 - Beaumont"), não o nome
+  // da companhia aérea que precisa casar com o cadastro.
+  ciaAerea: ["cia aerea", "cia aérea", "companhia aerea", "companhia aérea"],
 };
 const SINONIMOS: Record<string, CampoBase> = {};
 for (const [campo, nomes] of Object.entries(CAMPOS_BASE)) {
@@ -103,7 +137,12 @@ function compuserJuizo(dados: Partial<Record<CampoBase, unknown>>): string | nul
   const direto = texto(dados.juizo);
   if (direto) return direto;
   const vara = texto(dados.vara);
-  const comarca = texto(dados.comarca);
+  // Comarca às vezes já vem com "(UF)" redundante no fim (ex.: "Itajubá
+  // (MG)") -- descarta em favor da coluna UF separada, senão sai
+  // duplicado ("...Itajubá (MG) - MG"), mesmo ajuste já feito na leitura
+  // da planilha de Fatura.
+  const comarcaBruta = texto(dados.comarca);
+  const comarca = comarcaBruta ? comarcaBruta.replace(/\s*\([^)]*\)\s*$/, "").trim() : null;
   const uf = texto(dados.uf);
   if (!vara && !comarca) return null;
   const partes = [vara, comarca ? `comarca de ${comarca}` : null].filter(Boolean).join(" da ");
@@ -140,6 +179,7 @@ export function lerPlanilhaSubstabelecimento(buffer: ArrayBuffer): ItemSubstabel
       comReserva,
       cidade: texto(dados.cidade) ?? "Rio de Janeiro",
       data: dataISO(dados.data) ?? new Date().toISOString().slice(0, 10),
+      ciaAereaTexto: texto(dados.ciaAerea),
     });
   }
   return itens;
@@ -177,4 +217,25 @@ export function nomeArquivoSubstabelecimento(
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
   return `substabelecimento-${cliente.id}-${base || item.idx + 1}.pdf`;
+}
+
+// Casa o texto da coluna "Cia aérea" da planilha com o cadastro de
+// clientes de Docs de Representação -- planilha real costuma vir com o
+// nome completo ("KLM CIA Real Holandesa de Aviação") enquanto o
+// cadastro guarda só o nome curto ("KLM"), então compara nos dois
+// sentidos (um contém o outro), não só igualdade exata.
+export function encontrarClientePorNome(
+  clientes: ClienteSubstabelecimento[],
+  textoCiaAerea: string | null,
+): ClienteSubstabelecimento | null {
+  if (!textoCiaAerea) return null;
+  const alvo = normalizar(textoCiaAerea);
+  if (!alvo) return null;
+  const exato = clientes.find((c) => normalizar(c.nome) === alvo);
+  if (exato) return exato;
+  const parcial = clientes.find((c) => {
+    const nome = normalizar(c.nome);
+    return nome.length > 0 && (alvo.includes(nome) || nome.includes(alvo));
+  });
+  return parcial ?? null;
 }

@@ -39,6 +39,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   dataPorExtenso,
+  encontrarClientePorNome,
   lerPlanilhaSubstabelecimento,
   type ClienteSubstabelecimento,
   type ItemSubstabelecimento,
@@ -151,6 +152,15 @@ function AbaSubstabelecimento() {
   const recarregarClientes = () =>
     queryClient.invalidateQueries({ queryKey: ["clientes-substabelecimento"] });
 
+  // Planilha com várias cias aéreas misturadas (cada linha é de uma
+  // companhia diferente, ex.: TAP, KLM, Aerolineas Argentinas...) --
+  // tenta casar a coluna "Cia aérea" de cada linha com o cadastro; sem
+  // casar (companhia ainda não cadastrada aqui), cai no cliente
+  // escolhido no seletor acima, mas fica marcado como "não casou" na
+  // tabela pra não sair com o outorgante errado sem ela perceber.
+  const clienteDoItem = (item: ItemSubstabelecimento): ClienteSubstabelecimento | null =>
+    encontrarClientePorNome(clientes, item.ciaAereaTexto) ?? cliente;
+
   const ler = async (arquivo: File) => {
     const nome = arquivo.name.toLowerCase();
     if (!EXTENSOES.some((ext) => nome.endsWith(ext))) {
@@ -213,10 +223,11 @@ function AbaSubstabelecimento() {
   };
 
   const baixarUm = async (item: ItemSubstabelecimento) => {
-    if (!cliente) return;
+    const clienteItem = clienteDoItem(item);
+    if (!clienteItem) return;
     setGerandoIdx(item.idx);
     try {
-      await gerarEBaixarPdfSubstabelecimento(cliente, item);
+      await gerarEBaixarPdfSubstabelecimento(clienteItem, item);
     } catch {
       toast.error("Não consegui gerar esse documento.");
     } finally {
@@ -225,19 +236,25 @@ function AbaSubstabelecimento() {
   };
 
   const gerarSelecionados = async () => {
-    if (!cliente) return;
     const escolhidos = itens.filter((n) => selecionados.has(n.idx));
     if (escolhidos.length === 0) {
       toast.error("Selecione pelo menos um documento.");
       return;
     }
+    const pares = escolhidos.map((item) => ({ cliente: clienteDoItem(item), item }));
+    const semCliente = pares.filter((p) => !p.cliente);
+    if (semCliente.length > 0) {
+      toast.error(
+        `${semCliente.length} documento(s) sem cliente definido (não casou com "Cia aérea" e nenhum cliente está selecionado no topo). Selecione um cliente ou cadastre a companhia antes de gerar.`,
+      );
+      return;
+    }
     setGerando(true);
     try {
-      const blob = await gerarPdfSubstabelecimentos(cliente, escolhidos);
-      baixarBlob(
-        blob,
-        `substabelecimentos-${cliente.id}-${new Date().toISOString().slice(0, 10)}.pdf`,
+      const blob = await gerarPdfSubstabelecimentos(
+        pares as { cliente: ClienteSubstabelecimento; item: ItemSubstabelecimento }[],
       );
+      baixarBlob(blob, `substabelecimentos-${new Date().toISOString().slice(0, 10)}.pdf`);
       toast.success(`${escolhidos.length} documento(s) gerado(s) num PDF só.`);
     } catch {
       toast.error("Não consegui gerar os documentos.");
@@ -353,6 +370,7 @@ function AbaSubstabelecimento() {
                 <thead>
                   <tr className="border-b border-border text-left text-xs uppercase text-muted-foreground">
                     <th className="p-2"></th>
+                    <th className="p-2">Cliente</th>
                     <th className="p-2">Processo</th>
                     <th className="p-2">Autor</th>
                     <th className="p-2">Juízo</th>
@@ -362,13 +380,32 @@ function AbaSubstabelecimento() {
                   </tr>
                 </thead>
                 <tbody>
-                  {itens.map((item) => (
+                  {itens.map((item) => {
+                    const casou = !!encontrarClientePorNome(clientes, item.ciaAereaTexto);
+                    const clienteItem = clienteDoItem(item);
+                    return (
                     <tr key={item.idx} className="border-b border-border/60">
                       <td className="p-2">
                         <Checkbox
                           checked={selecionados.has(item.idx)}
                           onCheckedChange={() => alternarSelecao(item.idx)}
                         />
+                      </td>
+                      <td className="p-2">
+                        {clienteItem ? (
+                          <span className="flex items-center gap-1.5">
+                            {clienteItem.nome}
+                            {!casou ? (
+                              <Badge variant="secondary" className="text-xs">
+                                não casou
+                              </Badge>
+                            ) : null}
+                          </span>
+                        ) : (
+                          <Badge variant="destructive" className="text-xs">
+                            sem cliente
+                          </Badge>
+                        )}
                       </td>
                       <td className="p-2 font-mono text-xs">{item.processo ?? "—"}</td>
                       <td className="p-2">{item.autor ?? "—"}</td>
@@ -403,14 +440,15 @@ function AbaSubstabelecimento() {
                             size="icon"
                             aria-label={`Baixar documento ${item.processo ?? item.idx + 1}`}
                             onClick={() => void baixarUm(item)}
-                            disabled={gerandoIdx === item.idx || !cliente}
+                            disabled={gerandoIdx === item.idx || !clienteItem}
                           >
                             <Download className="size-4" />
                           </Button>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

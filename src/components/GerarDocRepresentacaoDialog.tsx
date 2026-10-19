@@ -86,6 +86,7 @@ export function GerarDocRepresentacaoDialog({ processo }: { processo: Processo }
           comReserva,
           cidade,
           data,
+          ciaAereaTexto: null,
         });
       } else {
         await gerarEBaixarPdfCartaPreposicao(cliente, {

@@ -99,6 +99,7 @@ async function construirPaginaSubstabelecimento(
   item: ItemSubstabelecimento,
   logo: ImagemPdf,
   assinatura: ImagemPdf | null,
+  nomeImagemAssinatura = "ImAssinatura",
 ): Promise<Pagina> {
   const larguraUtil = A4_W - MARGIN * 2;
   const p = new Pagina();
@@ -158,7 +159,7 @@ async function construirPaginaSubstabelecimento(
     const razaoAssinatura = assinatura.width / assinatura.height;
     const largAssinatura = 320;
     const altAssinatura = largAssinatura / razaoAssinatura;
-    p.image("ImAssinatura", A4_W / 2 - largAssinatura / 2, y, largAssinatura, altAssinatura);
+    p.image(nomeImagemAssinatura, A4_W / 2 - largAssinatura / 2, y, largAssinatura, altAssinatura);
   }
 
   const rodapeY = 790;
@@ -195,16 +196,41 @@ export async function gerarEBaixarPdfSubstabelecimento(
   baixarBlob(blob, nomeArquivoSubstabelecimento(cliente, item));
 }
 
+// Gera vários substabelecimentos num PDF só, cada um com seu próprio
+// cliente (ex.: planilha com várias cias aéreas misturadas, casada por
+// "Cia aérea" com o cadastro -- ver encontrarClientePorNome). Cada
+// cliente carrega sua própria assinatura, então a imagem precisa de um
+// nome de XObject por cliente (não dá pra reaproveitar "ImAssinatura"
+// fixo quando a assinatura muda de página pra página).
 export async function gerarPdfSubstabelecimentos(
-  cliente: ClienteSubstabelecimento,
-  itens: ItemSubstabelecimento[],
+  pares: { cliente: ClienteSubstabelecimento; item: ItemSubstabelecimento }[],
 ): Promise<Blob> {
   const logo = await carregarLogo();
-  const assinatura = await carregarAssinatura(cliente);
+  const assinaturasPorCliente = new Map<string, Promise<ImagemPdf | null>>();
+  const carregarAssinaturaCacheada = (cliente: ClienteSubstabelecimento) => {
+    if (!assinaturasPorCliente.has(cliente.id)) {
+      assinaturasPorCliente.set(cliente.id, carregarAssinatura(cliente));
+    }
+    return assinaturasPorCliente.get(cliente.id)!;
+  };
+
   const paginas = await Promise.all(
-    itens.map((item) => construirPaginaSubstabelecimento(cliente, item, logo, assinatura)),
+    pares.map(async ({ cliente, item }) => {
+      const assinatura = await carregarAssinaturaCacheada(cliente);
+      return construirPaginaSubstabelecimento(
+        cliente,
+        item,
+        logo,
+        assinatura,
+        `ImAssinatura_${cliente.id}`,
+      );
+    }),
   );
+
   const imagens: Record<string, ImagemPdf> = { ImLogo: logo };
-  if (assinatura) imagens["ImAssinatura"] = assinatura;
+  for (const [clienteId, promessa] of assinaturasPorCliente) {
+    const assinatura = await promessa;
+    if (assinatura) imagens[`ImAssinatura_${clienteId}`] = assinatura;
+  }
   return montarPdf(paginas, imagens);
 }
