@@ -132,9 +132,19 @@ const CAMPOS_BASE: Record<CampoBase, string[]> = {
   // da companhia aérea que precisa casar com o cadastro.
   ciaAerea: ["cia aerea", "cia aérea", "companhia aerea", "companhia aérea", "companhia", "cia"],
 };
+
+// Cada planilha real abrevia "número" de um jeito diferente ("Nº Única",
+// "N° Única", "n. Única", "Numero"...) -- em vez de ficar adicionando um
+// sinônimo por variação de pontuação, essa chave ignora ponto, º/°/ª e
+// espaço, então "n. unica"/"nº unica"/"n unica" todas viram a mesma
+// coisa ("nunica") na hora de comparar com o cabeçalho da planilha.
+function chaveCabecalho(s: string): string {
+  return normalizar(s).replace(/[.°ºª\s]/g, "");
+}
+
 const SINONIMOS: Record<string, CampoBase> = {};
 for (const [campo, nomes] of Object.entries(CAMPOS_BASE)) {
-  for (const nome of nomes) SINONIMOS[nome] = campo as CampoBase;
+  for (const nome of nomes) SINONIMOS[chaveCabecalho(nome)] = campo as CampoBase;
 }
 
 // Juízo pode vir pronto numa única coluna ou espalhado em vara/comarca/uf
@@ -164,7 +174,7 @@ export function lerPlanilhaSubstabelecimento(buffer: ArrayBuffer): ItemSubstabel
 
   const matriz = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, blankrows: false });
   if (matriz.length === 0) return [];
-  const cabecalho = (matriz[0] ?? []).map((c) => normalizar(texto(c) ?? ""));
+  const cabecalho = (matriz[0] ?? []).map((c) => chaveCabecalho(texto(c) ?? ""));
 
   const itens: ItemSubstabelecimento[] = [];
   for (let i = 1; i < matriz.length; i++) {
