@@ -88,6 +88,30 @@ export type Database = {
         }
         Relationships: []
       }
+      alerta_astro_nomes_monitorados: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          nome: string
+          ordem: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome: string
+          ordem?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome?: string
+          ordem?: number | null
+        }
+        Relationships: []
+      }
       baixas_cliente: {
         Row: {
           created_at: string
@@ -533,6 +557,36 @@ export type Database = {
         }
         Relationships: []
       }
+      lista_prazos_manual: {
+        Row: {
+          concluida: boolean
+          created_at: string
+          created_by: string | null
+          data_ordenacao: string | null
+          id: string
+          texto: string
+          updated_at: string
+        }
+        Insert: {
+          concluida?: boolean
+          created_at?: string
+          created_by?: string | null
+          data_ordenacao?: string | null
+          id?: string
+          texto: string
+          updated_at?: string
+        }
+        Update: {
+          concluida?: boolean
+          created_at?: string
+          created_by?: string | null
+          data_ordenacao?: string | null
+          id?: string
+          texto?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       movimentacoes: {
         Row: {
           concluida: boolean
@@ -545,6 +599,7 @@ export type Database = {
           fase_anterior: string | null
           fase_nova: string | null
           fonte: string
+          horario: string | null
           id: string
           id_externo: string | null
           observacao: string | null
@@ -569,6 +624,7 @@ export type Database = {
           fase_anterior?: string | null
           fase_nova?: string | null
           fonte?: string
+          horario?: string | null
           id?: string
           id_externo?: string | null
           observacao?: string | null
@@ -593,6 +649,7 @@ export type Database = {
           fase_anterior?: string | null
           fase_nova?: string | null
           fonte?: string
+          horario?: string | null
           id?: string
           id_externo?: string | null
           observacao?: string | null
@@ -618,6 +675,7 @@ export type Database = {
       }
       nomes_ocultos_publicacoes_bdr: {
         Row: {
+          contexto: string
           created_at: string
           id: string
           nome: string
@@ -625,6 +683,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          contexto?: string
           created_at?: string
           id?: string
           nome: string
@@ -632,6 +691,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          contexto?: string
           created_at?: string
           id?: string
           nome?: string
