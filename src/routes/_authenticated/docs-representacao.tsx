@@ -77,6 +77,7 @@ import {
 import {
   gerarEBaixarPdfCartaPreposicao,
   gerarPdfCartasPreposicao,
+  gerarPdfsCartasPreposicaoSeparadas,
 } from "@/lib/pdf-carta-preposicao";
 import { baixarBlob } from "@/lib/pdf-base";
 
@@ -401,7 +402,7 @@ function AbaSubstabelecimento() {
             <Button
               type="button"
               onClick={() => void gerarSelecionados()}
-              disabled={gerando || itens.length === 0 || !cliente}
+              disabled={gerando || itens.length === 0}
             >
               <FileDown className="size-4" />
               {gerando ? "Gerando..." : "Gerar num PDF só"}
@@ -410,7 +411,7 @@ function AbaSubstabelecimento() {
               type="button"
               variant="outline"
               onClick={() => void gerarSelecionadosSeparados()}
-              disabled={gerandoZip || itens.length === 0 || !cliente}
+              disabled={gerandoZip || itens.length === 0}
             >
               <Files className="size-4" />
               {gerandoZip ? "Gerando..." : "Gerar separados (.zip)"}
@@ -544,12 +545,12 @@ function AbaSubstabelecimento() {
         <Button
           type="button"
           onClick={() => void gerarSelecionados()}
-          disabled={gerando || !cliente}
+          disabled={gerando}
           className="fixed bottom-6 right-6 z-40 shadow-lg"
           size="lg"
         >
           <FileDown className="size-4" />
-          {gerando ? "Gerando..." : `Gerar documentos (${selecionados.size})`}
+          {gerando ? "Gerando..." : `Gerar num PDF só (${selecionados.size})`}
         </Button>
       ) : null}
 
@@ -605,6 +606,7 @@ function AbaCartaPreposicao() {
   const [selecionados, setSelecionados] = useState<Set<number>>(new Set());
   const [lendo, setLendo] = useState(false);
   const [gerando, setGerando] = useState(false);
+  const [gerandoZip, setGerandoZip] = useState(false);
   const [gerandoIdx, setGerandoIdx] = useState<number | null>(null);
   const [editando, setEditando] = useState<ItemCartaPreposicao | null>(null);
   const [apagando, setApagando] = useState<ItemCartaPreposicao | null>(null);
@@ -619,6 +621,18 @@ function AbaCartaPreposicao() {
   const cliente = clientes.find((c) => c.id === clienteId) ?? null;
   const recarregarClientes = () =>
     queryClient.invalidateQueries({ queryKey: ["clientes-substabelecimento"] });
+
+  // Mesmo padrão do Substabelecimento: casa a coluna "Cia aérea" de cada
+  // linha com o cadastro; sem casar mas com o texto da planilha
+  // disponível, usa esse texto direto como outorgante (ver clienteAdHoc
+  // em substabelecimento.ts). Só cai no cliente escolhido no seletor
+  // acima quando a linha nem tem texto de "Cia aérea".
+  const clienteDoItem = (item: ItemCartaPreposicao): ClienteSubstabelecimento | null => {
+    const casado = encontrarClientePorNome(clientes, item.ciaAereaTexto);
+    if (casado) return casado;
+    if (item.ciaAereaTexto) return clienteAdHoc(item.ciaAereaTexto);
+    return cliente;
+  };
 
   const ler = async (arquivo: File) => {
     const nome = arquivo.name.toLowerCase();
@@ -682,36 +696,105 @@ function AbaCartaPreposicao() {
   };
 
   const baixarUm = async (item: ItemCartaPreposicao) => {
-    if (!cliente) return;
+    const clienteItem = clienteDoItem(item);
+    if (!clienteItem) {
+      toast.error(
+        'Sem cliente pra esse documento (não casou com "Cia aérea" e nenhum cliente está selecionado no topo).',
+      );
+      return;
+    }
     setGerandoIdx(item.idx);
     try {
-      await gerarEBaixarPdfCartaPreposicao(cliente, item);
-    } catch {
-      toast.error("Não consegui gerar esse documento.");
+      await gerarEBaixarPdfCartaPreposicao(clienteItem, item);
+    } catch (e) {
+      console.error("Erro ao gerar carta de preposição:", e);
+      toast.error(
+        e instanceof Error
+          ? `Não consegui gerar esse documento: ${e.message}`
+          : "Não consegui gerar esse documento.",
+      );
     } finally {
       setGerandoIdx(null);
     }
   };
 
-  const gerarSelecionados = async () => {
-    if (!cliente) return;
+  // Mesmo padrão do Substabelecimento: pula só quem não tem cliente e
+  // gera o resto, em vez de travar o lote inteiro.
+  const paresSelecionadosComCliente = () => {
     const escolhidos = itens.filter((n) => selecionados.has(n.idx));
-    if (escolhidos.length === 0) {
+    const pares = escolhidos.map((item) => ({ cliente: clienteDoItem(item), item }));
+    const comCliente = pares.filter(
+      (p): p is { cliente: ClienteSubstabelecimento; item: ItemCartaPreposicao } => !!p.cliente,
+    );
+    return { total: escolhidos.length, comCliente, semCliente: pares.length - comCliente.length };
+  };
+
+  const gerarSelecionados = async () => {
+    const { total, comCliente, semCliente } = paresSelecionadosComCliente();
+    if (total === 0) {
       toast.error("Selecione pelo menos um documento.");
+      return;
+    }
+    if (comCliente.length === 0) {
+      toast.error(
+        'Nenhum dos documentos selecionados tem cliente definido (não casou com "Cia aérea" e nenhum cliente está selecionado no topo).',
+      );
       return;
     }
     setGerando(true);
     try {
-      const blob = await gerarPdfCartasPreposicao(cliente, escolhidos);
-      baixarBlob(
-        blob,
-        `cartas-preposicao-${cliente.id}-${new Date().toISOString().slice(0, 10)}.pdf`,
+      const blob = await gerarPdfCartasPreposicao(comCliente);
+      baixarBlob(blob, `cartas-preposicao-${new Date().toISOString().slice(0, 10)}.pdf`);
+      toast.success(
+        semCliente > 0
+          ? `${comCliente.length} documento(s) gerado(s) num PDF só. ${semCliente} ficaram de fora por falta de cliente -- cadastre a companhia e gere de novo só essas.`
+          : `${comCliente.length} documento(s) gerado(s) num PDF só.`,
       );
-      toast.success(`${escolhidos.length} documento(s) gerado(s) num PDF só.`);
-    } catch {
-      toast.error("Não consegui gerar os documentos.");
+    } catch (e) {
+      console.error("Erro ao gerar cartas de preposição:", e);
+      toast.error(
+        e instanceof Error
+          ? `Não consegui gerar os documentos: ${e.message}`
+          : "Não consegui gerar os documentos.",
+      );
     } finally {
       setGerando(false);
+    }
+  };
+
+  const gerarSelecionadosSeparados = async () => {
+    const { total, comCliente, semCliente } = paresSelecionadosComCliente();
+    if (total === 0) {
+      toast.error("Selecione pelo menos um documento.");
+      return;
+    }
+    if (comCliente.length === 0) {
+      toast.error(
+        'Nenhum dos documentos selecionados tem cliente definido (não casou com "Cia aérea" e nenhum cliente está selecionado no topo).',
+      );
+      return;
+    }
+    setGerandoZip(true);
+    try {
+      const documentos = await gerarPdfsCartasPreposicaoSeparadas(comCliente);
+      const zip = new JSZip();
+      documentos.forEach(({ nomeArquivo, blob }) => zip.file(nomeArquivo, blob));
+      const conteudo = await zip.generateAsync({ type: "blob" });
+      baixarBlob(conteudo, `cartas-preposicao-${new Date().toISOString().slice(0, 10)}.zip`);
+      toast.success(
+        semCliente > 0
+          ? `${comCliente.length} documento(s) gerado(s) em arquivos separados. ${semCliente} ficaram de fora por falta de cliente -- cadastre a companhia e gere de novo só essas.`
+          : `${comCliente.length} documento(s) gerado(s) em arquivos separados.`,
+      );
+    } catch (e) {
+      console.error("Erro ao gerar cartas de preposição separadas:", e);
+      toast.error(
+        e instanceof Error
+          ? `Não consegui gerar os documentos: ${e.message}`
+          : "Não consegui gerar os documentos.",
+      );
+    } finally {
+      setGerandoZip(false);
     }
   };
 
@@ -782,10 +865,19 @@ function AbaCartaPreposicao() {
             <Button
               type="button"
               onClick={() => void gerarSelecionados()}
-              disabled={gerando || itens.length === 0 || !cliente}
+              disabled={gerando || itens.length === 0}
             >
               <FileDown className="size-4" />
-              {gerando ? "Gerando..." : "Gerar documentos"}
+              {gerando ? "Gerando..." : "Gerar num PDF só"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void gerarSelecionadosSeparados()}
+              disabled={gerandoZip || itens.length === 0}
+            >
+              <Files className="size-4" />
+              {gerandoZip ? "Gerando..." : "Gerar separados (.zip)"}
             </Button>
             {nomeArquivo ? (
               <span className="text-sm text-muted-foreground">{nomeArquivo}</span>
@@ -825,6 +917,7 @@ function AbaCartaPreposicao() {
                 <thead>
                   <tr className="border-b border-border text-left text-xs uppercase text-muted-foreground">
                     <th className="p-2"></th>
+                    <th className="p-2">Cliente</th>
                     <th className="p-2">Processo</th>
                     <th className="p-2">Polo ativo</th>
                     <th className="p-2">Juízo</th>
@@ -834,13 +927,33 @@ function AbaCartaPreposicao() {
                   </tr>
                 </thead>
                 <tbody>
-                  {itens.map((item) => (
+                  {itens.map((item) => {
+                    const casado = encontrarClientePorNome(clientes, item.ciaAereaTexto);
+                    const clienteItem = clienteDoItem(item);
+                    const semCadastro = !casado && !!item.ciaAereaTexto;
+                    return (
                     <tr key={item.idx} className="border-b border-border/60">
                       <td className="p-2">
                         <Checkbox
                           checked={selecionados.has(item.idx)}
                           onCheckedChange={() => alternarSelecao(item.idx)}
                         />
+                      </td>
+                      <td className="p-2">
+                        {clienteItem ? (
+                          <span className="flex items-center gap-1.5">
+                            {clienteItem.nome}
+                            {semCadastro ? (
+                              <Badge variant="secondary" className="text-xs">
+                                sem assinatura cadastrada
+                              </Badge>
+                            ) : null}
+                          </span>
+                        ) : (
+                          <Badge variant="destructive" className="text-xs">
+                            sem cliente
+                          </Badge>
+                        )}
                       </td>
                       <td className="p-2 font-mono text-xs">{item.processo ?? "—"}</td>
                       <td className="p-2">{item.poloAtivo ?? "—"}</td>
@@ -879,14 +992,15 @@ function AbaCartaPreposicao() {
                             size="icon"
                             aria-label={`Baixar documento ${item.processo ?? item.idx + 1}`}
                             onClick={() => void baixarUm(item)}
-                            disabled={gerandoIdx === item.idx || !cliente}
+                            disabled={gerandoIdx === item.idx || !clienteItem}
                           >
                             <Download className="size-4" />
                           </Button>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -898,12 +1012,12 @@ function AbaCartaPreposicao() {
         <Button
           type="button"
           onClick={() => void gerarSelecionados()}
-          disabled={gerando || !cliente}
+          disabled={gerando}
           className="fixed bottom-6 right-6 z-40 shadow-lg"
           size="lg"
         >
           <FileDown className="size-4" />
-          {gerando ? "Gerando..." : `Gerar documentos (${selecionados.size})`}
+          {gerando ? "Gerando..." : `Gerar num PDF só (${selecionados.size})`}
         </Button>
       ) : null}
 

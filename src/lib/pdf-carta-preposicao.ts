@@ -91,6 +91,7 @@ async function construirPaginaCartaPreposicao(
   item: ItemCartaPreposicao,
   logo: ImagemPdf,
   assinatura: ImagemPdf | null,
+  nomeImagemAssinatura = "ImAssinatura",
 ): Promise<Pagina> {
   const larguraUtil = A4_W - MARGIN * 2;
   const p = new Pagina();
@@ -153,7 +154,7 @@ async function construirPaginaCartaPreposicao(
     const razaoAssinatura = assinatura.width / assinatura.height;
     const largAssinatura = 320;
     const altAssinatura = largAssinatura / razaoAssinatura;
-    p.image("ImAssinatura", A4_W / 2 - largAssinatura / 2, y, largAssinatura, altAssinatura);
+    p.image(nomeImagemAssinatura, A4_W / 2 - largAssinatura / 2, y, largAssinatura, altAssinatura);
   }
 
   const rodapeY = 790;
@@ -190,16 +191,68 @@ export async function gerarEBaixarPdfCartaPreposicao(
   baixarBlob(blob, nomeArquivoCartaPreposicao(cliente.id, item));
 }
 
+// Gera várias cartas de preposição num PDF só, cada uma com seu próprio
+// cliente (ex.: planilha com várias cias aéreas misturadas, casada por
+// "Cia aérea" com o cadastro -- ver encontrarClientePorNome em
+// substabelecimento.ts). Mesmo padrão do gerador de Substabelecimento:
+// assinatura cacheada por cliente, XObject de imagem com nome único por
+// cliente (evita colisão quando a assinatura muda de página pra
+// página).
 export async function gerarPdfCartasPreposicao(
-  cliente: ClienteSubstabelecimento,
-  itens: ItemCartaPreposicao[],
+  pares: { cliente: ClienteSubstabelecimento; item: ItemCartaPreposicao }[],
 ): Promise<Blob> {
   const logo = await carregarLogo();
-  const assinatura = await carregarAssinatura(cliente);
+  const assinaturasPorCliente = new Map<string, Promise<ImagemPdf | null>>();
+  const carregarAssinaturaCacheada = (cliente: ClienteSubstabelecimento) => {
+    if (!assinaturasPorCliente.has(cliente.id)) {
+      assinaturasPorCliente.set(cliente.id, carregarAssinatura(cliente));
+    }
+    return assinaturasPorCliente.get(cliente.id)!;
+  };
+
   const paginas = await Promise.all(
-    itens.map((item) => construirPaginaCartaPreposicao(cliente, item, logo, assinatura)),
+    pares.map(async ({ cliente, item }) => {
+      const assinatura = await carregarAssinaturaCacheada(cliente);
+      return construirPaginaCartaPreposicao(
+        cliente,
+        item,
+        logo,
+        assinatura,
+        `ImAssinatura_${cliente.id}`,
+      );
+    }),
   );
+
   const imagens: Record<string, ImagemPdf> = { ImLogo: logo };
-  if (assinatura) imagens["ImAssinatura"] = assinatura;
+  for (const [clienteId, promessa] of assinaturasPorCliente) {
+    const assinatura = await promessa;
+    if (assinatura) imagens[`ImAssinatura_${clienteId}`] = assinatura;
+  }
   return montarPdf(paginas, imagens);
+}
+
+// Mesma ideia do gerador combinado acima, mas devolve um PDF por item em
+// vez de juntar tudo num arquivo só.
+export async function gerarPdfsCartasPreposicaoSeparadas(
+  pares: { cliente: ClienteSubstabelecimento; item: ItemCartaPreposicao }[],
+): Promise<{ nomeArquivo: string; blob: Blob }[]> {
+  const logo = await carregarLogo();
+  const assinaturasPorCliente = new Map<string, Promise<ImagemPdf | null>>();
+  const carregarAssinaturaCacheada = (cliente: ClienteSubstabelecimento) => {
+    if (!assinaturasPorCliente.has(cliente.id)) {
+      assinaturasPorCliente.set(cliente.id, carregarAssinatura(cliente));
+    }
+    return assinaturasPorCliente.get(cliente.id)!;
+  };
+
+  return Promise.all(
+    pares.map(async ({ cliente, item }) => {
+      const assinatura = await carregarAssinaturaCacheada(cliente);
+      const pagina = await construirPaginaCartaPreposicao(cliente, item, logo, assinatura);
+      const imagens: Record<string, ImagemPdf> = { ImLogo: logo };
+      if (assinatura) imagens["ImAssinatura"] = assinatura;
+      const blob = await montarPdf([pagina], imagens);
+      return { nomeArquivo: nomeArquivoCartaPreposicao(cliente.id, item), blob };
+    }),
+  );
 }

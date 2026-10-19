@@ -138,7 +138,7 @@ const CAMPOS_BASE: Record<CampoBase, string[]> = {
 // sinônimo por variação de pontuação, essa chave ignora ponto, º/°/ª e
 // espaço, então "n. unica"/"nº unica"/"n unica" todas viram a mesma
 // coisa ("nunica") na hora de comparar com o cabeçalho da planilha.
-function chaveCabecalho(s: string): string {
+export function chaveCabecalho(s: string): string {
   return normalizar(s).replace(/[.°ºª\s]/g, "");
 }
 

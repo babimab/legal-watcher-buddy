@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 
-import { dataISO, dataPorExtenso, normalizar, texto } from "@/lib/substabelecimento";
+import { chaveCabecalho, dataISO, dataPorExtenso, normalizar, texto } from "@/lib/substabelecimento";
 
 export type Preposto = { nome: string; cpf: string | null };
 
@@ -12,13 +12,42 @@ export type ItemCartaPreposicao = {
   prepostos: Preposto[];
   cidade: string;
   data: string; // ISO yyyy-mm-dd
+  // Texto cru da coluna "Cia aérea"/"Companhia" da planilha, se tiver --
+  // mesmo padrão do Substabelecimento, usado pra casar automaticamente
+  // com o cadastro de clientes de Docs de Representação (ver
+  // encontrarClientePorNome em substabelecimento.ts).
+  ciaAereaTexto: string | null;
 };
 
 type CampoBase =
-  "processo" | "poloAtivo" | "juizo" | "vara" | "comarca" | "uf" | "prepostos" | "cidade" | "data";
+  | "processo"
+  | "poloAtivo"
+  | "juizo"
+  | "vara"
+  | "comarca"
+  | "uf"
+  | "prepostos"
+  | "cidade"
+  | "data"
+  | "ciaAerea";
 
 const CAMPOS_BASE: Record<CampoBase, string[]> = {
-  processo: ["processo", "numero do processo", "cnj"],
+  processo: [
+    "processo",
+    "numero do processo",
+    "cnj",
+    "nº unica",
+    "n° unica",
+    "no unica",
+    "numero unica",
+    "numero unico",
+    "numero único",
+    "numero",
+    "número",
+    "nº",
+    "n°",
+    "no",
+  ],
   poloAtivo: ["polo ativo", "autor", "reclamante", "requerente"],
   juizo: ["juizo", "juízo", "em tramite perante", "vara/comarca"],
   vara: ["vara"],
@@ -27,10 +56,16 @@ const CAMPOS_BASE: Record<CampoBase, string[]> = {
   prepostos: ["prepostos", "preposto", "preposto(s)"],
   cidade: ["cidade"],
   data: ["data", "data do documento"],
+  // Mesma lista do Substabelecimento -- não inclui "cliente" solto, que
+  // costuma ser um código interno, não o nome da companhia.
+  ciaAerea: ["cia aerea", "cia aérea", "companhia aerea", "companhia aérea", "companhia", "cia"],
 };
+// Mesma normalização "tolerante a pontuação" do Substabelecimento (ver
+// chaveCabecalho lá) -- cabeçalho real varia entre "Nº Única"/"n.
+// Única"/"Número" conforme a planilha da Joanice muda.
 const SINONIMOS: Record<string, CampoBase> = {};
 for (const [campo, nomes] of Object.entries(CAMPOS_BASE)) {
-  for (const nome of nomes) SINONIMOS[nome] = campo as CampoBase;
+  for (const nome of nomes) SINONIMOS[chaveCabecalho(nome)] = campo as CampoBase;
 }
 
 // Juízo pode vir pronto numa única coluna ou espalhado em vara/comarca/uf
@@ -79,7 +114,7 @@ export function lerPlanilhaCartaPreposicao(buffer: ArrayBuffer): ItemCartaPrepos
 
   const matriz = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, blankrows: false });
   if (matriz.length === 0) return [];
-  const cabecalho = (matriz[0] ?? []).map((c) => normalizar(texto(c) ?? ""));
+  const cabecalho = (matriz[0] ?? []).map((c) => chaveCabecalho(texto(c) ?? ""));
 
   const itens: ItemCartaPreposicao[] = [];
   for (let i = 1; i < matriz.length; i++) {
@@ -99,6 +134,7 @@ export function lerPlanilhaCartaPreposicao(buffer: ArrayBuffer): ItemCartaPrepos
       prepostos: lerPrepostos(dados.prepostos),
       cidade: texto(dados.cidade) ?? "Rio de Janeiro",
       data: dataISO(dados.data) ?? new Date().toISOString().slice(0, 10),
+      ciaAereaTexto: texto(dados.ciaAerea),
     });
   }
   return itens;
