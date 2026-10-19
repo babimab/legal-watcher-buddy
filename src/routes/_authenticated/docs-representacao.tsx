@@ -224,7 +224,12 @@ function AbaSubstabelecimento() {
 
   const baixarUm = async (item: ItemSubstabelecimento) => {
     const clienteItem = clienteDoItem(item);
-    if (!clienteItem) return;
+    if (!clienteItem) {
+      toast.error(
+        'Sem cliente pra esse documento (não casou com "Cia aérea" e nenhum cliente está selecionado no topo).',
+      );
+      return;
+    }
     setGerandoIdx(item.idx);
     try {
       await gerarEBaixarPdfSubstabelecimento(clienteItem, item);
@@ -242,20 +247,29 @@ function AbaSubstabelecimento() {
       return;
     }
     const pares = escolhidos.map((item) => ({ cliente: clienteDoItem(item), item }));
-    const semCliente = pares.filter((p) => !p.cliente);
-    if (semCliente.length > 0) {
+    // Em vez de travar o lote inteiro (planilha com dezenas de linhas,
+    // cia por cia sendo cadastrada aos poucos), pula só quem não tem
+    // cliente e gera o resto -- avisando quantos ficaram de fora, pra
+    // ela saber que precisa voltar e cadastrar/corrigir essas linhas.
+    const comCliente = pares.filter(
+      (p): p is { cliente: ClienteSubstabelecimento; item: ItemSubstabelecimento } => !!p.cliente,
+    );
+    const semCliente = pares.length - comCliente.length;
+    if (comCliente.length === 0) {
       toast.error(
-        `${semCliente.length} documento(s) sem cliente definido (não casou com "Cia aérea" e nenhum cliente está selecionado no topo). Selecione um cliente ou cadastre a companhia antes de gerar.`,
+        'Nenhum dos documentos selecionados tem cliente definido (não casou com "Cia aérea" e nenhum cliente está selecionado no topo).',
       );
       return;
     }
     setGerando(true);
     try {
-      const blob = await gerarPdfSubstabelecimentos(
-        pares as { cliente: ClienteSubstabelecimento; item: ItemSubstabelecimento }[],
-      );
+      const blob = await gerarPdfSubstabelecimentos(comCliente);
       baixarBlob(blob, `substabelecimentos-${new Date().toISOString().slice(0, 10)}.pdf`);
-      toast.success(`${escolhidos.length} documento(s) gerado(s) num PDF só.`);
+      toast.success(
+        semCliente > 0
+          ? `${comCliente.length} documento(s) gerado(s) num PDF só. ${semCliente} ficaram de fora por falta de cliente -- cadastre a companhia e gere de novo só essas.`
+          : `${comCliente.length} documento(s) gerado(s) num PDF só.`,
+      );
     } catch {
       toast.error("Não consegui gerar os documentos.");
     } finally {

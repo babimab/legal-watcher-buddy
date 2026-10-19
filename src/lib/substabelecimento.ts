@@ -100,7 +100,8 @@ type CampoBase =
 const CAMPOS_BASE: Record<CampoBase, string[]> = {
   // "nº única"/"n° única" depois de normalizar() vira "nº unica" (o "º"
   // não é acento, não some) -- planilha real da Joanice (coordenadora
-  // das aéreas) usa exatamente esse rótulo pro número do processo.
+  // das aéreas) usa esse rótulo, ou só "Número"/"Nº" puro depois que ela
+  // simplificou a planilha (tirou "Única" do nome da coluna).
   processo: [
     "processo",
     "numero do processo",
@@ -111,6 +112,11 @@ const CAMPOS_BASE: Record<CampoBase, string[]> = {
     "numero unica",
     "numero unico",
     "numero único",
+    "numero",
+    "número",
+    "nº",
+    "n°",
+    "no",
   ],
   // "polo ativo" é como a planilha de aéreas chama a parte autora.
   autor: ["autor", "movido por", "reclamante", "polo ativo"],
@@ -124,7 +130,7 @@ const CAMPOS_BASE: Record<CampoBase, string[]> = {
   // Não inclui "cliente" de propósito -- em planilhas reais essa coluna
   // costuma ser um código interno (ex.: "8075 - Beaumont"), não o nome
   // da companhia aérea que precisa casar com o cadastro.
-  ciaAerea: ["cia aerea", "cia aérea", "companhia aerea", "companhia aérea"],
+  ciaAerea: ["cia aerea", "cia aérea", "companhia aerea", "companhia aérea", "companhia", "cia"],
 };
 const SINONIMOS: Record<string, CampoBase> = {};
 for (const [campo, nomes] of Object.entries(CAMPOS_BASE)) {
@@ -137,13 +143,15 @@ function compuserJuizo(dados: Partial<Record<CampoBase, unknown>>): string | nul
   const direto = texto(dados.juizo);
   if (direto) return direto;
   const vara = texto(dados.vara);
-  // Comarca às vezes já vem com "(UF)" redundante no fim (ex.: "Itajubá
-  // (MG)") -- descarta em favor da coluna UF separada, senão sai
-  // duplicado ("...Itajubá (MG) - MG"), mesmo ajuste já feito na leitura
-  // da planilha de Fatura.
   const comarcaBruta = texto(dados.comarca);
-  const comarca = comarcaBruta ? comarcaBruta.replace(/\s*\([^)]*\)\s*$/, "").trim() : null;
   const uf = texto(dados.uf);
+  // Comarca às vezes já vem com "(UF)" redundante no fim (ex.: "Itajubá
+  // (MG)") -- só descarta esse "(UF)" quando tem uma coluna de UF
+  // separada pra usar no lugar, senão perde a UF de vez (planilha sem
+  // coluna de UF própria -- confiando só no que já vem embutido na
+  // comarca -- continua precisando dele).
+  const comarca =
+    uf && comarcaBruta ? comarcaBruta.replace(/\s*\([^)]*\)\s*$/, "").trim() : comarcaBruta;
   if (!vara && !comarca) return null;
   const partes = [vara, comarca ? `comarca de ${comarca}` : null].filter(Boolean).join(" da ");
   return uf ? `${partes} - ${uf.toUpperCase()}` : partes;
