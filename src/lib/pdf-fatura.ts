@@ -16,12 +16,11 @@ import {
 
 const LOGO_URL = "/bcw-logo.png";
 
-// Endereços tirados do timbrado oficial (public/documentos/timbrado-bcw.docx)
-// -- mesma fonte usada no relatório Word, pra não divergir caso o
-// escritório tenha mudado de endereço.
+// Só o endereço do RJ no rodapé do invoice (pedido da Letícia,
+// 19/10/2026) -- o relatório Word continua com os dois endereços do
+// timbrado oficial, isso é específico da Nota de Honorários.
 const ENDERECOS = [
   "Rua Dom Gerardo, 35, 5º Andar, Centro, CEP: 20090-905, Rio de Janeiro – RJ, Brasil, Tel.: +55(21) 3543-1000",
-  "Av. Brigadeiro Faria Lima, 4509, 8º andar, Itaim Bibi, CEP: 04538-133, São Paulo – SP, Brasil, Tel.: +55 (11) 3078-3858",
 ];
 
 let logoCache: Promise<ImagemPdf> | null = null;
@@ -49,7 +48,7 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
     align: "right",
   });
   if (nota.casoInterno) {
-    p.text(`Nº ${nota.casoInterno}`, xDireita, 56, 9.5, {
+    p.text(`Caso ${nota.casoInterno}`, xDireita, 56, 9.5, {
       color: CORES.muted,
       align: "right",
     });
@@ -76,11 +75,10 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
     11,
     true,
   );
-  const linhasCorr = nota.correspondente
-    ? quebrarTexto(`A/C: ${nota.correspondente}`, colEsquerdaW, 8)
-    : [];
-  const alturaEsq =
-    13 + linhasDestinatario.length * 14 + (linhasCorr.length ? 4 + linhasCorr.length * 10 : 0);
+  // "A/C: {correspondente}" tirado por pedido (Letícia, 19/10/2026) --
+  // não deve aparecer no invoice, mesmo quando a planilha tem essa
+  // coluna preenchida.
+  const alturaEsq = 13 + linhasDestinatario.length * 14;
 
   // Juízo tem um ponto de quebra "certo" (vara em cima, comarca embaixo)
   // -- quando não cabe numa linha, prefere quebrar aí em vez de deixar a
@@ -158,13 +156,6 @@ function construirPaginaNota(nota: NotaFatura, logo: ImagemPdf): Pagina {
     p.text(linha, MARGIN, yEsq + i * 14, 11, { bold: true, color: CORES.navy });
   });
   yEsq += linhasDestinatario.length * 14;
-  if (linhasCorr.length) {
-    yEsq += 4;
-    linhasCorr.forEach((linha, i) => {
-      p.text(linha, MARGIN, yEsq + i * 10, 8, { color: CORES.muted });
-    });
-    yEsq += linhasCorr.length * 10;
-  }
 
   // Direita: rótulo e valor na MESMA linha quando o valor cabe numa linha
   // só. Reserva 2pt de folga no fim da linha (a largura agora é medida
