@@ -262,3 +262,27 @@ export function encontrarClientePorNome(
   });
   return parcial ?? null;
 }
+
+// "Cliente" avulso, montado na hora a partir do texto cru da coluna
+// "Cia aérea" -- pra quando a companhia da linha ainda não está
+// cadastrada em Docs de Representação. Em vez de cair num cliente
+// genérico (ou travar o documento), usa o próprio nome da planilha como
+// outorgante: sai certo (processo, autor, juízo e agora o nome da
+// companhia, tudo variando linha a linha), só sem assinatura -- essa só
+// dá pra ter cadastrando a companhia de verdade.
+export function clienteAdHoc(textoCiaAerea: string): ClienteSubstabelecimento {
+  return {
+    id: `adhoc-${normalizar(textoCiaAerea).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`,
+    nome: textoCiaAerea,
+    textoOutorgante: textoCiaAerea,
+    assinanteNome: null,
+    assinanteOab: null,
+    assinaturaCaminho: null,
+    procuracaoCaminho: null,
+    procuracaoNomeArquivo: null,
+    cartaPreposicaoCaminho: null,
+    cartaPreposicaoNomeArquivo: null,
+    substabelecimentoModeloCaminho: null,
+    substabelecimentoModeloNomeArquivo: null,
+  };
+}

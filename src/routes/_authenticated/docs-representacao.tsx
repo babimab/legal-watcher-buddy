@@ -40,6 +40,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   dataPorExtenso,
   encontrarClientePorNome,
+  clienteAdHoc,
   lerPlanilhaSubstabelecimento,
   type ClienteSubstabelecimento,
   type ItemSubstabelecimento,
@@ -154,12 +155,17 @@ function AbaSubstabelecimento() {
 
   // Planilha com várias cias aéreas misturadas (cada linha é de uma
   // companhia diferente, ex.: TAP, KLM, Aerolineas Argentinas...) --
-  // tenta casar a coluna "Cia aérea" de cada linha com o cadastro; sem
-  // casar (companhia ainda não cadastrada aqui), cai no cliente
-  // escolhido no seletor acima, mas fica marcado como "não casou" na
-  // tabela pra não sair com o outorgante errado sem ela perceber.
-  const clienteDoItem = (item: ItemSubstabelecimento): ClienteSubstabelecimento | null =>
-    encontrarClientePorNome(clientes, item.ciaAereaTexto) ?? cliente;
+  // tenta casar a coluna "Cia aérea" de cada linha com o cadastro. Sem
+  // casar mas com o texto da planilha disponível, usa esse texto direto
+  // como outorgante (documento sai certo, só sem assinatura -- essa só
+  // cadastrando a companhia de verdade). Só cai no cliente escolhido no
+  // seletor acima quando a linha nem tem texto de "Cia aérea".
+  const clienteDoItem = (item: ItemSubstabelecimento): ClienteSubstabelecimento | null => {
+    const casado = encontrarClientePorNome(clientes, item.ciaAereaTexto);
+    if (casado) return casado;
+    if (item.ciaAereaTexto) return clienteAdHoc(item.ciaAereaTexto);
+    return cliente;
+  };
 
   const ler = async (arquivo: File) => {
     const nome = arquivo.name.toLowerCase();
@@ -405,8 +411,9 @@ function AbaSubstabelecimento() {
                 </thead>
                 <tbody>
                   {itens.map((item) => {
-                    const casou = !!encontrarClientePorNome(clientes, item.ciaAereaTexto);
+                    const casado = encontrarClientePorNome(clientes, item.ciaAereaTexto);
                     const clienteItem = clienteDoItem(item);
+                    const semCadastro = !casado && !!item.ciaAereaTexto;
                     return (
                     <tr key={item.idx} className="border-b border-border/60">
                       <td className="p-2">
@@ -419,9 +426,9 @@ function AbaSubstabelecimento() {
                         {clienteItem ? (
                           <span className="flex items-center gap-1.5">
                             {clienteItem.nome}
-                            {!casou ? (
+                            {semCadastro ? (
                               <Badge variant="secondary" className="text-xs">
-                                não casou
+                                sem assinatura cadastrada
                               </Badge>
                             ) : null}
                           </span>
