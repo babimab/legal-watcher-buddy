@@ -54,11 +54,12 @@ const AuthenticatedAdministrativosRoute =
     path: '/administrativos',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedAlertaAstroRoute = AuthenticatedAlertaAstroRouteImport.update({
-  id: '/alerta-astro',
-  path: '/alerta-astro',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
+const AuthenticatedAlertaAstroRoute =
+  AuthenticatedAlertaAstroRouteImport.update({
+    id: '/alerta-astro',
+    path: '/alerta-astro',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedBaixasClienteRoute =
   AuthenticatedBaixasClienteRouteImport.update({
     id: '/baixas-cliente',
@@ -107,11 +108,12 @@ const AuthenticatedIntegracaoRoute = AuthenticatedIntegracaoRouteImport.update({
   path: '/integracao',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedListaPrazosRoute = AuthenticatedListaPrazosRouteImport.update({
-  id: '/lista-prazos',
-  path: '/lista-prazos',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
+const AuthenticatedListaPrazosRoute =
+  AuthenticatedListaPrazosRouteImport.update({
+    id: '/lista-prazos',
+    path: '/lista-prazos',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedMonitoramentoRoute =
   AuthenticatedMonitoramentoRouteImport.update({
     id: '/monitoramento',
