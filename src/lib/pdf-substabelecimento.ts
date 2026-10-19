@@ -4,6 +4,7 @@ import {
   dataPorExtenso,
   nomeArquivoSubstabelecimento,
 } from "@/lib/substabelecimento";
+import { capitalizarNome } from "@/lib/processos";
 import { obterUrlAssinaturaCliente } from "@/lib/clientes-substabelecimento";
 import {
   A4_W,
@@ -122,7 +123,10 @@ async function construirPaginaSubstabelecimento(
     item.comReserva ? "com" : "sem",
     cliente.textoOutorgante,
     item.processo ?? "—",
-    item.autor ?? "—",
+    // Nome da parte vem em CAIXA ALTA da planilha/LegalDesk -- o
+    // substabelecimento usa capitalização normal (pedido da BDR,
+    // "Denis de Souza Cardoso" em vez de "DENIS DE SOUZA CARDOSO").
+    item.autor ? capitalizarNome(item.autor) : "—",
     item.juizo ?? "—",
   );
   const palavras = montarParagrafoComDestaques(corpo, [

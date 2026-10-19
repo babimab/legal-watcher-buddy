@@ -159,9 +159,14 @@ function compuserJuizo(dados: Partial<Record<CampoBase, unknown>>): string | nul
   // (MG)") -- só descarta esse "(UF)" quando tem uma coluna de UF
   // separada pra usar no lugar, senão perde a UF de vez (planilha sem
   // coluna de UF própria -- confiando só no que já vem embutido na
-  // comarca -- continua precisando dele).
+  // comarca -- continua precisando dele). Nesse segundo caso, troca os
+  // parênteses por barra (pedido da BDR, "Uberlândia/MG" em vez de
+  // "Uberlândia (MG)") -- o "- UF" com traço (quando tem coluna de UF
+  // separada) continua igual, ela só reclamou dos parênteses.
   const comarca =
-    uf && comarcaBruta ? comarcaBruta.replace(/\s*\([^)]*\)\s*$/, "").trim() : comarcaBruta;
+    uf && comarcaBruta
+      ? comarcaBruta.replace(/\s*\([^)]*\)\s*$/, "").trim()
+      : (comarcaBruta?.replace(/\s*\(([^)]*)\)\s*$/, "/$1").trim() ?? null);
   if (!vara && !comarca) return null;
   const partes = [vara, comarca ? `comarca de ${comarca}` : null].filter(Boolean).join(" da ");
   return uf ? `${partes} - ${uf.toUpperCase()}` : partes;
