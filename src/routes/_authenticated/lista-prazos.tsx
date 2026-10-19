@@ -80,8 +80,10 @@ function ListaPrazos() {
     !!filtros.dataAte;
 
   const invalidar = () =>
-    queryClient.invalidateQueries({ queryKey: ["lista-prazos-automaticos"] }) &&
-    queryClient.invalidateQueries({ queryKey: ["lista-prazos-manuais"] });
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["lista-prazos-automaticos"] }),
+      queryClient.invalidateQueries({ queryKey: ["lista-prazos-manuais"] }),
+    ]);
 
   const alternarAutomatico = async (id: string, concluida: boolean) => {
     try {
