@@ -238,3 +238,31 @@ export async function gerarPdfSubstabelecimentos(
   }
   return montarPdf(paginas, imagens);
 }
+
+// Mesma ideia do gerador combinado acima (assinatura cacheada por
+// cliente), mas devolve um PDF por item em vez de juntar tudo num
+// arquivo só -- pra quem precisa anexar cada substabelecimento
+// separado (ex.: um processo por vez no sistema do tribunal).
+export async function gerarPdfsSubstabelecimentosSeparados(
+  pares: { cliente: ClienteSubstabelecimento; item: ItemSubstabelecimento }[],
+): Promise<{ nomeArquivo: string; blob: Blob }[]> {
+  const logo = await carregarLogo();
+  const assinaturasPorCliente = new Map<string, Promise<ImagemPdf | null>>();
+  const carregarAssinaturaCacheada = (cliente: ClienteSubstabelecimento) => {
+    if (!assinaturasPorCliente.has(cliente.id)) {
+      assinaturasPorCliente.set(cliente.id, carregarAssinatura(cliente));
+    }
+    return assinaturasPorCliente.get(cliente.id)!;
+  };
+
+  return Promise.all(
+    pares.map(async ({ cliente, item }) => {
+      const assinatura = await carregarAssinaturaCacheada(cliente);
+      const pagina = await construirPaginaSubstabelecimento(cliente, item, logo, assinatura);
+      const imagens: Record<string, ImagemPdf> = { ImLogo: logo };
+      if (assinatura) imagens["ImAssinatura"] = assinatura;
+      const blob = await montarPdf([pagina], imagens);
+      return { nomeArquivo: nomeArquivoSubstabelecimento(cliente, item), blob };
+    }),
+  );
+}

@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Download, FileDown, Pencil, ScrollText, Settings, Trash2, Upload } from "lucide-react";
+import { Download, FileDown, Files, Pencil, ScrollText, Settings, Trash2, Upload } from "lucide-react";
+import JSZip from "jszip";
 
 import {
   AlertDialog,
@@ -71,6 +72,7 @@ import {
 import {
   gerarEBaixarPdfSubstabelecimento,
   gerarPdfSubstabelecimentos,
+  gerarPdfsSubstabelecimentosSeparados,
 } from "@/lib/pdf-substabelecimento";
 import {
   gerarEBaixarPdfCartaPreposicao,
@@ -138,6 +140,7 @@ function AbaSubstabelecimento() {
   const [selecionados, setSelecionados] = useState<Set<number>>(new Set());
   const [lendo, setLendo] = useState(false);
   const [gerando, setGerando] = useState(false);
+  const [gerandoZip, setGerandoZip] = useState(false);
   const [gerandoIdx, setGerandoIdx] = useState<number | null>(null);
   const [editando, setEditando] = useState<ItemSubstabelecimento | null>(null);
   const [apagando, setApagando] = useState<ItemSubstabelecimento | null>(null);
@@ -251,21 +254,26 @@ function AbaSubstabelecimento() {
     }
   };
 
-  const gerarSelecionados = async () => {
+  // Em vez de travar o lote inteiro (planilha com dezenas de linhas,
+  // cia por cia sendo cadastrada aos poucos), pula só quem não tem
+  // cliente e gera o resto -- avisando quantos ficaram de fora, pra ela
+  // saber que precisa voltar e cadastrar/corrigir essas linhas. Usado
+  // tanto pro PDF único quanto pros separados.
+  const paresSelecionadosComCliente = () => {
     const escolhidos = itens.filter((n) => selecionados.has(n.idx));
-    if (escolhidos.length === 0) {
-      toast.error("Selecione pelo menos um documento.");
-      return;
-    }
     const pares = escolhidos.map((item) => ({ cliente: clienteDoItem(item), item }));
-    // Em vez de travar o lote inteiro (planilha com dezenas de linhas,
-    // cia por cia sendo cadastrada aos poucos), pula só quem não tem
-    // cliente e gera o resto -- avisando quantos ficaram de fora, pra
-    // ela saber que precisa voltar e cadastrar/corrigir essas linhas.
     const comCliente = pares.filter(
       (p): p is { cliente: ClienteSubstabelecimento; item: ItemSubstabelecimento } => !!p.cliente,
     );
-    const semCliente = pares.length - comCliente.length;
+    return { total: escolhidos.length, comCliente, semCliente: pares.length - comCliente.length };
+  };
+
+  const gerarSelecionados = async () => {
+    const { total, comCliente, semCliente } = paresSelecionadosComCliente();
+    if (total === 0) {
+      toast.error("Selecione pelo menos um documento.");
+      return;
+    }
     if (comCliente.length === 0) {
       toast.error(
         'Nenhum dos documentos selecionados tem cliente definido (não casou com "Cia aérea" e nenhum cliente está selecionado no topo).',
@@ -290,6 +298,42 @@ function AbaSubstabelecimento() {
       );
     } finally {
       setGerando(false);
+    }
+  };
+
+  const gerarSelecionadosSeparados = async () => {
+    const { total, comCliente, semCliente } = paresSelecionadosComCliente();
+    if (total === 0) {
+      toast.error("Selecione pelo menos um documento.");
+      return;
+    }
+    if (comCliente.length === 0) {
+      toast.error(
+        'Nenhum dos documentos selecionados tem cliente definido (não casou com "Cia aérea" e nenhum cliente está selecionado no topo).',
+      );
+      return;
+    }
+    setGerandoZip(true);
+    try {
+      const documentos = await gerarPdfsSubstabelecimentosSeparados(comCliente);
+      const zip = new JSZip();
+      documentos.forEach(({ nomeArquivo, blob }) => zip.file(nomeArquivo, blob));
+      const conteudo = await zip.generateAsync({ type: "blob" });
+      baixarBlob(conteudo, `substabelecimentos-${new Date().toISOString().slice(0, 10)}.zip`);
+      toast.success(
+        semCliente > 0
+          ? `${comCliente.length} documento(s) gerado(s) em arquivos separados. ${semCliente} ficaram de fora por falta de cliente -- cadastre a companhia e gere de novo só essas.`
+          : `${comCliente.length} documento(s) gerado(s) em arquivos separados.`,
+      );
+    } catch (e) {
+      console.error("Erro ao gerar substabelecimentos separados:", e);
+      toast.error(
+        e instanceof Error
+          ? `Não consegui gerar os documentos: ${e.message}`
+          : "Não consegui gerar os documentos.",
+      );
+    } finally {
+      setGerandoZip(false);
     }
   };
 
@@ -360,7 +404,16 @@ function AbaSubstabelecimento() {
               disabled={gerando || itens.length === 0 || !cliente}
             >
               <FileDown className="size-4" />
-              {gerando ? "Gerando..." : "Gerar documentos"}
+              {gerando ? "Gerando..." : "Gerar num PDF só"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void gerarSelecionadosSeparados()}
+              disabled={gerandoZip || itens.length === 0 || !cliente}
+            >
+              <Files className="size-4" />
+              {gerandoZip ? "Gerando..." : "Gerar separados (.zip)"}
             </Button>
             {nomeArquivo ? (
               <span className="text-sm text-muted-foreground">{nomeArquivo}</span>
