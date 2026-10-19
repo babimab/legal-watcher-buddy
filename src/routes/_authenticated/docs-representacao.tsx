@@ -233,8 +233,13 @@ function AbaSubstabelecimento() {
     setGerandoIdx(item.idx);
     try {
       await gerarEBaixarPdfSubstabelecimento(clienteItem, item);
-    } catch {
-      toast.error("Não consegui gerar esse documento.");
+    } catch (e) {
+      console.error("Erro ao gerar substabelecimento:", e);
+      toast.error(
+        e instanceof Error
+          ? `Não consegui gerar esse documento: ${e.message}`
+          : "Não consegui gerar esse documento.",
+      );
     } finally {
       setGerandoIdx(null);
     }
@@ -270,8 +275,13 @@ function AbaSubstabelecimento() {
           ? `${comCliente.length} documento(s) gerado(s) num PDF só. ${semCliente} ficaram de fora por falta de cliente -- cadastre a companhia e gere de novo só essas.`
           : `${comCliente.length} documento(s) gerado(s) num PDF só.`,
       );
-    } catch {
-      toast.error("Não consegui gerar os documentos.");
+    } catch (e) {
+      console.error("Erro ao gerar substabelecimentos:", e);
+      toast.error(
+        e instanceof Error
+          ? `Não consegui gerar os documentos: ${e.message}`
+          : "Não consegui gerar os documentos.",
+      );
     } finally {
       setGerando(false);
     }
