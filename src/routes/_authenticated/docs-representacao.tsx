@@ -2576,7 +2576,8 @@ function GerenciarModelosCorrespondenteDialog({
       onChanged();
     } catch (e) {
       console.error("Erro ao cadastrar modelo de correspondente:", e);
-      toast.error("Não consegui cadastrar esse estado.");
+      const detalhe = e instanceof Error ? e.message : String(e);
+      toast.error(`Não consegui cadastrar esse estado: ${detalhe}`);
     } finally {
       setCriando(false);
     }
@@ -2590,7 +2591,8 @@ function GerenciarModelosCorrespondenteDialog({
       onChanged();
     } catch (e) {
       console.error("Erro ao excluir modelo de correspondente:", e);
-      toast.error("Não consegui remover esse estado.");
+      const detalhe = e instanceof Error ? e.message : String(e);
+      toast.error(`Não consegui remover esse estado: ${detalhe}`);
     } finally {
       setExcluindo(null);
     }
@@ -2793,7 +2795,8 @@ function EditorModeloCorrespondente({
       onSalvar();
     } catch (e) {
       console.error("Erro ao atualizar modelo de correspondente:", e);
-      toast.error("Não consegui salvar.");
+      const detalhe = e instanceof Error ? e.message : String(e);
+      toast.error(`Não consegui salvar: ${detalhe}`);
     } finally {
       setSalvando(false);
     }
@@ -2877,7 +2880,8 @@ function EditorAssinaturaModeloCorrespondente({
       onSalvar();
     } catch (e) {
       console.error("Erro ao remover assinatura do modelo de correspondente:", e);
-      toast.error("Não consegui remover a assinatura.");
+      const detalhe = e instanceof Error ? e.message : String(e);
+      toast.error(`Não consegui remover a assinatura: ${detalhe}`);
     } finally {
       setRemovendo(false);
     }
@@ -2977,7 +2981,8 @@ function GerenciarModelosCartaPreposicaoCorrespondenteDialog({
       onChanged();
     } catch (e) {
       console.error("Erro ao cadastrar modelo de carta de preposição de correspondente:", e);
-      toast.error("Não consegui cadastrar esse estado.");
+      const detalhe = e instanceof Error ? e.message : String(e);
+      toast.error(`Não consegui cadastrar esse estado: ${detalhe}`);
     } finally {
       setCriando(false);
     }
@@ -2991,7 +2996,8 @@ function GerenciarModelosCartaPreposicaoCorrespondenteDialog({
       onChanged();
     } catch (e) {
       console.error("Erro ao excluir modelo de carta de preposição de correspondente:", e);
-      toast.error("Não consegui remover esse estado.");
+      const detalhe = e instanceof Error ? e.message : String(e);
+      toast.error(`Não consegui remover esse estado: ${detalhe}`);
     } finally {
       setExcluindo(null);
     }
@@ -3194,7 +3200,8 @@ function EditorModeloCartaPreposicaoCorrespondente({
       onSalvar();
     } catch (e) {
       console.error("Erro ao atualizar modelo de carta de preposição de correspondente:", e);
-      toast.error("Não consegui salvar.");
+      const detalhe = e instanceof Error ? e.message : String(e);
+      toast.error(`Não consegui salvar: ${detalhe}`);
     } finally {
       setSalvando(false);
     }
@@ -3278,7 +3285,8 @@ function EditorAssinaturaModeloCartaPreposicaoCorrespondente({
       onSalvar();
     } catch (e) {
       console.error("Erro ao remover assinatura do modelo de carta de preposição de correspondente:", e);
-      toast.error("Não consegui remover a assinatura.");
+      const detalhe = e instanceof Error ? e.message : String(e);
+      toast.error(`Não consegui remover a assinatura: ${detalhe}`);
     } finally {
       setRemovendo(false);
     }
