@@ -50,7 +50,9 @@ const CAMPOS_BASE: Record<CampoBase, string[]> = {
   ],
   poloAtivo: ["polo ativo", "autor", "reclamante", "requerente"],
   juizo: ["juizo", "juízo", "em tramite perante", "vara/comarca"],
-  vara: ["vara"],
+  // "Foro/Tribunal" é como a planilha de pauta de audiência (LegalDesk)
+  // chama essa informação -- mesmo dado que "vara" nas outras planilhas.
+  vara: ["vara", "foro", "tribunal", "foro/tribunal", "foro tribunal"],
   comarca: ["comarca"],
   uf: ["uf"],
   prepostos: ["prepostos", "preposto", "preposto(s)"],
