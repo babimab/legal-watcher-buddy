@@ -124,7 +124,10 @@ async function construirPaginas(
   y += 28;
 
   const altAssinatura = assinatura ? 320 / (assinatura.width / assinatura.height) : 0;
-  const espacoFinal = 36 + (assinatura ? altAssinatura + 20 : 0);
+  // Espaço pra assinatura + nome + OAB impressos embaixo dela (igual o
+  // modelo real -- só a imagem da assinatura, sem identificar quem
+  // assina, fica sem serventia numa lista de centenas de nomes).
+  const espacoFinal = 36 + (assinatura ? altAssinatura + 50 : 0);
   if (y + espacoFinal > LIMITE_Y) novaPagina();
 
   p.text(`${item.cidade}, ${dataPorExtenso(item.data)}.`, A4_W / 2, y, 14, {
@@ -137,6 +140,23 @@ async function construirPaginas(
   if (assinatura) {
     const largAssinatura = 320;
     p.image(nomeImagemAssinatura, A4_W / 2 - largAssinatura / 2, y, largAssinatura, altAssinatura);
+    y += altAssinatura + 6;
+    if (modelo.assinanteNome) {
+      p.text(modelo.assinanteNome, A4_W / 2, y, 11, {
+        bold: true,
+        align: "center",
+        fonte: "times",
+        color: PRETO,
+      });
+      y += 14;
+    }
+    if (modelo.assinanteOab) {
+      p.text(modelo.assinanteOab, A4_W / 2, y, 10, {
+        align: "center",
+        fonte: "times",
+        color: PRETO,
+      });
+    }
   }
 
   desenharRodape(p);
