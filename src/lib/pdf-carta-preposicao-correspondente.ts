@@ -145,8 +145,8 @@ async function construirPaginas(
 
   const TAMANHO_FONTE = 12;
   const ALTURA_LINHA = 17;
-  const desenharParagrafo = (corpo: string) => {
-    const palavras = montarParagrafoComDestaques(corpo, []);
+  const desenharParagrafo = (corpo: string, destaques: string[] = []) => {
+    const palavras = montarParagrafoComDestaques(corpo, destaques);
     const linhas = quebrarPalavras(palavras, larguraUtil, TAMANHO_FONTE, "times");
     linhas.forEach((linha, i) => {
       if (y > LIMITE_Y) novaPagina();
@@ -167,7 +167,8 @@ async function construirPaginas(
 
   desenharParagrafo(`${modelo.listaPrepostos}.`);
   y += ALTURA_LINHA;
-  desenharParagrafo(PARAGRAFO_PODERES(cliente.textoOutorgante));
+  // Nome da companhia em negrito, igual já é no Substabelecimento.
+  desenharParagrafo(PARAGRAFO_PODERES(cliente.textoOutorgante), [cliente.textoOutorgante]);
   y += 24;
 
   const { largura: largAssinatura, altura: altAssinatura } = assinatura

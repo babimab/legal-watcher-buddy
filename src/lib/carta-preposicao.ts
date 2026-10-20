@@ -85,8 +85,16 @@ function compuserJuizo(dados: Partial<Record<CampoBase, unknown>>): string | nul
   const direto = texto(dados.juizo);
   if (direto) return direto;
   const vara = texto(dados.vara);
-  const comarca = texto(dados.comarca);
+  const comarcaBruta = texto(dados.comarca);
   const uf = texto(dados.uf);
+  // Comarca às vezes já vem com "(UF)" redundante no fim (ex.: "Petrópolis
+  // (RJ)") -- mesma correção do Substabelecimento: troca os parênteses
+  // por barra ("Petrópolis/RJ") quando não tem coluna de UF separada pra
+  // usar no lugar, e só descarta o "(UF)" quando tem essa coluna.
+  const comarca =
+    uf && comarcaBruta
+      ? comarcaBruta.replace(/\s*\([^)]*\)\s*$/, "").trim()
+      : (comarcaBruta?.replace(/\s*\(([^)]*)\)\s*$/, "/$1").trim() ?? null);
   if (!vara && !comarca) return null;
   const partes = [vara, comarca ? `comarca de ${comarca}` : null].filter(Boolean).join(" da ");
   return uf ? `${partes} - ${uf.toUpperCase()}` : partes;
