@@ -966,7 +966,8 @@ function AbaSubstabelecimentoCorrespondente() {
           <CardTitle className="font-serif text-lg">Estado e arquivo</CardTitle>
           <CardDescription>
             Formatos aceitos: .xlsx, .xls e .xlsm (até 20 MB). A companhia aérea continua vindo da
-            coluna "Cia aérea" da planilha.
+            coluna "Cia aérea" da planilha, só pro nome no texto -- a assinatura sai sempre a do
+            estado escolhido acima, igual em todas as linhas.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -1105,7 +1106,7 @@ function AbaSubstabelecimentoCorrespondente() {
                             {semCadastro ? (
                               <>
                                 <Badge variant="secondary" className="text-xs">
-                                  sem assinatura cadastrada
+                                  nome não cadastrado
                                 </Badge>
                                 <Button
                                   type="button"
