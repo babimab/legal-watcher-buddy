@@ -70,6 +70,23 @@ function desenharLogo(p: Pagina, logo: ImagemPdf) {
   p.image("ImLogo", MARGIN, 40, logoW, logoH);
 }
 
+// Trava largura E altura (não só largura) -- a imagem enviada às vezes
+// tem bastante espaço em branco ao redor do traço da assinatura em si,
+// o que deixa o recorte quase quadrado; limitando só a largura, esse
+// tipo de imagem sai bem maior que uma assinatura de verdade.
+function dimensoesAssinatura(assinatura: ImagemPdf) {
+  const LARGURA_MAX = 200;
+  const ALTURA_MAX = 70;
+  const razao = assinatura.width / assinatura.height;
+  let largura = LARGURA_MAX;
+  let altura = largura / razao;
+  if (altura > ALTURA_MAX) {
+    altura = ALTURA_MAX;
+    largura = altura * razao;
+  }
+  return { largura, altura };
+}
+
 // A lista de correspondentes pode ter centenas de nomes (ex.: RJ, ~310
 // advogados) -- não cabe numa página só, diferente do Substabelecimento
 // pra Advogados BCW (só 12 nomes fixos). Por isso esse gerador devolve
@@ -106,52 +123,65 @@ async function construirPaginas(
     y = 100;
   };
 
+  const TAMANHO_FONTE = 12;
+  const ALTURA_LINHA = 17;
+
   const reserva = item.comReserva ? "com" : "sem";
   const desenharParagrafo = (corpo: string) => {
     const palavras = montarParagrafoComDestaques(corpo, []);
-    const linhas = quebrarPalavras(palavras, larguraUtil, 14, "times");
+    const linhas = quebrarPalavras(palavras, larguraUtil, TAMANHO_FONTE, "times");
     linhas.forEach((linha, i) => {
       if (y > LIMITE_Y) novaPagina();
       const ultima = i === linhas.length - 1;
-      desenharLinhaMista(p, linha, MARGIN, y, 14, "times", ultima ? null : larguraUtil, PRETO);
-      y += 20;
+      desenharLinhaMista(
+        p,
+        linha,
+        MARGIN,
+        y,
+        TAMANHO_FONTE,
+        "times",
+        ultima ? null : larguraUtil,
+        PRETO,
+      );
+      y += ALTURA_LINHA;
     });
   };
 
   desenharParagrafo(PARAGRAFO_LISTA(reserva, modelo.listaAdvogados));
-  y += 20;
+  y += ALTURA_LINHA;
   desenharParagrafo(PARAGRAFO_PODERES(cliente.textoOutorgante, item.processo ?? "—"));
-  y += 28;
+  y += 24;
 
-  const altAssinatura = assinatura ? 320 / (assinatura.width / assinatura.height) : 0;
+  const { largura: largAssinatura, altura: altAssinatura } = assinatura
+    ? dimensoesAssinatura(assinatura)
+    : { largura: 0, altura: 0 };
   // Espaço pra assinatura + nome + OAB impressos embaixo dela (igual o
   // modelo real -- só a imagem da assinatura, sem identificar quem
   // assina, fica sem serventia numa lista de centenas de nomes).
-  const espacoFinal = 36 + (assinatura ? altAssinatura + 50 : 0);
+  const espacoFinal = 32 + (assinatura ? altAssinatura + 40 : 0);
   if (y + espacoFinal > LIMITE_Y) novaPagina();
 
-  p.text(`${item.cidade}, ${dataPorExtenso(item.data)}.`, A4_W / 2, y, 14, {
+  p.text(`${item.cidade}, ${dataPorExtenso(item.data)}.`, A4_W / 2, y, 12, {
     color: PRETO,
     fonte: "times",
     align: "center",
   });
-  y += 36;
+  y += 32;
 
   if (assinatura) {
-    const largAssinatura = 320;
     p.image(nomeImagemAssinatura, A4_W / 2 - largAssinatura / 2, y, largAssinatura, altAssinatura);
     y += altAssinatura + 6;
     if (modelo.assinanteNome) {
-      p.text(modelo.assinanteNome, A4_W / 2, y, 11, {
+      p.text(modelo.assinanteNome, A4_W / 2, y, 10, {
         bold: true,
         align: "center",
         fonte: "times",
         color: PRETO,
       });
-      y += 14;
+      y += 13;
     }
     if (modelo.assinanteOab) {
-      p.text(modelo.assinanteOab, A4_W / 2, y, 10, {
+      p.text(modelo.assinanteOab, A4_W / 2, y, 9, {
         align: "center",
         fonte: "times",
         color: PRETO,
