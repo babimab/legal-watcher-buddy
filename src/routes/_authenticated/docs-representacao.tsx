@@ -1,8 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { Download, FileDown, Files, Pencil, ScrollText, Settings, Trash2, Upload } from "lucide-react";
+import {
+  Check,
+  Download,
+  FileDown,
+  FileText,
+  Files,
+  Mail,
+  Pencil,
+  ScrollText,
+  Settings,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import JSZip from "jszip";
 
 import {
@@ -37,7 +49,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import {
   dataPorExtenso,
   encontrarClientePorNome,
@@ -98,7 +110,52 @@ export const Route = createFileRoute("/_authenticated/docs-representacao")({
 const TAMANHO_MAX = 20 * 1024 * 1024;
 const EXTENSOES = [".xlsx", ".xls", ".xlsm"];
 
+type TipoDocRepresentacao = "substabelecimento" | "preposicao";
+
+function CartaoTipoDoc({
+  selecionado,
+  icone,
+  titulo,
+  descricao,
+  onClick,
+}: {
+  selecionado: boolean;
+  icone: ReactNode;
+  titulo: string;
+  descricao: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selecionado}
+      onClick={onClick}
+      className={cn(
+        "flex min-w-[260px] flex-1 flex-col gap-3 rounded-xl border p-5 text-left transition-colors",
+        selecionado ? "border-primary bg-accent" : "border-border bg-card hover:bg-accent/50",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex size-11 items-center justify-center rounded-lg bg-accent text-primary">
+          {icone}
+        </div>
+        {selecionado ? (
+          <div className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+            <Check className="size-3" />
+          </div>
+        ) : null}
+      </div>
+      <div>
+        <h2 className="font-serif text-base font-semibold text-foreground">{titulo}</h2>
+        <p className="mt-0.5 text-xs text-muted-foreground">{descricao}</p>
+      </div>
+    </button>
+  );
+}
+
 function DocsRepresentacaoPage() {
+  const [aba, setAba] = useState<TipoDocRepresentacao>("substabelecimento");
+
   return (
     <div className="space-y-6">
       <div>
@@ -111,18 +168,24 @@ function DocsRepresentacaoPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="substabelecimento">
-        <TabsList>
-          <TabsTrigger value="substabelecimento">Substabelecimento</TabsTrigger>
-          <TabsTrigger value="preposicao">Carta de Preposição</TabsTrigger>
-        </TabsList>
-        <TabsContent value="substabelecimento" className="space-y-6 pt-4">
-          <AbaSubstabelecimento />
-        </TabsContent>
-        <TabsContent value="preposicao" className="space-y-6 pt-4">
-          <AbaCartaPreposicao />
-        </TabsContent>
-      </Tabs>
+      <div className="flex flex-wrap gap-4">
+        <CartaoTipoDoc
+          selecionado={aba === "substabelecimento"}
+          icone={<FileText className="size-5" />}
+          titulo="Substabelecimento"
+          descricao="Gera o documento de substabelecimento a partir de uma planilha, casando cada linha com a companhia certa."
+          onClick={() => setAba("substabelecimento")}
+        />
+        <CartaoTipoDoc
+          selecionado={aba === "preposicao"}
+          icone={<Mail className="size-5" />}
+          titulo="Carta de Preposição"
+          descricao="Gera a carta de preposto a partir de uma planilha, também casada por companhia aérea."
+          onClick={() => setAba("preposicao")}
+        />
+      </div>
+
+      {aba === "substabelecimento" ? <AbaSubstabelecimento /> : <AbaCartaPreposicao />}
     </div>
   );
 }
