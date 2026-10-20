@@ -46,61 +46,11 @@ async function carregarAssinatura(modelo: ModeloCorrespondente): Promise<ImagemP
   return imagemComoJpeg(url, CORES.white);
 }
 
-async function construirPagina(
-  modelo: ModeloCorrespondente,
-  cliente: ClienteSubstabelecimento,
-  item: ItemSubstabelecimento,
-  logo: ImagemPdf,
-  assinatura: ImagemPdf | null,
-  nomeImagemAssinatura = "ImAssinatura",
-): Promise<Pagina> {
-  const larguraUtil = A4_W - MARGIN * 2;
-  const p = new Pagina();
+// Abaixo disso quebra pra próxima página -- deixa uma folga antes do
+// rodapé (que começa em 780).
+const LIMITE_Y = 755;
 
-  const logoRatio = logo.width / logo.height;
-  const logoW = 110;
-  const logoH = logoW / logoRatio;
-  p.image("ImLogo", MARGIN, 40, logoW, logoH);
-
-  let y = 140;
-  p.text("SUBSTABELECIMENTO", A4_W / 2, y, 16, {
-    bold: true,
-    color: PRETO,
-    align: "center",
-    fonte: "times",
-  });
-  y += 40;
-
-  const reserva = item.comReserva ? "com" : "sem";
-  const desenharParagrafo = (corpo: string) => {
-    const palavras = montarParagrafoComDestaques(corpo, []);
-    const linhas = quebrarPalavras(palavras, larguraUtil, 14, "times");
-    linhas.forEach((linha, i) => {
-      const ultima = i === linhas.length - 1;
-      desenharLinhaMista(p, linha, MARGIN, y + i * 20, 14, "times", ultima ? null : larguraUtil, PRETO);
-    });
-    y += linhas.length * 20;
-  };
-
-  desenharParagrafo(PARAGRAFO_LISTA(reserva, modelo.listaAdvogados));
-  y += 20;
-  desenharParagrafo(PARAGRAFO_PODERES(cliente.textoOutorgante, item.processo ?? "—"));
-  y += 28;
-
-  p.text(`${item.cidade}, ${dataPorExtenso(item.data)}.`, A4_W / 2, y, 14, {
-    color: PRETO,
-    fonte: "times",
-    align: "center",
-  });
-  y += 36;
-
-  if (assinatura) {
-    const razaoAssinatura = assinatura.width / assinatura.height;
-    const largAssinatura = 320;
-    const altAssinatura = largAssinatura / razaoAssinatura;
-    p.image(nomeImagemAssinatura, A4_W / 2 - largAssinatura / 2, y, largAssinatura, altAssinatura);
-  }
-
+function desenharRodape(p: Pagina) {
   const rodapeY = 790;
   p.stroke(CORES.border);
   p.line(MARGIN, rodapeY - 10, A4_W - MARGIN, rodapeY - 10);
@@ -111,8 +61,87 @@ async function construirPagina(
     bold: true,
     color: CORES.blue,
   });
+}
 
-  return p;
+function desenharLogo(p: Pagina, logo: ImagemPdf) {
+  const logoRatio = logo.width / logo.height;
+  const logoW = 110;
+  const logoH = logoW / logoRatio;
+  p.image("ImLogo", MARGIN, 40, logoW, logoH);
+}
+
+// A lista de correspondentes pode ter centenas de nomes (ex.: RJ, ~310
+// advogados) -- não cabe numa página só, diferente do Substabelecimento
+// pra Advogados BCW (só 12 nomes fixos). Por isso esse gerador devolve
+// várias páginas por documento quando precisa, quebrando o texto antes
+// de bater no rodapé (sem gente, texto estourava em cima do rodapé e
+// empurrava a assinatura pra fora da área visível).
+async function construirPaginas(
+  modelo: ModeloCorrespondente,
+  cliente: ClienteSubstabelecimento,
+  item: ItemSubstabelecimento,
+  logo: ImagemPdf,
+  assinatura: ImagemPdf | null,
+  nomeImagemAssinatura = "ImAssinatura",
+): Promise<Pagina[]> {
+  const larguraUtil = A4_W - MARGIN * 2;
+  const paginas: Pagina[] = [];
+  let p = new Pagina();
+  let y = 140;
+
+  desenharLogo(p, logo);
+  p.text("SUBSTABELECIMENTO", A4_W / 2, y, 16, {
+    bold: true,
+    color: PRETO,
+    align: "center",
+    fonte: "times",
+  });
+  y += 40;
+
+  const novaPagina = () => {
+    desenharRodape(p);
+    paginas.push(p);
+    p = new Pagina();
+    desenharLogo(p, logo);
+    y = 100;
+  };
+
+  const reserva = item.comReserva ? "com" : "sem";
+  const desenharParagrafo = (corpo: string) => {
+    const palavras = montarParagrafoComDestaques(corpo, []);
+    const linhas = quebrarPalavras(palavras, larguraUtil, 14, "times");
+    linhas.forEach((linha, i) => {
+      if (y > LIMITE_Y) novaPagina();
+      const ultima = i === linhas.length - 1;
+      desenharLinhaMista(p, linha, MARGIN, y, 14, "times", ultima ? null : larguraUtil, PRETO);
+      y += 20;
+    });
+  };
+
+  desenharParagrafo(PARAGRAFO_LISTA(reserva, modelo.listaAdvogados));
+  y += 20;
+  desenharParagrafo(PARAGRAFO_PODERES(cliente.textoOutorgante, item.processo ?? "—"));
+  y += 28;
+
+  const altAssinatura = assinatura ? 320 / (assinatura.width / assinatura.height) : 0;
+  const espacoFinal = 36 + (assinatura ? altAssinatura + 20 : 0);
+  if (y + espacoFinal > LIMITE_Y) novaPagina();
+
+  p.text(`${item.cidade}, ${dataPorExtenso(item.data)}.`, A4_W / 2, y, 14, {
+    color: PRETO,
+    fonte: "times",
+    align: "center",
+  });
+  y += 36;
+
+  if (assinatura) {
+    const largAssinatura = 320;
+    p.image(nomeImagemAssinatura, A4_W / 2 - largAssinatura / 2, y, largAssinatura, altAssinatura);
+  }
+
+  desenharRodape(p);
+  paginas.push(p);
+  return paginas;
 }
 
 export function nomeArquivoSubstabelecimentoCorrespondente(
@@ -135,10 +164,10 @@ export async function gerarEBaixarPdfSubstabelecimentoCorrespondente(
 ): Promise<void> {
   const logo = await carregarLogo();
   const assinatura = await carregarAssinatura(modelo);
-  const pagina = await construirPagina(modelo, cliente, item, logo, assinatura);
+  const paginas = await construirPaginas(modelo, cliente, item, logo, assinatura);
   const imagens: Record<string, ImagemPdf> = { ImLogo: logo };
   if (assinatura) imagens["ImAssinatura"] = assinatura;
-  const blob = await montarPdf([pagina], imagens);
+  const blob = await montarPdf(paginas, imagens);
   baixarBlob(blob, nomeArquivoSubstabelecimentoCorrespondente(modelo, item));
 }
 
@@ -152,12 +181,12 @@ export async function gerarPdfSubstabelecimentosCorrespondente(
 ): Promise<Blob> {
   const logo = await carregarLogo();
   const assinatura = await carregarAssinatura(modelo);
-  const paginas = await Promise.all(
-    pares.map(({ cliente, item }) => construirPagina(modelo, cliente, item, logo, assinatura)),
+  const paginasPorPar = await Promise.all(
+    pares.map(({ cliente, item }) => construirPaginas(modelo, cliente, item, logo, assinatura)),
   );
   const imagens: Record<string, ImagemPdf> = { ImLogo: logo };
   if (assinatura) imagens["ImAssinatura"] = assinatura;
-  return montarPdf(paginas, imagens);
+  return montarPdf(paginasPorPar.flat(), imagens);
 }
 
 export async function gerarPdfsSubstabelecimentosCorrespondenteSeparados(
@@ -168,10 +197,10 @@ export async function gerarPdfsSubstabelecimentosCorrespondenteSeparados(
   const assinatura = await carregarAssinatura(modelo);
   return Promise.all(
     pares.map(async ({ cliente, item }) => {
-      const pagina = await construirPagina(modelo, cliente, item, logo, assinatura);
+      const paginas = await construirPaginas(modelo, cliente, item, logo, assinatura);
       const imagens: Record<string, ImagemPdf> = { ImLogo: logo };
       if (assinatura) imagens["ImAssinatura"] = assinatura;
-      const blob = await montarPdf([pagina], imagens);
+      const blob = await montarPdf(paginas, imagens);
       return { nomeArquivo: nomeArquivoSubstabelecimentoCorrespondente(modelo, item), blob };
     }),
   );
