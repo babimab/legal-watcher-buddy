@@ -57,8 +57,19 @@ const CAMPOS_BASE: Record<CampoBase, string[]> = {
   cidade: ["cidade"],
   data: ["data", "data do documento"],
   // Mesma lista do Substabelecimento -- não inclui "cliente" solto, que
-  // costuma ser um código interno, não o nome da companhia.
-  ciaAerea: ["cia aerea", "cia aérea", "companhia aerea", "companhia aérea", "companhia", "cia"],
+  // costuma ser um código interno, não o nome da companhia. "Polo
+  // passivo" também entra aqui: em planilha de audiência/pauta
+  // (LegalDesk), a companhia aérea é sempre a ré, então essa coluna já
+  // traz o nome dela direto.
+  ciaAerea: [
+    "cia aerea",
+    "cia aérea",
+    "companhia aerea",
+    "companhia aérea",
+    "companhia",
+    "cia",
+    "polo passivo",
+  ],
 };
 // Mesma normalização "tolerante a pontuação" do Substabelecimento (ver
 // chaveCabecalho lá) -- cabeçalho real varia entre "Nº Única"/"n.

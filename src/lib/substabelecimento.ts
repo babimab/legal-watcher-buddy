@@ -129,8 +129,18 @@ const CAMPOS_BASE: Record<CampoBase, string[]> = {
   data: ["data", "data do documento"],
   // Não inclui "cliente" de propósito -- em planilhas reais essa coluna
   // costuma ser um código interno (ex.: "8075 - Beaumont"), não o nome
-  // da companhia aérea que precisa casar com o cadastro.
-  ciaAerea: ["cia aerea", "cia aérea", "companhia aerea", "companhia aérea", "companhia", "cia"],
+  // da companhia aérea que precisa casar com o cadastro. "Polo passivo"
+  // também entra: em planilha de audiência/pauta (LegalDesk), a
+  // companhia aérea é sempre a ré.
+  ciaAerea: [
+    "cia aerea",
+    "cia aérea",
+    "companhia aerea",
+    "companhia aérea",
+    "companhia",
+    "cia",
+    "polo passivo",
+  ],
 };
 
 // Cada planilha real abrevia "número" de um jeito diferente ("Nº Única",
