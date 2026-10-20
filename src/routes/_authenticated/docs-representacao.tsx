@@ -145,6 +145,20 @@ export const Route = createFileRoute("/_authenticated/docs-representacao")({
 const TAMANHO_MAX = 20 * 1024 * 1024;
 const EXTENSOES = [".xlsx", ".xls", ".xlsm"];
 
+// Erro do Supabase não é uma instância de Error de verdade (é um objeto
+// simples { message, code, details, hint }), então "e instanceof Error"
+// falha pra ele e "String(e)" vira "[object Object]" -- inútil pra
+// mostrar na tela. Pega a mensagem de qualquer formato razoável antes
+// de desistir e usar String(e).
+function mensagemErro(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (e && typeof e === "object" && "message" in e) {
+    const msg = (e as { message: unknown }).message;
+    if (typeof msg === "string" && msg) return msg;
+  }
+  return String(e);
+}
+
 type TipoDocRepresentacao =
   | "substabelecimento"
   | "substabelecimentoCorrespondente"
@@ -293,7 +307,7 @@ function AbaSubstabelecimento() {
     } catch (e) {
       console.error("Erro ao cadastrar cliente:", e);
       toast.error(
-        e instanceof Error ? `Não consegui cadastrar: ${e.message}` : "Não consegui cadastrar esse cliente.",
+        `Não consegui cadastrar: ${mensagemErro(e)}`,
       );
     } finally {
       setCadastrandoIdx(null);
@@ -337,7 +351,7 @@ function AbaSubstabelecimento() {
       toast.success(`${lidos.length} documento(s) montado(s).`);
     } catch (e) {
       console.error("Erro ao ler planilha de substabelecimento:", e);
-      const detalhe = e instanceof Error ? e.message : String(e);
+      const detalhe = mensagemErro(e);
       toast.error(`Não consegui ler o arquivo: ${detalhe}`);
     } finally {
       setLendo(false);
@@ -389,9 +403,7 @@ function AbaSubstabelecimento() {
     } catch (e) {
       console.error("Erro ao gerar substabelecimento:", e);
       toast.error(
-        e instanceof Error
-          ? `Não consegui gerar esse documento: ${e.message}`
-          : "Não consegui gerar esse documento.",
+        `Não consegui gerar esse documento: ${mensagemErro(e)}`,
       );
     } finally {
       setGerandoIdx(null);
@@ -436,9 +448,7 @@ function AbaSubstabelecimento() {
     } catch (e) {
       console.error("Erro ao gerar substabelecimentos:", e);
       toast.error(
-        e instanceof Error
-          ? `Não consegui gerar os documentos: ${e.message}`
-          : "Não consegui gerar os documentos.",
+        `Não consegui gerar os documentos: ${mensagemErro(e)}`,
       );
     } finally {
       setGerando(false);
@@ -472,9 +482,7 @@ function AbaSubstabelecimento() {
     } catch (e) {
       console.error("Erro ao gerar substabelecimentos separados:", e);
       toast.error(
-        e instanceof Error
-          ? `Não consegui gerar os documentos: ${e.message}`
-          : "Não consegui gerar os documentos.",
+        `Não consegui gerar os documentos: ${mensagemErro(e)}`,
       );
     } finally {
       setGerandoZip(false);
@@ -815,7 +823,7 @@ function AbaSubstabelecimentoCorrespondente() {
       toast.success(`${lidos.length} documento(s) montado(s).`);
     } catch (e) {
       console.error("Erro ao ler planilha de substabelecimento:", e);
-      const detalhe = e instanceof Error ? e.message : String(e);
+      const detalhe = mensagemErro(e);
       toast.error(`Não consegui ler o arquivo: ${detalhe}`);
     } finally {
       setLendo(false);
@@ -869,9 +877,7 @@ function AbaSubstabelecimentoCorrespondente() {
     } catch (e) {
       console.error("Erro ao gerar substabelecimento de correspondente:", e);
       toast.error(
-        e instanceof Error
-          ? `Não consegui gerar esse documento: ${e.message}`
-          : "Não consegui gerar esse documento.",
+        `Não consegui gerar esse documento: ${mensagemErro(e)}`,
       );
     } finally {
       setGerandoIdx(null);
@@ -916,9 +922,7 @@ function AbaSubstabelecimentoCorrespondente() {
     } catch (e) {
       console.error("Erro ao gerar substabelecimentos de correspondente:", e);
       toast.error(
-        e instanceof Error
-          ? `Não consegui gerar os documentos: ${e.message}`
-          : "Não consegui gerar os documentos.",
+        `Não consegui gerar os documentos: ${mensagemErro(e)}`,
       );
     } finally {
       setGerando(false);
@@ -957,9 +961,7 @@ function AbaSubstabelecimentoCorrespondente() {
     } catch (e) {
       console.error("Erro ao gerar substabelecimentos de correspondente separados:", e);
       toast.error(
-        e instanceof Error
-          ? `Não consegui gerar os documentos: ${e.message}`
-          : "Não consegui gerar os documentos.",
+        `Não consegui gerar os documentos: ${mensagemErro(e)}`,
       );
     } finally {
       setGerandoZip(false);
@@ -1266,7 +1268,7 @@ function AbaCartaPreposicao() {
     } catch (e) {
       console.error("Erro ao cadastrar cliente:", e);
       toast.error(
-        e instanceof Error ? `Não consegui cadastrar: ${e.message}` : "Não consegui cadastrar esse cliente.",
+        `Não consegui cadastrar: ${mensagemErro(e)}`,
       );
     } finally {
       setCadastrandoIdx(null);
@@ -1296,7 +1298,7 @@ function AbaCartaPreposicao() {
       toast.success(`${lidos.length} documento(s) montado(s).`);
     } catch (e) {
       console.error("Erro ao ler planilha de carta de preposição:", e);
-      const detalhe = e instanceof Error ? e.message : String(e);
+      const detalhe = mensagemErro(e);
       toast.error(`Não consegui ler o arquivo: ${detalhe}`);
     } finally {
       setLendo(false);
@@ -1348,9 +1350,7 @@ function AbaCartaPreposicao() {
     } catch (e) {
       console.error("Erro ao gerar carta de preposição:", e);
       toast.error(
-        e instanceof Error
-          ? `Não consegui gerar esse documento: ${e.message}`
-          : "Não consegui gerar esse documento.",
+        `Não consegui gerar esse documento: ${mensagemErro(e)}`,
       );
     } finally {
       setGerandoIdx(null);
@@ -1392,9 +1392,7 @@ function AbaCartaPreposicao() {
     } catch (e) {
       console.error("Erro ao gerar cartas de preposição:", e);
       toast.error(
-        e instanceof Error
-          ? `Não consegui gerar os documentos: ${e.message}`
-          : "Não consegui gerar os documentos.",
+        `Não consegui gerar os documentos: ${mensagemErro(e)}`,
       );
     } finally {
       setGerando(false);
@@ -1428,9 +1426,7 @@ function AbaCartaPreposicao() {
     } catch (e) {
       console.error("Erro ao gerar cartas de preposição separadas:", e);
       toast.error(
-        e instanceof Error
-          ? `Não consegui gerar os documentos: ${e.message}`
-          : "Não consegui gerar os documentos.",
+        `Não consegui gerar os documentos: ${mensagemErro(e)}`,
       );
     } finally {
       setGerandoZip(false);
@@ -1852,7 +1848,7 @@ function AbaCartaPreposicaoCorrespondente() {
       toast.success(`${lidos.length} documento(s) montado(s).`);
     } catch (e) {
       console.error("Erro ao ler planilha de carta de preposição:", e);
-      const detalhe = e instanceof Error ? e.message : String(e);
+      const detalhe = mensagemErro(e);
       toast.error(`Não consegui ler o arquivo: ${detalhe}`);
     } finally {
       setLendo(false);
@@ -1906,9 +1902,7 @@ function AbaCartaPreposicaoCorrespondente() {
     } catch (e) {
       console.error("Erro ao gerar carta de preposição de correspondente:", e);
       toast.error(
-        e instanceof Error
-          ? `Não consegui gerar esse documento: ${e.message}`
-          : "Não consegui gerar esse documento.",
+        `Não consegui gerar esse documento: ${mensagemErro(e)}`,
       );
     } finally {
       setGerandoIdx(null);
@@ -1953,9 +1947,7 @@ function AbaCartaPreposicaoCorrespondente() {
     } catch (e) {
       console.error("Erro ao gerar cartas de preposição de correspondente:", e);
       toast.error(
-        e instanceof Error
-          ? `Não consegui gerar os documentos: ${e.message}`
-          : "Não consegui gerar os documentos.",
+        `Não consegui gerar os documentos: ${mensagemErro(e)}`,
       );
     } finally {
       setGerando(false);
@@ -1994,9 +1986,7 @@ function AbaCartaPreposicaoCorrespondente() {
     } catch (e) {
       console.error("Erro ao gerar cartas de preposição de correspondente separadas:", e);
       toast.error(
-        e instanceof Error
-          ? `Não consegui gerar os documentos: ${e.message}`
-          : "Não consegui gerar os documentos.",
+        `Não consegui gerar os documentos: ${mensagemErro(e)}`,
       );
     } finally {
       setGerandoZip(false);
@@ -2576,7 +2566,7 @@ function GerenciarModelosCorrespondenteDialog({
       onChanged();
     } catch (e) {
       console.error("Erro ao cadastrar modelo de correspondente:", e);
-      const detalhe = e instanceof Error ? e.message : String(e);
+      const detalhe = mensagemErro(e);
       toast.error(`Não consegui cadastrar esse estado: ${detalhe}`);
     } finally {
       setCriando(false);
@@ -2591,7 +2581,7 @@ function GerenciarModelosCorrespondenteDialog({
       onChanged();
     } catch (e) {
       console.error("Erro ao excluir modelo de correspondente:", e);
-      const detalhe = e instanceof Error ? e.message : String(e);
+      const detalhe = mensagemErro(e);
       toast.error(`Não consegui remover esse estado: ${detalhe}`);
     } finally {
       setExcluindo(null);
@@ -2795,7 +2785,7 @@ function EditorModeloCorrespondente({
       onSalvar();
     } catch (e) {
       console.error("Erro ao atualizar modelo de correspondente:", e);
-      const detalhe = e instanceof Error ? e.message : String(e);
+      const detalhe = mensagemErro(e);
       toast.error(`Não consegui salvar: ${detalhe}`);
     } finally {
       setSalvando(false);
@@ -2865,7 +2855,7 @@ function EditorAssinaturaModeloCorrespondente({
       toast.success("Assinatura salva.");
       onSalvar();
     } catch (e) {
-      const detalhe = e instanceof Error ? e.message : String(e);
+      const detalhe = mensagemErro(e);
       toast.error(`Não consegui salvar a assinatura: ${detalhe}`);
     } finally {
       setEnviando(false);
@@ -2880,7 +2870,7 @@ function EditorAssinaturaModeloCorrespondente({
       onSalvar();
     } catch (e) {
       console.error("Erro ao remover assinatura do modelo de correspondente:", e);
-      const detalhe = e instanceof Error ? e.message : String(e);
+      const detalhe = mensagemErro(e);
       toast.error(`Não consegui remover a assinatura: ${detalhe}`);
     } finally {
       setRemovendo(false);
@@ -2981,7 +2971,7 @@ function GerenciarModelosCartaPreposicaoCorrespondenteDialog({
       onChanged();
     } catch (e) {
       console.error("Erro ao cadastrar modelo de carta de preposição de correspondente:", e);
-      const detalhe = e instanceof Error ? e.message : String(e);
+      const detalhe = mensagemErro(e);
       toast.error(`Não consegui cadastrar esse estado: ${detalhe}`);
     } finally {
       setCriando(false);
@@ -2996,7 +2986,7 @@ function GerenciarModelosCartaPreposicaoCorrespondenteDialog({
       onChanged();
     } catch (e) {
       console.error("Erro ao excluir modelo de carta de preposição de correspondente:", e);
-      const detalhe = e instanceof Error ? e.message : String(e);
+      const detalhe = mensagemErro(e);
       toast.error(`Não consegui remover esse estado: ${detalhe}`);
     } finally {
       setExcluindo(null);
@@ -3200,7 +3190,7 @@ function EditorModeloCartaPreposicaoCorrespondente({
       onSalvar();
     } catch (e) {
       console.error("Erro ao atualizar modelo de carta de preposição de correspondente:", e);
-      const detalhe = e instanceof Error ? e.message : String(e);
+      const detalhe = mensagemErro(e);
       toast.error(`Não consegui salvar: ${detalhe}`);
     } finally {
       setSalvando(false);
@@ -3270,7 +3260,7 @@ function EditorAssinaturaModeloCartaPreposicaoCorrespondente({
       toast.success("Assinatura salva.");
       onSalvar();
     } catch (e) {
-      const detalhe = e instanceof Error ? e.message : String(e);
+      const detalhe = mensagemErro(e);
       toast.error(`Não consegui salvar a assinatura: ${detalhe}`);
     } finally {
       setEnviando(false);
@@ -3285,7 +3275,7 @@ function EditorAssinaturaModeloCartaPreposicaoCorrespondente({
       onSalvar();
     } catch (e) {
       console.error("Erro ao remover assinatura do modelo de carta de preposição de correspondente:", e);
-      const detalhe = e instanceof Error ? e.message : String(e);
+      const detalhe = mensagemErro(e);
       toast.error(`Não consegui remover a assinatura: ${detalhe}`);
     } finally {
       setRemovendo(false);
@@ -3440,7 +3430,7 @@ function EditorAssinatura({
       toast.success("Assinatura salva.");
       onSalvar();
     } catch (e) {
-      const detalhe = e instanceof Error ? e.message : String(e);
+      const detalhe = mensagemErro(e);
       toast.error(`Não consegui salvar a assinatura: ${detalhe}`);
     } finally {
       setEnviando(false);
@@ -3562,7 +3552,7 @@ function EditorPdfCliente({
       toast.success("Arquivo salvo.");
       onSalvar();
     } catch (e) {
-      const detalhe = e instanceof Error ? e.message : String(e);
+      const detalhe = mensagemErro(e);
       toast.error(`Não consegui salvar o arquivo: ${detalhe}`);
     } finally {
       setEnviando(false);
