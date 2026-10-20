@@ -143,6 +143,7 @@ function AbaSubstabelecimento() {
   const [gerando, setGerando] = useState(false);
   const [gerandoZip, setGerandoZip] = useState(false);
   const [gerandoIdx, setGerandoIdx] = useState<number | null>(null);
+  const [cadastrandoIdx, setCadastrandoIdx] = useState<number | null>(null);
   const [editando, setEditando] = useState<ItemSubstabelecimento | null>(null);
   const [apagando, setApagando] = useState<ItemSubstabelecimento | null>(null);
   const [gerenciando, setGerenciando] = useState(false);
@@ -156,6 +157,29 @@ function AbaSubstabelecimento() {
   const cliente = clientes.find((c) => c.id === clienteId) ?? null;
   const recarregarClientes = () =>
     queryClient.invalidateQueries({ queryKey: ["clientes-substabelecimento"] });
+
+  // Cadastra de verdade a companhia detectada na linha (mesmo nome que
+  // já apareceu casando "ad hoc" -- ver clienteAdHoc em
+  // substabelecimento.ts), sem precisar digitar de novo em "Clientes e
+  // assinaturas". Só falta subir a assinatura depois, por lá mesmo.
+  const cadastrarCliente = async (item: ItemSubstabelecimento) => {
+    if (!item.ciaAereaTexto) return;
+    setCadastrandoIdx(item.idx);
+    try {
+      await criarClienteSubstabelecimento(item.ciaAereaTexto, item.ciaAereaTexto);
+      recarregarClientes();
+      toast.success(
+        `"${item.ciaAereaTexto}" cadastrado. Falta só subir a assinatura em "Clientes e assinaturas".`,
+      );
+    } catch (e) {
+      console.error("Erro ao cadastrar cliente:", e);
+      toast.error(
+        e instanceof Error ? `Não consegui cadastrar: ${e.message}` : "Não consegui cadastrar esse cliente.",
+      );
+    } finally {
+      setCadastrandoIdx(null);
+    }
+  };
 
   // Planilha com várias cias aéreas misturadas (cada linha é de uma
   // companhia diferente, ex.: TAP, KLM, Aerolineas Argentinas...) --
@@ -481,9 +505,21 @@ function AbaSubstabelecimento() {
                           <span className="flex items-center gap-1.5">
                             {clienteItem.nome}
                             {semCadastro ? (
-                              <Badge variant="secondary" className="text-xs">
-                                sem assinatura cadastrada
-                              </Badge>
+                              <>
+                                <Badge variant="secondary" className="text-xs">
+                                  sem assinatura cadastrada
+                                </Badge>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6 px-1.5 text-xs"
+                                  onClick={() => void cadastrarCliente(item)}
+                                  disabled={cadastrandoIdx === item.idx}
+                                >
+                                  {cadastrandoIdx === item.idx ? "Cadastrando..." : "Cadastrar"}
+                                </Button>
+                              </>
                             ) : null}
                           </span>
                         ) : (
@@ -608,6 +644,7 @@ function AbaCartaPreposicao() {
   const [gerando, setGerando] = useState(false);
   const [gerandoZip, setGerandoZip] = useState(false);
   const [gerandoIdx, setGerandoIdx] = useState<number | null>(null);
+  const [cadastrandoIdx, setCadastrandoIdx] = useState<number | null>(null);
   const [editando, setEditando] = useState<ItemCartaPreposicao | null>(null);
   const [apagando, setApagando] = useState<ItemCartaPreposicao | null>(null);
   const [gerenciando, setGerenciando] = useState(false);
@@ -632,6 +669,25 @@ function AbaCartaPreposicao() {
     if (casado) return casado;
     if (item.ciaAereaTexto) return clienteAdHoc(item.ciaAereaTexto);
     return cliente;
+  };
+
+  const cadastrarCliente = async (item: ItemCartaPreposicao) => {
+    if (!item.ciaAereaTexto) return;
+    setCadastrandoIdx(item.idx);
+    try {
+      await criarClienteSubstabelecimento(item.ciaAereaTexto, item.ciaAereaTexto);
+      recarregarClientes();
+      toast.success(
+        `"${item.ciaAereaTexto}" cadastrado. Falta só subir a assinatura em "Clientes e assinaturas".`,
+      );
+    } catch (e) {
+      console.error("Erro ao cadastrar cliente:", e);
+      toast.error(
+        e instanceof Error ? `Não consegui cadastrar: ${e.message}` : "Não consegui cadastrar esse cliente.",
+      );
+    } finally {
+      setCadastrandoIdx(null);
+    }
   };
 
   const ler = async (arquivo: File) => {
@@ -944,9 +1000,21 @@ function AbaCartaPreposicao() {
                           <span className="flex items-center gap-1.5">
                             {clienteItem.nome}
                             {semCadastro ? (
-                              <Badge variant="secondary" className="text-xs">
-                                sem assinatura cadastrada
-                              </Badge>
+                              <>
+                                <Badge variant="secondary" className="text-xs">
+                                  sem assinatura cadastrada
+                                </Badge>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6 px-1.5 text-xs"
+                                  onClick={() => void cadastrarCliente(item)}
+                                  disabled={cadastrandoIdx === item.idx}
+                                >
+                                  {cadastrandoIdx === item.idx ? "Cadastrando..." : "Cadastrar"}
+                                </Button>
+                              </>
                             ) : null}
                           </span>
                         ) : (
