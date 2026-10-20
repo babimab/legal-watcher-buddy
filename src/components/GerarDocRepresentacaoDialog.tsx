@@ -97,6 +97,7 @@ export function GerarDocRepresentacaoDialog({ processo }: { processo: Processo }
           prepostos: lerPrepostos(prepostosTexto),
           cidade,
           data,
+          ciaAereaTexto: null,
         });
       }
       toast.success("Documento gerado.");
