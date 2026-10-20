@@ -739,7 +739,6 @@ function AbaSubstabelecimentoCorrespondente() {
   const [gerando, setGerando] = useState(false);
   const [gerandoZip, setGerandoZip] = useState(false);
   const [gerandoIdx, setGerandoIdx] = useState<number | null>(null);
-  const [cadastrandoIdx, setCadastrandoIdx] = useState<number | null>(null);
   const [editando, setEditando] = useState<ItemSubstabelecimento | null>(null);
   const [apagando, setApagando] = useState<ItemSubstabelecimento | null>(null);
   const [gerenciando, setGerenciando] = useState(false);
@@ -751,29 +750,8 @@ function AbaSubstabelecimentoCorrespondente() {
   }, [modelosQuery.data, modeloId]);
 
   const modelo = modelos.find((m) => m.id === modeloId) ?? null;
-  const recarregarClientes = () =>
-    queryClient.invalidateQueries({ queryKey: ["clientes-substabelecimento"] });
   const recarregarModelos = () =>
     queryClient.invalidateQueries({ queryKey: ["modelos-substabelecimento-correspondente"] });
-
-  const cadastrarCliente = async (item: ItemSubstabelecimento) => {
-    if (!item.ciaAereaTexto) return;
-    setCadastrandoIdx(item.idx);
-    try {
-      await criarClienteSubstabelecimento(item.ciaAereaTexto, item.ciaAereaTexto);
-      recarregarClientes();
-      toast.success(
-        `"${item.ciaAereaTexto}" cadastrado. Falta só subir a assinatura em "Clientes e assinaturas".`,
-      );
-    } catch (e) {
-      console.error("Erro ao cadastrar cliente:", e);
-      toast.error(
-        e instanceof Error ? `Não consegui cadastrar: ${e.message}` : "Não consegui cadastrar esse cliente.",
-      );
-    } finally {
-      setCadastrandoIdx(null);
-    }
-  };
 
   // Aqui não tem seletor manual de cliente pra cair como reserva -- o
   // outorgante (a companhia aérea) sempre precisa vir da planilha,
@@ -1088,9 +1066,7 @@ function AbaSubstabelecimentoCorrespondente() {
                 </thead>
                 <tbody>
                   {itens.map((item) => {
-                    const casado = encontrarClientePorNome(clientes, item.ciaAereaTexto);
                     const clienteItem = clienteDoItem(item);
-                    const semCadastro = !casado && !!item.ciaAereaTexto;
                     return (
                     <tr key={item.idx} className="border-b border-border/60">
                       <td className="p-2">
@@ -1101,26 +1077,7 @@ function AbaSubstabelecimentoCorrespondente() {
                       </td>
                       <td className="p-2">
                         {clienteItem ? (
-                          <span className="flex items-center gap-1.5">
-                            {clienteItem.nome}
-                            {semCadastro ? (
-                              <>
-                                <Badge variant="secondary" className="text-xs">
-                                  nome não cadastrado
-                                </Badge>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-6 px-1.5 text-xs"
-                                  onClick={() => void cadastrarCliente(item)}
-                                  disabled={cadastrandoIdx === item.idx}
-                                >
-                                  {cadastrandoIdx === item.idx ? "Cadastrando..." : "Cadastrar"}
-                                </Button>
-                              </>
-                            ) : null}
-                          </span>
+                          clienteItem.nome
                         ) : (
                           <Badge variant="destructive" className="text-xs">
                             sem companhia
