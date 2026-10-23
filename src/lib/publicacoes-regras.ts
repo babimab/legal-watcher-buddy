@@ -64,11 +64,18 @@ function contem(alvo: string, ...termos: string[]): boolean {
   return termos.some((t) => alvo.includes(t));
 }
 
+// "AIJ" (Audiência de Instrução e Julgamento) é abreviação -- usa \b
+// (limite de palavra) em vez de contem(), que faria falta exigir espaço
+// dos dois lados (" aij "). No texto real a sigla quase sempre vem colada
+// em pontuação ("Designo AIJ.", "(AIJ)", "AIJ:") ou no fim/início da
+// string, nunca cercada por espaços soltos -- por isso nunca batia.
+const REGEX_AIJ = /\baij\b/;
+
 // Família de atos "decisórios" -- sempre merecem o olho da equipe mesmo
 // sem providência concreta identificada (nunca viram "sem_acao" por
 // omissão nossa, só quando a própria Eliane/BDR confirmar que não
 // precisam). Ordem importa: primeiro match vence.
-const TIPOS_ATO: { rotulo: string; termos: string[] }[] = [
+const TIPOS_ATO: { rotulo: string; termos: string[]; extra?: RegExp }[] = [
   {
     rotulo: "Embargos de Declaração",
     termos: ["embargos de declaracao", "embargos declaratorios"],
@@ -85,7 +92,8 @@ const TIPOS_ATO: { rotulo: string; termos: string[] }[] = [
   { rotulo: "Sentença", termos: ["sentenca"] },
   {
     rotulo: "Audiência designada",
-    termos: ["audiencia", "instrucao e julgamento", " aij "],
+    termos: ["audiencia", "instrucao e julgamento"],
+    extra: REGEX_AIJ,
   },
   { rotulo: "Contrarrazões", termos: ["contrarrazoes", "contra-razoes", "contra razoes"] },
   { rotulo: "Decisão Interlocutória", termos: ["decisao interlocutoria", "decisao"] },
@@ -102,8 +110,8 @@ const FAMILIA_DECISORIA = new Set([
 ]);
 
 function classificarTipoAto(alvo: string): string {
-  for (const { rotulo, termos } of TIPOS_ATO) {
-    if (contem(alvo, ...termos)) return rotulo;
+  for (const { rotulo, termos, extra } of TIPOS_ATO) {
+    if (contem(alvo, ...termos) || extra?.test(alvo)) return rotulo;
   }
   return "Outro";
 }
@@ -115,10 +123,12 @@ const REGEX_PRAZO_EXPLICITO = /prazo\s+de\s+(\d{1,3})\s*(?:\([^)]*\))?\s*dias?/i
 const TERMOS_MANIFESTACAO = ["manifeste-se", "manifestacao", "intime-se", "manifestar-se"];
 
 // Pega a data de audiência/sessão quando o texto traz essa fórmula padrão
-// de ato ordinatório ("designada/designado para o dia DD/MM/AAAA") -- bem
-// mais confiável que tentar calcular um prazo nesses casos, porque é uma
-// data marcada, não uma contagem a partir da publicação.
-const REGEX_DATA_DESIGNADA = /designad[ao]\s+para\s+o\s+dia\s+(\d{2})\/(\d{2})\/(\d{4})/i;
+// de ato ordinatório ("designada/marcada/aprazada para o dia DD/MM/AAAA")
+// -- bem mais confiável que tentar calcular um prazo nesses casos, porque
+// é uma data marcada, não uma contagem a partir da publicação. As três
+// variantes são sinônimos comuns na redação de atos de pauta.
+const REGEX_DATA_DESIGNADA =
+  /(?:designad|marcad|aprazad)[ao]\s+para\s+o\s+dia\s+(\d{2})\/(\d{2})\/(\d{4})/i;
 
 function extrairDataDesignada(alvo: string): string | null {
   const m = REGEX_DATA_DESIGNADA.exec(alvo);
@@ -127,17 +137,18 @@ function extrairDataDesignada(alvo: string): string | null {
   return `${aaaa}-${mm}-${dd}`;
 }
 
-// "às 16:00" / "as 16h30" (acento já foi removido por normalizar()) --
-// exige a palavra "as" logo antes pra não confundir com número de
-// processo/vara. Formato de saída igual ao da lista da Eliane: "16h"
-// quando minutos é 00, "09h30" quando não é.
-const REGEX_HORARIO = /\bas\s+(\d{1,2})[:h](\d{2})\b/;
+// "às 16:00" / "as 16h30" / "as 14h" (acento já foi removido por
+// normalizar()) -- exige a palavra "as" logo antes pra não confundir com
+// número de processo/vara. Minutos são opcionais (bare "as 14h", sem
+// ":00"/"h00", é redação comum e antes não batia). Formato de saída igual
+// ao da lista da Eliane: "16h" quando minutos é 00, "09h30" quando não é.
+const REGEX_HORARIO = /\bas\s+(\d{1,2})(?:[:h](\d{2}))?h?\b/;
 
 function extrairHorario(alvo: string): string | null {
   const m = REGEX_HORARIO.exec(alvo);
   if (!m) return null;
   const hh = m[1]!.padStart(2, "0");
-  const mm = m[2]!;
+  const mm = m[2] ?? "00";
   return mm === "00" ? `${hh}h` : `${hh}h${mm}`;
 }
 
@@ -204,7 +215,7 @@ function detectarModalidade(alvo: string): string {
 // Agendamentos pronta pra copiar, em vez de um rótulo genérico tipo
 // "Sentença"/"Despacho" que não diz o que fazer.
 function classificarProvidencia(alvo: string, dias: number | null, tipoAto: string): Providencia {
-  const ehAIJ = contem(alvo, "instrucao e julgamento", " aij ");
+  const ehAIJ = contem(alvo, "instrucao e julgamento") || REGEX_AIJ.test(alvo);
   const ehAC = contem(alvo, "audiencia") && contem(alvo, "concilia");
   if (ehAIJ || ehAC || (contem(alvo, "audiencia") && !ehAC)) {
     const base = ehAC ? "AC" : "AIJ";
