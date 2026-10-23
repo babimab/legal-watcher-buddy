@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { supabaseSolto } from "@/lib/supabase-solto";
-import { siglaOuEmailAtual, type Processo } from "@/lib/processos";
+import { criarMovimentacao, siglaOuEmailAtual, type Processo } from "@/lib/processos";
 
 // Quantos dias sem ligação já contam como atrasado -- checagem é semanal,
 // por isso 7 dias corridos (não úteis: telefonema não depende de prazo
@@ -139,6 +139,20 @@ export async function retomarLigacaoAdministrativa(processoId: string): Promise<
   if (error) throw error;
 }
 
+// Texto do andamento gerado automaticamente a partir de um acompanhamento
+// administrativo -- mesma informação do check-in, só reformatada pra
+// aparecer na pasta do processo junto com os outros andamentos.
+function descricaoAndamentoDoAcompanhamento(input: {
+  estagiario: string | null;
+  oQueFez: string | null;
+  proximoPasso: string | null;
+}): string {
+  const quem = input.estagiario ? ` (${input.estagiario})` : "";
+  const partes = [`Acompanhamento administrativo${quem}: ${input.oQueFez ?? "—"}.`];
+  if (input.proximoPasso) partes.push(`Próximo passo: ${input.proximoPasso}.`);
+  return partes.join(" ");
+}
+
 export async function criarAcompanhamento(input: {
   processoId: string;
   dataLigacao: string;
@@ -157,6 +171,15 @@ export async function criarAcompanhamento(input: {
     created_by: auth.user.id,
   });
   if (error) throw error;
+
+  // Também registra como andamento na pasta do processo, pra ficar
+  // visível junto com o resto do histórico (pedido da BDR).
+  await criarMovimentacao({
+    processoId: input.processoId,
+    dataMovimentacao: input.dataLigacao,
+    descricao: descricaoAndamentoDoAcompanhamento(input),
+    tipo: "Providência interna",
+  });
 }
 
 export async function excluirAcompanhamento(id: string): Promise<void> {

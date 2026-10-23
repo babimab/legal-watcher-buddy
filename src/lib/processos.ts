@@ -752,6 +752,31 @@ export async function listarMovimentacoes(processoId: string): Promise<Movimenta
   return (data ?? []) as unknown as Movimentacao[];
 }
 
+// Cria um andamento manual (mesmo formato do MovimentacaoDialog) -- usado
+// quando outra tela precisa registrar um andamento como efeito colateral
+// de outra ação (ex.: acompanhamento administrativo), sem passar pelo
+// diálogo de andamento.
+export async function criarMovimentacao(input: {
+  processoId: string;
+  dataMovimentacao: string;
+  descricao: string;
+  tipo: string;
+}): Promise<void> {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) throw new Error("Sessão expirada.");
+  const { error } = await supabaseSolto.from("movimentacoes").insert({
+    processo_id: input.processoId,
+    data_movimentacao: input.dataMovimentacao,
+    descricao: input.descricao,
+    tipo: input.tipo,
+    exige_acao: false,
+    destacar_email: false,
+    prazo: null,
+    created_by: auth.user.id,
+  });
+  if (error) throw error;
+}
+
 export type MovimentacaoComProcesso = Movimentacao & {
   processos: Pick<
     Processo,
