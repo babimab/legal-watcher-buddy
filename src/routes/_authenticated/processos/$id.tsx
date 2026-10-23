@@ -217,7 +217,7 @@ function ProcessoDetalhe() {
         toast.error(error.message);
         return;
       }
-      toast.success("Movimentações sugeridas marcadas como validadas.");
+      toast.success("Andamentos sugeridos marcados como validados.");
       await queryClient.invalidateQueries({ queryKey: ["movimentacoes", id] });
     } finally {
       setValidandoTodos(false);
@@ -227,7 +227,7 @@ function ProcessoDetalhe() {
   const excluirTodasPendentes = async () => {
     if (
       !window.confirm(
-        "Excluir todas as movimentações sugeridas (ainda não validadas) deste processo? Essa ação não poderá ser desfeita.",
+        "Excluir todos os andamentos sugeridos (ainda não validados) deste processo? Essa ação não poderá ser desfeita.",
       )
     )
       return;
@@ -242,7 +242,7 @@ function ProcessoDetalhe() {
         toast.error(error.message);
         return;
       }
-      toast.success("Movimentações sugeridas excluídas.");
+      toast.success("Andamentos sugeridos excluídos.");
       await queryClient.invalidateQueries({ queryKey: ["movimentacoes", id] });
     } finally {
       setExcluindoTodos(false);
@@ -524,7 +524,7 @@ function ProcessoDetalhe() {
 
       <div>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-serif text-xl font-semibold">Movimentações</h2>
+          <h2 className="font-serif text-xl font-semibold">Andamentos</h2>
           {(movs.data ?? []).some((m) => !m.validado) ? (
             <div className="flex flex-wrap gap-2">
               <Button
@@ -618,7 +618,7 @@ function ProcessoDetalhe() {
                           type="button"
                           variant="ghost"
                           size="icon"
-                          aria-label="Editar movimentação"
+                          aria-label="Editar andamento"
                           className="ml-auto size-7"
                         >
                           <Pencil className="size-3.5" />

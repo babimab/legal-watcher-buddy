@@ -176,10 +176,10 @@ export function MovimentacaoDialog({
     setSalvando(false);
     toast.success(
       atualizarFase
-        ? `${editando ? "Movimentação atualizada" : "Movimentação registrada"} e fase alterada para ${faseEscolhida}.`
+        ? `${editando ? "Andamento atualizado" : "Andamento registrado"} e fase alterada para ${faseEscolhida}.`
         : editando
-          ? "Movimentação atualizada."
-          : "Movimentação registrada.",
+          ? "Andamento atualizado."
+          : "Andamento registrado.",
     );
     await queryClient.invalidateQueries();
     if (!editando) {
@@ -191,7 +191,7 @@ export function MovimentacaoDialog({
 
   const excluir = async () => {
     if (!movimentacao) return;
-    if (!window.confirm("Excluir esta movimentação? Essa ação não poderá ser desfeita.")) return;
+    if (!window.confirm("Excluir este andamento? Essa ação não poderá ser desfeita.")) return;
 
     setExcluindo(true);
     const { error } = await supabaseSolto
@@ -204,7 +204,7 @@ export function MovimentacaoDialog({
       toast.error(error.message);
       return;
     }
-    toast.success("Movimentação excluída.");
+    toast.success("Andamento excluído.");
     await queryClient.invalidateQueries();
     setAberto(false);
   };
@@ -215,7 +215,7 @@ export function MovimentacaoDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="font-serif">
-            {editando ? "Editar movimentação" : "Nova movimentação"}
+            {editando ? "Editar andamento" : "Novo andamento"}
           </DialogTitle>
           <DialogDescription>
             {editando
