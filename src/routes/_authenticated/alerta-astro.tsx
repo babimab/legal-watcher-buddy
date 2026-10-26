@@ -45,6 +45,7 @@ function AlertaAstroPage() {
   const [lendo, setLendo] = useState(false);
   const [recortes, setRecortes] = useState<RecorteClassificado[]>([]);
   const [processados, setProcessados] = useState(false);
+  const [arrastando, setArrastando] = useState(false);
 
   const processosQuery = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
 
@@ -193,15 +194,35 @@ function AlertaAstroPage() {
             className="hidden"
             onChange={(e) => e.target.files && processarArquivos(e.target.files)}
           />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => inputRef.current?.click()}
-            disabled={lendo}
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setArrastando(true);
+            }}
+            onDragLeave={() => setArrastando(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setArrastando(false);
+              if (e.dataTransfer.files.length > 0) processarArquivos(e.dataTransfer.files);
+            }}
+            className={`flex flex-col items-center gap-2 rounded-md border-2 border-dashed p-6 text-center transition-colors ${
+              arrastando ? "border-primary bg-primary/5" : "border-border"
+            }`}
           >
-            <Upload className="size-4" />
-            {lendo ? "Processando..." : "Selecionar arquivos .doc"}
-          </Button>
+            <Upload className="size-6 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              Arraste aqui os anexos .doc/.rtf direto do seu e-mail, ou
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => inputRef.current?.click()}
+              disabled={lendo}
+            >
+              <Upload className="size-4" />
+              {lendo ? "Processando..." : "Selecionar arquivos .doc"}
+            </Button>
+          </div>
 
           {processados ? (
             <div className="space-y-4">
