@@ -46,6 +46,17 @@ function AlertaAstroPage() {
   const [recortes, setRecortes] = useState<RecorteClassificado[]>([]);
   const [processados, setProcessados] = useState(false);
   const [arrastando, setArrastando] = useState(false);
+  // Guarda os recortes "crus" (antes de classificar) de TODOS os arquivos já
+  // soltos/selecionados nesta sessão -- ref, não state, porque é lido e
+  // atualizado dentro do processarArquivos (async), que senão pegaria um
+  // valor desatualizado se dois arquivos forem soltos em sequência rápida.
+  // O Alerte manda vários .doc por e-mail (um por pacote/caderno, ex.:
+  // BR-JUD/CE-JUD/RJ-JUD/RN-JUD/TRF2) -- se cada arquivo solto SUBSTITUÍSSE
+  // a lista (como era antes), soltar um de cada vez (em vez de selecionar
+  // todos de uma vez) apagava silenciosamente os anteriores, sobrando só o
+  // último (foi exatamente esse o caso relatado: só o TRF2_sd.doc processado,
+  // publicação da Petrobras no RJ-JUD_sd.doc nunca chegou a aparecer).
+  const recortesBrutosRef = useRef<RecorteAlerta[]>([]);
 
   const processosQuery = useQuery({ queryKey: ["processos"], queryFn: listarProcessos });
 
@@ -91,21 +102,24 @@ function AlertaAstroPage() {
     }
     setLendo(true);
     try {
-      const todosOsRecortes: RecorteAlerta[] = [];
+      const novosRecortes: RecorteAlerta[] = [];
       for (const arquivo of Array.from(arquivos)) {
         const texto = rtfParaTexto(await arquivo.arrayBuffer());
-        todosOsRecortes.push(...extrairRecortes(texto, arquivo.name));
+        novosRecortes.push(...extrairRecortes(texto, arquivo.name));
       }
-      if (todosOsRecortes.length === 0) {
+      if (novosRecortes.length === 0) {
         toast.error("Não encontrei nenhum recorte nesses arquivos.");
         return;
       }
+      recortesBrutosRef.current = [...recortesBrutosRef.current, ...novosRecortes];
       const processos = processosQuery.data ?? [];
       const nomesValidos = nomes.map((n) => n.trim()).filter(Boolean);
-      const classificados = classificarRecortes(todosOsRecortes, processos, nomesValidos);
+      const classificados = classificarRecortes(recortesBrutosRef.current, processos, nomesValidos);
       setRecortes(classificados);
       setProcessados(true);
-      toast.success(`${classificados.length} recorte(s) processado(s).`);
+      toast.success(
+        `${novosRecortes.length} recorte(s) deste arquivo (${classificados.length} no total acumulado).`,
+      );
     } catch (e) {
       console.error("Erro ao processar recortes do Alerte:", e);
       toast.error(e instanceof Error ? `Não consegui ler o arquivo: ${e.message}` : "Não consegui ler o arquivo.");
@@ -113,6 +127,12 @@ function AlertaAstroPage() {
       setLendo(false);
       if (inputRef.current) inputRef.current.value = "";
     }
+  };
+
+  const limparRecortes = () => {
+    recortesBrutosRef.current = [];
+    setRecortes([]);
+    setProcessados(false);
   };
 
   const confirmados = recortes.filter((r) => r.tier === "confirmado");
@@ -180,10 +200,21 @@ function AlertaAstroPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-serif text-lg">Recortes do Alerte</CardTitle>
-          <CardDescription>
-            Selecione todos os .doc anexados no e-mail do dia (um por pacote/caderno).
-          </CardDescription>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <CardTitle className="font-serif text-lg">Recortes do Alerte</CardTitle>
+              <CardDescription>
+                O Alerte manda um .doc por pacote/caderno (ex.: BR-JUD, CE-JUD, RJ-JUD, RN-JUD,
+                TRF2) -- arraste ou selecione TODOS de uma vez, ou um de cada vez, que o sistema vai
+                somando; nada é substituído.
+              </CardDescription>
+            </div>
+            {processados ? (
+              <Button type="button" variant="ghost" size="sm" onClick={limparRecortes}>
+                Limpar
+              </Button>
+            ) : null}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <input
