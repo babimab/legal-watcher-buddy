@@ -377,8 +377,8 @@ function linhaRecorte(r: RecorteClassificado): string {
   ].filter((v): v is string => !!v);
   const cabecalho = partes.length ? partes.join(" — ") : r.pacote;
   const motivo = r.tier === "confirmado" ? r.motivo : `${r.motivo} (pacote ${r.pacote})`;
-  const resumo = r.texto.replace(/\s+/g, " ").trim().slice(0, 300);
-  return `${cabecalho}\n${motivo}\n${resumo}${resumo.length >= 300 ? "..." : ""}`;
+  const teor = r.texto.replace(/\s+/g, " ").trim();
+  return `${cabecalho}\n${motivo}\n${teor}`;
 }
 
 export function montarEmailAlertaAstro(classificados: RecorteClassificado[]): string {
@@ -413,16 +413,12 @@ export function montarEmailAlertaAstro(classificados: RecorteClassificado[]): st
     blocos.push("", "Nenhuma publicação da Astro identificada hoje (fora as trabalhistas).");
   }
 
-  if (descartados.length > 0) {
-    blocos.push(
-      "",
-      `DESCARTADOS AUTOMATICAMENTE (${descartados.length}) — ${trabalhistas} trabalhista(s), ${
-        descartados.length - trabalhistas
-      } sem menção à Astro`,
-      "─".repeat(40),
-      ...descartados.map(linhaRecorte),
-    );
-  }
+  blocos.push(
+    "",
+    `Descartados automaticamente: ${descartados.length} (${trabalhistas} trabalhista(s), ${
+      descartados.length - trabalhistas
+    } sem menção à Astro).`,
+  );
 
   return blocos.join("\n");
 }
