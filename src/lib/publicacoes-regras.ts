@@ -71,6 +71,26 @@ function contem(alvo: string, ...termos: string[]): boolean {
 // string, nunca cercada por espaços soltos -- por isso nunca batia.
 const REGEX_AIJ = /\baij\b/;
 
+// Só considera "audiência" como providência CONFIRMADA (marcada de fato)
+// quando há um verbo de designação já EFETIVADO perto da palavra
+// ("designo"/"designada"/"fica designada"/"marcada"/"aprazada"...) -- o
+// infinitivo "designar" fica de fora de propósito, porque é exatamente a
+// forma usada quando o juiz só está cogitando uma audiência futura,
+// condicionada a outro evento ainda pendente ("...no sentido de designar
+// audiência de instrução OU promover o julgamento antecipado do mérito"
+// -- caso relatado: despacho cobrando certidão de intimação da Autora,
+// sem nenhuma audiência marcada, virando "Audiência designada — JEC" com
+// vencimento fantasma só porque a palavra "audiência" aparecia em algum
+// lugar do texto). O trecho não pode atravessar ponto final, pra não
+// juntar um verbo de uma frase com "audiência" de outra sem relação.
+const REGEX_DESIGNACAO_ANTES =
+  /\b(?:designo|designad[ao]|designe-se|fica\s+designad[ao]|resta\s+designad[ao]|marcad[ao]|marco|aprazad[ao])\b[^.]{0,60}\baudiencia\b/;
+const REGEX_DESIGNACAO_DEPOIS =
+  /\baudiencia\b[^.]{0,60}\b(?:designad[ao]|marcad[ao]|aprazad[ao])\b/;
+const REGEX_AUDIENCIA_DESIGNADA = new RegExp(
+  `${REGEX_AIJ.source}|${REGEX_DESIGNACAO_ANTES.source}|${REGEX_DESIGNACAO_DEPOIS.source}`,
+);
+
 // Família de atos "decisórios" -- sempre merecem o olho da equipe mesmo
 // sem providência concreta identificada (nunca viram "sem_acao" por
 // omissão nossa, só quando a própria Eliane/BDR confirmar que não
@@ -92,8 +112,8 @@ const TIPOS_ATO: { rotulo: string; termos: string[]; extra?: RegExp }[] = [
   { rotulo: "Sentença", termos: ["sentenca"] },
   {
     rotulo: "Audiência designada",
-    termos: ["audiencia", "instrucao e julgamento"],
-    extra: REGEX_AIJ,
+    termos: ["instrucao e julgamento"],
+    extra: REGEX_AUDIENCIA_DESIGNADA,
   },
   { rotulo: "Contrarrazões", termos: ["contrarrazoes", "contra-razoes", "contra razoes"] },
   { rotulo: "Decisão Interlocutória", termos: ["decisao interlocutoria", "decisao"] },
@@ -123,12 +143,19 @@ const REGEX_PRAZO_EXPLICITO = /prazo\s+de\s+(\d{1,3})\s*(?:\([^)]*\))?\s*dias?/i
 const TERMOS_MANIFESTACAO = ["manifeste-se", "manifestacao", "intime-se", "manifestar-se"];
 
 // Pega a data de audiência/sessão quando o texto traz essa fórmula padrão
-// de ato ordinatório ("designada/marcada/aprazada para o dia DD/MM/AAAA")
-// -- bem mais confiável que tentar calcular um prazo nesses casos, porque
-// é uma data marcada, não uma contagem a partir da publicação. As três
-// variantes são sinônimos comuns na redação de atos de pauta.
+// de ato ordinatório ("designo/designada/marco/marcada/aprazo/aprazada
+// ... para o dia DD/MM/AAAA") -- bem mais confiável que tentar calcular
+// um prazo nesses casos, porque é uma data marcada, não uma contagem a
+// partir da publicação. Cobre tanto o particípio ("fica designada ...")
+// quanto a 1ª/3ª pessoa do presente ("Designo audiência ... para o
+// dia"). Permite um trecho entre o verbo e "para o dia" (sem atravessar
+// ponto final) porque, na prática, quase sempre há um complemento no
+// meio ("Designo AUDIÊNCIA DE INSTRUÇÃO E JULGAMENTO para o dia...") --
+// exigir "para o dia" logo colado no verbo (como era antes) não batia
+// com quase nenhum caso real, só com a frase mais seca e rara sem
+// complemento nenhum.
 const REGEX_DATA_DESIGNADA =
-  /(?:designad|marcad|aprazad)[ao]\s+para\s+o\s+dia\s+(\d{2})\/(\d{2})\/(\d{4})/i;
+  /\b(?:designo|designa|designad[ao]|marco|marca|marcad[ao]|aprazo|apraza|aprazad[ao])\b[^.]{0,60}?\bpara\s+o\s+dia\s+(\d{2})\/(\d{2})\/(\d{4})/i;
 
 function extrairDataDesignada(alvo: string): string | null {
   const m = REGEX_DATA_DESIGNADA.exec(alvo);
@@ -217,7 +244,8 @@ function detectarModalidade(alvo: string): string {
 function classificarProvidencia(alvo: string, dias: number | null, tipoAto: string): Providencia {
   const ehAIJ = contem(alvo, "instrucao e julgamento") || REGEX_AIJ.test(alvo);
   const ehAC = contem(alvo, "audiencia") && contem(alvo, "concilia");
-  if (ehAIJ || ehAC || (contem(alvo, "audiencia") && !ehAC)) {
+  const audienciaDesignada = ehAIJ || ehAC || REGEX_AUDIENCIA_DESIGNADA.test(alvo);
+  if (audienciaDesignada) {
     const base = ehAC ? "AC" : "AIJ";
     const modalidade = detectarModalidade(alvo);
     const temContestacao = contem(alvo, "contestacao");
