@@ -413,12 +413,16 @@ export function montarEmailAlertaAstro(classificados: RecorteClassificado[]): st
     blocos.push("", "Nenhuma publicação da Astro identificada hoje (fora as trabalhistas).");
   }
 
-  blocos.push(
-    "",
-    `Descartados automaticamente: ${descartados.length} (${trabalhistas} trabalhista(s), ${
-      descartados.length - trabalhistas
-    } sem menção à Astro).`,
-  );
+  if (descartados.length > 0) {
+    blocos.push(
+      "",
+      `DESCARTADOS AUTOMATICAMENTE (${descartados.length}) — ${trabalhistas} trabalhista(s), ${
+        descartados.length - trabalhistas
+      } sem menção à Astro`,
+      "─".repeat(40),
+      ...descartados.map(linhaRecorte),
+    );
+  }
 
   return blocos.join("\n");
 }
