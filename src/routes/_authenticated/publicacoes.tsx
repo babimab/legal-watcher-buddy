@@ -1089,6 +1089,25 @@ function mencionaTermos(l: LinhaPublicacao, termos: string[], incluirAdvg = true
   return termos.some((t) => alvo.includes(` ${normalizar(t)} `));
 }
 
+// Texto truncado (2 linhas) que expande pro texto inteiro ao clicar --
+// usado no card "Sem processo cadastrado", onde o andamento/teor
+// completo só aparecia cortado com "...", sem jeito de ver o resto sem
+// sair da tela.
+function TextoExpansivel({ texto }: { texto: string }) {
+  const [aberto, setAberto] = useState(false);
+  return (
+    <p
+      className={`mb-2 cursor-pointer text-xs text-muted-foreground hover:text-foreground ${
+        aberto ? "whitespace-pre-wrap" : "line-clamp-2"
+      }`}
+      onClick={() => setAberto((a) => !a)}
+      title={aberto ? "Clique para recolher" : "Clique para ver a publicação inteira"}
+    >
+      {texto}
+    </p>
+  );
+}
+
 function PublicacoesPage() {
   const [linhas, setLinhas] = useState<LinhaPublicacao[]>([]);
   const [gruposAtivos, setGruposAtivos] = useState<Set<Grupo>>(new Set());
@@ -2599,9 +2618,7 @@ function PublicacoesPage() {
                           {[l.autor, l.reu].filter(Boolean).join(" x ")}
                         </p>
                       ) : null}
-                      <p className="mb-2 line-clamp-2 text-xs text-muted-foreground">
-                        {l.andamento ?? "—"}
-                      </p>
+                      <TextoExpansivel texto={l.andamento ?? "—"} />
                       <div className="flex items-center gap-4">
                         <label className="flex items-center gap-1.5 text-xs">
                           <Checkbox
