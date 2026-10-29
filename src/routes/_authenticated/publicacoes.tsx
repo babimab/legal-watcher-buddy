@@ -423,6 +423,15 @@ function montarEntradaConferencia(l: LinhaCasada, c: ClassificacaoPublicacao): s
 // pedido pela BDR pra bater com o formato do projeto de Claude dela --
 // cada processo repete o cabeçalho, já que os blocos ficam separados por
 // uma linha de "═" (ver montarPartesPublicacoes).
+// Mostra a classificação (Ato) junto do teor no e-mail -- pedido da BDR,
+// pra quem lê já saber que tipo de peça é sem precisar abrir o FaroLex.
+function teorComClassificacao(
+  classificacao: ClassificacaoPublicacao | undefined,
+  teorBase: string,
+) {
+  return classificacao?.tipoAto ? `${classificacao.tipoAto}: "${teorBase}"` : teorBase;
+}
+
 function blocoProcesso(l: LinhaCasada, classificacao: ClassificacaoPublicacao | undefined) {
   const clienteCod = l.processo.numero_cliente ?? exibir(l.processo.cliente) ?? "—";
   const caso = l.processo.numero_interno ?? "—";
@@ -438,7 +447,7 @@ function blocoProcesso(l: LinhaCasada, classificacao: ClassificacaoPublicacao | 
     [l.processo.vara, [l.processo.comarca, l.processo.uf].filter(Boolean).join("/") || null]
       .filter(Boolean)
       .join(" de ") || "—";
-  const teor = classificacao?.resumo ?? l.andamento ?? "—";
+  const teor = teorComClassificacao(classificacao, classificacao?.resumo ?? l.andamento ?? "—");
 
   return [
     "Processo\tCliente\tCaso\tSócio\tADVG\tPartes\tJuízo\tTeor da publicação",
@@ -493,7 +502,7 @@ function montarNaoLocalizada(
   if (itens.length === 0) return null;
   const blocos = itens.map((l) => {
     const c = classificacoes.get(l.idx);
-    const teor = c?.resumo ?? l.andamento ?? "—";
+    const teor = teorComClassificacao(c, c?.resumo ?? l.andamento ?? "—");
     if (colunas === "advg") {
       const referencia = [l.advg, l.coord].filter(Boolean).join(" / ") || "—";
       return ["Processo\tReferência\tTeor", `${l.cnjTexto}\t${referencia}\t${teor}`].join("\n");
@@ -727,7 +736,7 @@ function blocoProcessoHtml(
     [l.processo.vara, [l.processo.comarca, l.processo.uf].filter(Boolean).join("/") || null]
       .filter(Boolean)
       .join(" de ") || "—";
-  const teor = classificacao?.resumo ?? l.andamento ?? "—";
+  const teor = teorComClassificacao(classificacao, classificacao?.resumo ?? l.andamento ?? "—");
   // A data que vem da planilha/DJEN é a disponibilização (quando saiu no
   // Diário) -- a publicação "oficial" pra contar prazo (art. 224 do CPC)
   // só é o 1º dia útil seguinte quando o teor fala em disponibilização;
@@ -799,7 +808,7 @@ function montarNaoLocalizadaHtml(
       : ["Processo", "Cliente", "ADVG", "Partes", "Teor"];
   const linhas = itens.map((l) => {
     const c = classificacoes.get(l.idx);
-    const teor = c?.resumo ?? l.andamento ?? "—";
+    const teor = teorComClassificacao(c, c?.resumo ?? l.andamento ?? "—");
     if (colunas === "advg") {
       const referencia = [l.advg, l.coord].filter(Boolean).join(" / ") || "—";
       return linhaTabelaHtml([l.cnjTexto, referencia, teor]);
