@@ -88,7 +88,7 @@ export const Route = createFileRoute("/api/public/integracao-processos")({
           const { data: processos, error } = await supabaseAdmin
             .from("processos")
             .select(
-              "numero_cnj, cliente, numero_cliente, parte_contraria, vara, comarca, tribunal, classe, responsavel, created_at",
+              "numero_cnj, cliente, numero_cliente, parte_contraria, vara, comarca, tribunal, classe, responsavel, fase, created_at",
             )
             .gte("created_at", de)
             .lte("created_at", ate)

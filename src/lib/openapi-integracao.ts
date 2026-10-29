@@ -36,6 +36,11 @@ export const openapiIntegracao = {
           valor: { type: "number", nullable: true },
           observacao: { type: "string", nullable: true },
           pronto_para_encerrar_em: { type: "string", format: "date-time" },
+          fase: {
+            type: "string",
+            nullable: true,
+            enum: ["Instrutória", "Recursal", "Encerramento", "Execução"],
+          },
         },
       },
       ProcessoCadastrado: {
@@ -50,6 +55,11 @@ export const openapiIntegracao = {
           tribunal: { type: "string", nullable: true },
           classe: { type: "string", nullable: true },
           responsavel: { type: "string", nullable: true },
+          fase: {
+            type: "string",
+            nullable: true,
+            enum: ["Instrutória", "Recursal", "Encerramento", "Execução"],
+          },
           created_at: { type: "string", format: "date-time" },
         },
       },

@@ -78,7 +78,7 @@ Deno.serve(async (req: Request) => {
     const { data: processos, error: erroProcessos } = await supabase
       .from("processos")
       .select(
-        "numero_cnj, cliente, numero_cliente, resultado_encerramento, valor_encerramento, observacao_encerramento, pronto_para_encerrar_em",
+        "numero_cnj, cliente, numero_cliente, resultado_encerramento, valor_encerramento, observacao_encerramento, pronto_para_encerrar_em, fase",
       )
       .eq("pronto_para_encerrar", true)
       .in("pasta_id", pastaIds)
@@ -95,6 +95,7 @@ Deno.serve(async (req: Request) => {
       valor: p.valor_encerramento,
       observacao: p.observacao_encerramento,
       pronto_para_encerrar_em: p.pronto_para_encerrar_em,
+      fase: p.fase,
     }));
 
     return new Response(JSON.stringify({ encerramentos }), {
