@@ -238,7 +238,7 @@ export function MovimentacaoDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>Tipo</Label>
+              <Label>Ato</Label>
               <Select name="tipo" defaultValue={movimentacao?.tipo ?? "Despacho"}>
                 <SelectTrigger>
                   <SelectValue />

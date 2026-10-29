@@ -111,7 +111,10 @@ const TIPOS_ATO: { rotulo: string; termos: string[]; extra?: RegExp }[] = [
   { rotulo: "Decisão Interlocutória", termos: ["despacho/decisao", "decisao/despacho"] },
   { rotulo: "Sentença", termos: ["sentenca"] },
   {
-    rotulo: "Audiência designada",
+    // Rótulo "Audiência" (não "Audiência designada") pra bater com o
+    // mesmo nome usado no cadastro manual (TIPOS_MOVIMENTACAO) e com o
+    // ato "Audiência" do Legal Desk -- de-para validado em 10/2026.
+    rotulo: "Audiência",
     termos: ["instrucao e julgamento"],
     extra: REGEX_AUDIENCIA_DESIGNADA,
   },
@@ -133,7 +136,9 @@ function classificarTipoAto(alvo: string): string {
   for (const { rotulo, termos, extra } of TIPOS_ATO) {
     if (contem(alvo, ...termos) || extra?.test(alvo)) return rotulo;
   }
-  return "Outro";
+  // "Outros" (não "Outro") pra bater com TIPOS_MOVIMENTACAO e o ato
+  // "Outros" do Legal Desk -- de-para validado em 10/2026.
+  return "Outros";
 }
 
 // Aceita o número por extenso entre parênteses, que é como a maioria das

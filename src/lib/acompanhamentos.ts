@@ -178,7 +178,7 @@ export async function criarAcompanhamento(input: {
     processoId: input.processoId,
     dataMovimentacao: input.dataLigacao,
     descricao: descricaoAndamentoDoAcompanhamento(input),
-    tipo: "Providência interna",
+    tipo: "Acompanhamento",
   });
 }
 

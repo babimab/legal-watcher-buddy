@@ -636,6 +636,11 @@ export function movimentacaoRelevante(descricao: string | null | undefined): boo
   return TERMOS_MOVIMENTACAO_RELEVANTE.some((termo) => normalizada.includes(termo));
 }
 
+// Nomes alinhados com os "Atos" do Legal Desk (de-para validado com o
+// André/eXo em 10/2026) onde existe equivalente direto, pra eliminar a
+// tradução na integração -- "Prazo", "Sentença" e "Acórdão" não têm
+// equivalente genérico no LD (lá só existem com o resultado embutido,
+// ex. "Sentença Improcedente") e ficam como estão.
 export const TIPOS_MOVIMENTACAO = [
   "Prazo",
   "Despacho",
@@ -643,12 +648,12 @@ export const TIPOS_MOVIMENTACAO = [
   "Sentença",
   "Audiência",
   "Julgamento",
-  "Providência interna",
-  "Petição",
+  "Acompanhamento",
+  "Juntada de Petição",
   "Intimação",
   "Publicação",
   "Acórdão",
-  "Outro",
+  "Outros",
 ] as const;
 
 // O Supabase corta qualquer select("*") em 1000 linhas por padrão. Como a

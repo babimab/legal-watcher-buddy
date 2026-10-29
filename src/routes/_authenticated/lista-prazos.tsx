@@ -297,11 +297,11 @@ function ListaPrazos() {
           }
         />
         <NovoPrazoDialog
-          tipo="Providência interna"
+          tipo="Acompanhamento"
           processos={processos.data ?? []}
           trigger={
             <Button variant="outline" size="sm">
-              Providência interna
+              Acompanhamento
             </Button>
           }
         />

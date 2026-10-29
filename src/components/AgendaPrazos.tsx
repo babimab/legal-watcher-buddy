@@ -28,13 +28,13 @@ const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const comInicialMaiuscula = (texto: string) => texto.charAt(0).toUpperCase() + texto.slice(1);
 
 // Cor por tipo de prazo -- os 4 tipos fixos que o "Novo prazo" já usa
-// (Prazo/Audiência/Julgamento/Providência interna); qualquer outro texto
+// (Prazo/Audiência/Julgamento/Acompanhamento); qualquer outro texto
 // livre cai no cinza padrão.
 const COR_TIPO: Record<string, string> = {
   Prazo: "bg-blue-100 text-blue-800 border-blue-200",
   Audiência: "bg-red-100 text-red-800 border-red-200",
   Julgamento: "bg-purple-100 text-purple-800 border-purple-200",
-  "Providência interna": "bg-slate-100 text-slate-700 border-slate-200",
+  Acompanhamento: "bg-slate-100 text-slate-700 border-slate-200",
 };
 const corDoTipo = (tipo: string | null) =>
   COR_TIPO[tipo ?? ""] ?? "bg-muted text-foreground border-border";
