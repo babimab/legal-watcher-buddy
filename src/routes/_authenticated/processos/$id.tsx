@@ -476,7 +476,7 @@ function ProcessoDetalhe() {
               </Badge>
             </div>
           )}
-          <Dado rotulo="Resultado do encerramento" valor={p.resultado_encerramento} />
+          <Dado rotulo="Motivo de encerramento" valor={p.resultado_encerramento} />
           <Dado rotulo="Autor" valor={p.autor} />
           <Dado rotulo="Réu" valor={p.reu} />
           <Dado rotulo="Número do cliente" valor={p.numero_cliente} />

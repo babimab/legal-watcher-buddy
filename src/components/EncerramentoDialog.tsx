@@ -36,7 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabaseSolto } from "@/lib/supabase-solto";
 import {
   FASE_OPCOES,
-  RESULTADOS_PROCESSO,
+  MOTIVOS_ENCERRAMENTO,
   siglaOuEmailAtual,
   listarDesdobramentos,
   formatarCNJ,
@@ -224,19 +224,19 @@ export function EncerramentoDialog({
             </div>
           ) : null}
           <div className="space-y-2">
-            <Label>Resultado do processo</Label>
+            <Label>Motivo de encerramento</Label>
             <Select
               name="resultado_encerramento"
               defaultValue={processoComResultado.resultado_encerramento ?? "nao-informado"}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Selecione o resultado" />
+                <SelectValue placeholder="Selecione o motivo" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="nao-informado">Não informado</SelectItem>
-                {RESULTADOS_PROCESSO.map((resultado) => (
-                  <SelectItem key={resultado} value={resultado}>
-                    {resultado}
+                {MOTIVOS_ENCERRAMENTO.map((motivo) => (
+                  <SelectItem key={motivo} value={motivo}>
+                    {motivo}
                   </SelectItem>
                 ))}
               </SelectContent>

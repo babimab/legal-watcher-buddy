@@ -34,7 +34,7 @@ import {
   listarDecisoesProcesso,
   type DecisaoProcesso,
 } from "@/lib/decisoes";
-import { RESULTADOS_PROCESSO } from "@/lib/processos";
+import { DECISOES_LD } from "@/lib/processos";
 
 // Seção "Decisões" -- espelha os campos que o LegalDesk já usa (Juiz,
 // Houve decisão?, Data da decisão, Decisão, Detalhamento) pra um dia
@@ -234,7 +234,7 @@ function DecisaoDialog({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="nenhuma">Não informada</SelectItem>
-                    {RESULTADOS_PROCESSO.map((r) => (
+                    {DECISOES_LD.map((r) => (
                       <SelectItem key={r} value={r}>
                         {r}
                       </SelectItem>
