@@ -638,21 +638,33 @@ export function movimentacaoRelevante(descricao: string | null | undefined): boo
 
 // Nomes alinhados com os "Atos" do Legal Desk (de-para validado com o
 // André/eXo em 10/2026) onde existe equivalente direto, pra eliminar a
-// tradução na integração -- "Prazo", "Sentença" e "Acórdão" não têm
-// equivalente genérico no LD (lá só existem com o resultado embutido,
-// ex. "Sentença Improcedente") e ficam como estão.
+// tradução na integração. O LD não tem "Sentença"/"Acórdão" genéricos --
+// só com o resultado já embutido no nome -- então, em vez de um fallback
+// genérico, usamos aqui as próprias opções do LD (a pedido da BDR): quem
+// cadastra já escolhe o resultado certo, e a integração vira um
+// passthrough direto, sem adivinhação. "Prazo" segue sem equivalente no
+// LD (não tem resultado nem é um ato do LD) e fica como está.
 export const TIPOS_MOVIMENTACAO = [
   "Prazo",
   "Despacho",
   "Decisão",
-  "Sentença",
+  "Sentença Improcedente",
+  "Sentença Parcialmente Procedente",
+  "Sentença Procedente",
+  "Sentença Prescrição/Decadência",
+  "Sentença de Embargos à Execução",
   "Audiência",
   "Julgamento",
   "Acompanhamento",
   "Juntada de Petição",
   "Intimação",
   "Publicação",
-  "Acórdão",
+  "Acórdão - Provimento Recurso do Autor",
+  "Acórdão - Provimento Recurso do Réu",
+  "Acórdão - Provimento Parcial Recurso do Autor",
+  "Acórdão - Provimento Parcial Recurso do Réu",
+  "Acórdão - Negado Provimento Recurso do Autor",
+  "Acórdão - Negado Provimento Recurso do Réu",
   "Outros",
 ] as const;
 
