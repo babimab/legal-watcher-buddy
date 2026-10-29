@@ -357,7 +357,10 @@ function montarConteudoEmailAndamentos(
       clienteCaso: linhaClienteCaso(processo),
       juizoUf: linhaJuizoUf(processo),
       andamentos: grupo.itens
-        .map((m) => `${formatarDataCurta(m.data_movimentacao)} — ${m.descricao}`)
+        .map((m) => {
+          const descricao = m.tipo ? `${m.tipo}: "${m.descricao}"` : m.descricao;
+          return `${formatarDataCurta(m.data_movimentacao)} — ${descricao}`;
+        })
         .join(" // "),
       observacoes,
     };
