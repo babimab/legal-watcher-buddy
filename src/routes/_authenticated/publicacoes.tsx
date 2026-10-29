@@ -2607,6 +2607,11 @@ function PublicacoesPage() {
                         <Badge variant="outline">{l.origem}</Badge>
                         {l.advg ? <Badge variant="outline">{l.advg}</Badge> : null}
                         {c?.tipoAto ? <Badge variant="secondary">{c.tipoAto}</Badge> : null}
+                        {c?.sugestaoResultado ? (
+                          <Badge variant="outline" className="border-amber-400 text-amber-800">
+                            Sugestão: {c.sugestaoResultado}
+                          </Badge>
+                        ) : null}
                         {l.dataPublicacao ? (
                           <span className="text-xs text-muted-foreground">
                             {dataBR(l.dataPublicacao)}
@@ -2718,6 +2723,12 @@ function PublicacoesPage() {
                     <p>
                       {cDetalhe.tipoAto} — {cDetalhe.regraAplicada}
                     </p>
+                    {cDetalhe.sugestaoResultado ? (
+                      <p className="text-amber-700">
+                        Sugestão de resultado: <strong>{cDetalhe.sugestaoResultado}</strong> —
+                        confira antes de registrar o andamento.
+                      </p>
+                    ) : null}
                     <div className="flex flex-wrap items-end gap-2">
                       <div className="space-y-1">
                         <Label htmlFor="prazo-confirmado" className="text-xs text-muted-foreground">

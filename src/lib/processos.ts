@@ -783,6 +783,21 @@ export const TIPOS_MOVIMENTACAO = [
   "Outros",
 ] as const;
 
+// "Sentença"/"Acórdão" sem o resultado (genérico) são o que a classificação
+// automática de publicações ainda produz quando não consegue identificar o
+// resultado por regra -- não aparecem mais no dropdown de cadastro manual
+// (TIPOS_MOVIMENTACAO só tem as variantes com resultado), então um andamento
+// com um desses precisa de alguém abrir e escolher a opção certa antes de ir
+// pro Legal Desk. "Prazo" é diferente: nunca teve equivalente no LD, então
+// não há nada pra "corrigir" -- só fica fora da sincronização por design.
+export function motivoRevisaoLD(tipo: string | null | undefined): string | null {
+  if (!tipo) return "Sem ato definido — não sincroniza com o LD até alguém preencher.";
+  if (tipo === "Sentença" || tipo === "Acórdão")
+    return `"${tipo}" ainda genérico — escolha o resultado específico antes de ir pro LD.`;
+  if (tipo === "Prazo") return '"Prazo" não tem ato equivalente no LD — fica só no FaroLex.';
+  return null;
+}
+
 // O Supabase corta qualquer select("*") em 1000 linhas por padrão. Como a
 // carteira já passou disso, uma busca sem paginação perde silenciosamente
 // os processos/andamentos mais antigos (ex.: a página de Citações via só

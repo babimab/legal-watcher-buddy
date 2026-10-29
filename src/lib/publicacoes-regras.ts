@@ -54,6 +54,14 @@ export type ClassificacaoPublicacao = {
   horario: string | null;
   tier: Tier;
   motivoConferencia: MotivoConferencia;
+  // Sugestão de resultado (uma das opções de Sentença do Legal Desk, ver
+  // TIPOS_MOVIMENTACAO em processos.ts) -- NUNCA aplicada sozinha, só um
+  // hint pra quem revisa escolher mais rápido. Só preenchida quando
+  // tipoAto é "Sentença" e o texto usa uma das fórmulas de julgamento bem
+  // inequívocas ("julgo procedente/improcedente/parcialmente procedente
+  // o pedido"); qualquer coisa fora desse padrão fica null -- é melhor
+  // não sugerir nada do que sugerir errado.
+  sugestaoResultado: string | null;
 };
 
 function normalizar(texto: string): string {
@@ -90,6 +98,27 @@ const REGEX_DESIGNACAO_DEPOIS =
 const REGEX_AUDIENCIA_DESIGNADA = new RegExp(
   `${REGEX_AIJ.source}|${REGEX_DESIGNACAO_ANTES.source}|${REGEX_DESIGNACAO_DEPOIS.source}`,
 );
+
+// Sugestão de resultado de Sentença (ver sugestaoResultado, mais abaixo) --
+// só as 3 fórmulas mais diretas e comuns ("julgo [parcialmente] procedente/
+// improcedente o pedido"), cada uma exigindo o verbo "julgo" por perto (não
+// atravessa ponto final) pra não confundir com o pedido sendo só narrado
+// ("alega que o pedido é improcedente", sem ser o juiz julgando). Fica de
+// fora de propósito: prescrição/decadência, embargos à execução, e
+// qualquer coisa que exija entender QUEM recorreu (isso é o Acórdão, que
+// precisa saber se o recurso é do autor ou do réu -- informação que não dá
+// pra tirar só do texto da decisão, sem cruzar com as partes do processo).
+const REGEX_JULGO_PARCIAL =
+  /\bjulgo\b[^.]{0,40}\b(?:parcialmente\s+procedente|procedente\s+em\s+parte)\b/;
+const REGEX_JULGO_IMPROCEDENTE = /\bjulgo\b[^.]{0,30}\bimprocedente\b/;
+const REGEX_JULGO_PROCEDENTE = /\bjulgo\b[^.]{0,30}\bprocedente\b/;
+
+function sugerirResultadoSentenca(alvo: string): string | null {
+  if (REGEX_JULGO_PARCIAL.test(alvo)) return "Sentença Parcialmente Procedente";
+  if (REGEX_JULGO_IMPROCEDENTE.test(alvo)) return "Sentença Improcedente";
+  if (REGEX_JULGO_PROCEDENTE.test(alvo)) return "Sentença Procedente";
+  return null;
+}
 
 // Família de atos "decisórios" -- sempre merecem o olho da equipe mesmo
 // sem providência concreta identificada (nunca viram "sem_acao" por
@@ -352,6 +381,7 @@ export function classificarLinha(item: ItemParaClassificar): ClassificacaoPublic
   const dataPublicacaoEfetiva = !item.dataPublicacao ? null : proximoDiaUtil(item.dataPublicacao);
 
   const horario = extrairHorario(alvo);
+  const sugestaoResultado = tipoAto === "Sentença" ? sugerirResultadoSentenca(alvo) : null;
 
   // Data marcada no próprio texto (audiência/sessão) tem prioridade sobre
   // qualquer cálculo de prazo a partir da publicação -- é a data real do
@@ -375,6 +405,7 @@ export function classificarLinha(item: ItemParaClassificar): ClassificacaoPublic
       horario,
       tier: "confirmado",
       motivoConferencia: null,
+      sugestaoResultado,
     };
   }
 
@@ -415,6 +446,7 @@ export function classificarLinha(item: ItemParaClassificar): ClassificacaoPublic
     horario,
     tier,
     motivoConferencia,
+    sugestaoResultado,
   };
 }
 

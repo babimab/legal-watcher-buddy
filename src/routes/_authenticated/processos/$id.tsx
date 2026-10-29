@@ -32,6 +32,7 @@ import {
   listarMovimentacoes,
   formatarCNJ,
   exibir,
+  motivoRevisaoLD,
   movimentacaoRelevante,
   normalizarNome,
   variantCriticidade,
@@ -594,6 +595,18 @@ function ProcessoDetalhe() {
                       {new Date(`${m.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR")}
                     </span>
                     {m.tipo ? <Badge variant="outline">{m.tipo}</Badge> : null}
+                    {(() => {
+                      const motivo = motivoRevisaoLD(m.tipo);
+                      return motivo ? (
+                        <Badge
+                          variant="outline"
+                          className="border-amber-400 bg-amber-50 text-amber-800"
+                          title={motivo}
+                        >
+                          Revisar p/ LD
+                        </Badge>
+                      ) : null;
+                    })()}
                     {!m.validado ? (
                       <Badge variant="secondary">Sugerido — não validado</Badge>
                     ) : null}
