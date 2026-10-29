@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -31,7 +32,7 @@ import {
   pausarLigacaoAdministrativa,
   retomarLigacaoAdministrativa,
 } from "@/lib/acompanhamentos";
-import { exibir, formatarCNJ } from "@/lib/processos";
+import { exibir, formatarCNJ, normalizarNome } from "@/lib/processos";
 
 export const Route = createFileRoute("/_authenticated/administrativos")({
   head: () => ({
@@ -58,6 +59,7 @@ function AdministrativosPage() {
   const [advogado, setAdvogado] = useState("todos");
   const [estagiario, setEstagiario] = useState("todos");
   const [cliente, setCliente] = useState("todos");
+  const [busca, setBusca] = useState("");
 
   const advogados = useMemo(
     () => [...new Set(todos.map((i) => i.processo.responsavel).filter(Boolean) as string[])].sort(),
@@ -72,15 +74,29 @@ function AdministrativosPage() {
     [todos],
   );
 
+  const buscaNorm = normalizarNome(busca);
   const itens = useMemo(
     () =>
-      todos.filter(
-        (i) =>
-          (advogado === "todos" || i.processo.responsavel === advogado) &&
-          (estagiario === "todos" || i.processo.estagiario === estagiario) &&
-          (cliente === "todos" || i.processo.cliente === cliente),
-      ),
-    [todos, advogado, estagiario, cliente],
+      todos.filter((i) => {
+        if (advogado !== "todos" && i.processo.responsavel !== advogado) return false;
+        if (estagiario !== "todos" && i.processo.estagiario !== estagiario) return false;
+        if (cliente !== "todos" && i.processo.cliente !== cliente) return false;
+        if (!buscaNorm) return true;
+        const p = i.processo;
+        const alvo = [
+          p.numero_cnj,
+          formatarCNJ(p.numero_cnj),
+          p.autor,
+          p.reu,
+          p.cliente,
+          p.numero_cliente,
+        ]
+          .filter(Boolean)
+          .map((v) => normalizarNome(String(v)))
+          .join(" | ");
+        return alvo.includes(buscaNorm);
+      }),
+    [todos, advogado, estagiario, cliente, buscaNorm],
   );
   const atrasados = itens.filter((i) => i.atrasado).length;
 
@@ -98,6 +114,12 @@ function AdministrativosPage() {
       </div>
 
       <div className="flex flex-wrap gap-3">
+        <Input
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Buscar por nº do processo, parte adversa ou cliente/caso"
+          className="w-full sm:w-80"
+        />
         {advogados.length > 0 ? (
           <Select value={advogado} onValueChange={setAdvogado}>
             <SelectTrigger className="w-48">
