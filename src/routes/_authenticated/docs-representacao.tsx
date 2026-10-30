@@ -190,7 +190,7 @@ function CartaoTipoDoc({
       aria-pressed={selecionado}
       onClick={onClick}
       className={cn(
-        "flex min-w-[260px] flex-1 flex-col gap-3 rounded-xl border p-5 text-left transition-colors",
+        "flex min-w-[260px] max-w-xs flex-1 flex-col gap-3 rounded-xl border p-5 text-left transition-colors",
         selecionado ? "border-primary bg-accent" : "border-border bg-card hover:bg-accent/50",
       )}
     >
