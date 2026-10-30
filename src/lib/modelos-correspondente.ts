@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { supabaseSolto } from "@/lib/supabase-solto";
+import { slugificarNomeArquivo } from "@/lib/utils";
 
 // Cadastro de modelos de Substabelecimento "para o correspondente
 // local" -- por ESTADO, não por cliente (ver
@@ -111,7 +112,7 @@ export async function enviarAssinaturaModeloCorrespondente(
     throw new Error("Envie uma imagem PNG ou JPG.");
   }
 
-  const caminho = `correspondente-${modelo.id}/${crypto.randomUUID()}-${arquivo.name}`;
+  const caminho = `correspondente-${modelo.id}/${crypto.randomUUID()}-${slugificarNomeArquivo(arquivo.name)}`;
   const { error: erroUpload } = await supabase.storage
     .from(BUCKET_ASSINATURA)
     .upload(caminho, arquivo);
@@ -157,7 +158,7 @@ export async function enviarPdfReferenciaModeloCorrespondente(
   if (arquivo.size > TAMANHO_MAX_PDF) throw new Error("Arquivo muito grande (máximo 20 MB).");
   if (arquivo.type !== "application/pdf") throw new Error("Envie um arquivo PDF.");
 
-  const caminho = `correspondente-${modelo.id}/${crypto.randomUUID()}-${arquivo.name}`;
+  const caminho = `correspondente-${modelo.id}/${crypto.randomUUID()}-${slugificarNomeArquivo(arquivo.name)}`;
   const { error: erroUpload } = await supabase.storage
     .from(BUCKET_MODELO_PDF)
     .upload(caminho, arquivo);

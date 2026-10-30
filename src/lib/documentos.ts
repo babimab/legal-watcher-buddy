@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { supabaseSolto } from "@/lib/supabase-solto";
+import { slugificarNomeArquivo } from "@/lib/utils";
 
 export type Documento = {
   id: string;
@@ -32,7 +33,7 @@ export async function enviarDocumento(processoId: string, arquivo: File): Promis
   const criador = userData.user?.id;
   if (!criador) throw new Error("Sessão expirada. Entre novamente para anexar.");
 
-  const caminho = `${processoId}/${crypto.randomUUID()}-${arquivo.name}`;
+  const caminho = `${processoId}/${crypto.randomUUID()}-${slugificarNomeArquivo(arquivo.name)}`;
   const { error: erroUpload } = await supabase.storage.from(BUCKET).upload(caminho, arquivo);
   if (erroUpload) throw erroUpload;
 

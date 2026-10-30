@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { supabaseSolto } from "@/lib/supabase-solto";
 import type { ClienteSubstabelecimento } from "@/lib/substabelecimento";
+import { slugificarNomeArquivo } from "@/lib/utils";
 
 // Cadastro de clientes de substabelecimento e suas assinaturas, guardado
 // no Supabase (tabela clientes_substabelecimento + bucket privado
@@ -62,7 +63,7 @@ function criarGerenciadorPdfCliente(
     if (arquivo.size > TAMANHO_MAX_PDF) throw new Error("Arquivo muito grande (máximo 20 MB).");
     if (arquivo.type !== "application/pdf") throw new Error("Envie um arquivo PDF.");
 
-    const caminho = `${cliente.id}/${crypto.randomUUID()}-${arquivo.name}`;
+    const caminho = `${cliente.id}/${crypto.randomUUID()}-${slugificarNomeArquivo(arquivo.name)}`;
     const { error: erroUpload } = await supabase.storage.from(bucket).upload(caminho, arquivo);
     if (erroUpload) throw erroUpload;
 
@@ -182,7 +183,7 @@ export async function enviarAssinaturaCliente(
     throw new Error("Envie uma imagem PNG ou JPG.");
   }
 
-  const caminho = `${cliente.id}/${crypto.randomUUID()}-${arquivo.name}`;
+  const caminho = `${cliente.id}/${crypto.randomUUID()}-${slugificarNomeArquivo(arquivo.name)}`;
   const { error: erroUpload } = await supabase.storage.from(BUCKET).upload(caminho, arquivo);
   if (erroUpload) throw erroUpload;
 

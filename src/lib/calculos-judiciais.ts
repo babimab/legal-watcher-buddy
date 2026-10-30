@@ -8,6 +8,7 @@ import {
   estilizarCabecalho,
   finalizarPlanilha,
 } from "@/lib/excel";
+import { slugificarNomeArquivo } from "@/lib/utils";
 
 export type ParcelaCalculo = { id: string; valor: number; data: string };
 export type AbatimentoCalculo = { id: string; valor: number; data: string; descricao?: string };
@@ -465,7 +466,7 @@ export async function enviarDocumentoCalculo(
   if (arquivo.size > 50 * 1024 * 1024) throw new Error("Arquivo muito grande (máximo 50 MB).");
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error("Sessão expirada.");
-  const caminho = `${calculoId}/${categoria}/${crypto.randomUUID()}-${arquivo.name}`;
+  const caminho = `${calculoId}/${categoria}/${crypto.randomUUID()}-${slugificarNomeArquivo(arquivo.name)}`;
   const { error: up } = await supabase.storage.from(BUCKET).upload(caminho, arquivo);
   if (up) throw up;
   const { error } = await supabaseSolto.from("calculos_documentos").insert({
