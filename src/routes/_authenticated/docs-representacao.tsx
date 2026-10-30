@@ -8,6 +8,7 @@ import {
   FileDown,
   FileText,
   Files,
+  FolderOpen,
   Mail,
   MapPin,
   Pencil,
@@ -87,6 +88,10 @@ import {
   gerarPdfSubstabelecimentos,
   gerarPdfsSubstabelecimentosSeparados,
 } from "@/lib/pdf-substabelecimento";
+import {
+  gerarPdfProcuracaoPreenchida,
+  nomeArquivoProcuracaoPreenchida,
+} from "@/lib/pdf-procuracao-substabelecimento";
 import {
   gerarEBaixarPdfCartaPreposicao,
   gerarPdfCartasPreposicao,
@@ -2259,6 +2264,7 @@ function GerenciarClientesDialog({
   const [procuracaoDe, setProcuracaoDe] = useState<ClienteSubstabelecimento | null>(null);
   const [cartaModeloDe, setCartaModeloDe] = useState<ClienteSubstabelecimento | null>(null);
   const [substabModeloDe, setSubstabModeloDe] = useState<ClienteSubstabelecimento | null>(null);
+  const [pastaDe, setPastaDe] = useState<ClienteSubstabelecimento | null>(null);
   const [excluindo, setExcluindo] = useState<ClienteSubstabelecimento | null>(null);
 
   const criar = async () => {
@@ -2391,6 +2397,15 @@ function GerenciarClientesDialog({
                         type="button"
                         variant="outline"
                         size="sm"
+                        onClick={() => setPastaDe(c)}
+                      >
+                        <FolderOpen className="size-4" />
+                        Pasta
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
                         onClick={() => setCartaModeloDe(c)}
                       >
                         Carta de Preposição
@@ -2514,6 +2529,12 @@ function GerenciarClientesDialog({
         </DialogContent>
       </Dialog>
 
+      <Dialog open={pastaDe != null} onOpenChange={(v) => !v && setPastaDe(null)}>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+          {pastaDe ? <PastaClienteDialog cliente={pastaDe} /> : null}
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={excluindo != null} onOpenChange={(v) => !v && setExcluindo(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -2529,6 +2550,203 @@ function GerenciarClientesDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </>
+  );
+}
+
+// "Pasta" de um cliente de substabelecimento (ex.: KLM, Air France) --
+// pedido da BDR/Joanice: em vez de misturar os casos desse cliente na
+// aba genérica de Substabelecimento (planilha com várias companhias
+// juntas, casadas por "Cia aérea"), aqui a planilha sobe já filtrada
+// pra esse cliente só, e cada linha gera a Procuração + Substabelecimento
+// já assinada da companhia (PDF de referência cadastrado em
+// "Procuração"), preenchendo só as 3 linhas em branco da página 2
+// (processo, autor/polo ativo e juízo) -- ver
+// pdf-procuracao-substabelecimento.ts.
+function PastaClienteDialog({ cliente }: { cliente: ClienteSubstabelecimento }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [lendo, setLendo] = useState(false);
+  const [itens, setItens] = useState<ItemSubstabelecimento[]>([]);
+  const [gerandoIdx, setGerandoIdx] = useState<number | null>(null);
+  const [gerandoZip, setGerandoZip] = useState(false);
+
+  // Só as linhas da planilha que casam com ESSE cliente -- a planilha
+  // real da Joanice (ex.: "Novas - 8075") traz várias companhias juntas
+  // (KLM, Air France, Aerolíneas Argentinas...), então dentro da pasta
+  // da KLM só interessam as linhas que bateram com "Cia aérea" = KLM.
+  const itensDoCliente = itens.filter((item) => {
+    if (!item.ciaAereaTexto) return false;
+    const casado = encontrarClientePorNome([cliente], item.ciaAereaTexto);
+    return casado != null;
+  });
+
+  const ler = async (arquivo: File) => {
+    const nome = arquivo.name.toLowerCase();
+    if (!EXTENSOES.some((ext) => nome.endsWith(ext))) {
+      toast.error("Formato não suportado. Envie um arquivo .xlsx, .xls ou .xlsm.");
+      return;
+    }
+    if (arquivo.size > TAMANHO_MAX) {
+      toast.error("Arquivo muito grande (máximo 20 MB).");
+      return;
+    }
+    setLendo(true);
+    try {
+      const lidos = lerPlanilhaSubstabelecimento(await arquivo.arrayBuffer());
+      setItens(lidos);
+      const doCliente = lidos.filter((item) => {
+        if (!item.ciaAereaTexto) return false;
+        return encontrarClientePorNome([cliente], item.ciaAereaTexto) != null;
+      });
+      if (doCliente.length === 0) {
+        toast.warning(
+          `Nenhuma linha da planilha bateu com "${cliente.nome}" na coluna "Cia aérea".`,
+        );
+      } else {
+        toast.success(`${doCliente.length} processo(s) de "${cliente.nome}" encontrado(s).`);
+      }
+    } catch (e) {
+      console.error("Erro ao ler planilha na pasta do cliente:", e);
+      toast.error(`Não consegui ler a planilha: ${mensagemErro(e)}`);
+    } finally {
+      setLendo(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  const baixarUm = async (item: ItemSubstabelecimento) => {
+    setGerandoIdx(item.idx);
+    try {
+      const blob = await gerarPdfProcuracaoPreenchida(cliente, item);
+      baixarBlob(blob, nomeArquivoProcuracaoPreenchida(cliente, item));
+    } catch (e) {
+      console.error("Erro ao gerar procuração preenchida:", e);
+      toast.error(`Não consegui gerar esse documento: ${mensagemErro(e)}`);
+    } finally {
+      setGerandoIdx(null);
+    }
+  };
+
+  const baixarTodas = async () => {
+    if (itensDoCliente.length === 0) {
+      toast.error("Nenhum processo pra gerar.");
+      return;
+    }
+    setGerandoZip(true);
+    try {
+      const zip = new JSZip();
+      let falhas = 0;
+      for (const item of itensDoCliente) {
+        try {
+          const blob = await gerarPdfProcuracaoPreenchida(cliente, item);
+          zip.file(nomeArquivoProcuracaoPreenchida(cliente, item), blob);
+        } catch (e) {
+          console.error("Erro ao gerar procuração preenchida (lote):", e);
+          falhas++;
+        }
+      }
+      if (falhas === itensDoCliente.length) {
+        toast.error("Não consegui gerar nenhum documento.");
+        return;
+      }
+      const conteudo = await zip.generateAsync({ type: "blob" });
+      baixarBlob(
+        conteudo,
+        `procuracoes-${cliente.id}-${new Date().toISOString().slice(0, 10)}.zip`,
+      );
+      toast.success(
+        falhas > 0
+          ? `${itensDoCliente.length - falhas} documento(s) gerado(s). ${falhas} falharam.`
+          : `${itensDoCliente.length} documento(s) gerado(s) em arquivos separados.`,
+      );
+    } finally {
+      setGerandoZip(false);
+    }
+  };
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <FolderOpen className="size-5" /> Pasta — {cliente.nome}
+        </DialogTitle>
+        <DialogDescription>
+          Suba a planilha com os processos desse cliente (mesmo formato da aba Substabelecimento)
+          pra gerar a Procuração + Substabelecimento já preenchida (página 2) de cada um.
+        </DialogDescription>
+      </DialogHeader>
+
+      {!cliente.procuracaoCaminho ? (
+        <p className="rounded-md border border-amber-400 bg-amber-50 p-3 text-sm text-amber-800">
+          Esse cliente ainda não tem a procuração (PDF) cadastrada — suba primeiro pelo botão
+          "Procuração", na lista de clientes, antes de gerar documentos aqui.
+        </p>
+      ) : null}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".xlsx,.xls,.xlsm"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void ler(f);
+            e.target.value = "";
+          }}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => inputRef.current?.click()}
+          disabled={lendo}
+        >
+          <Upload className="size-4" />
+          {lendo ? "Lendo..." : "Subir planilha"}
+        </Button>
+        <Button
+          type="button"
+          onClick={() => void baixarTodas()}
+          disabled={gerandoZip || itensDoCliente.length === 0 || !cliente.procuracaoCaminho}
+        >
+          <Files className="size-4" />
+          {gerandoZip ? "Gerando..." : "Gerar todas (.zip)"}
+        </Button>
+      </div>
+
+      {itens.length > 0 ? (
+        <div className="space-y-2">
+          {itensDoCliente.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nenhuma linha da planilha bateu com "{cliente.nome}".
+            </p>
+          ) : (
+            itensDoCliente.map((item) => (
+              <div
+                key={item.idx}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3 text-sm"
+              >
+                <div className="min-w-0">
+                  <p className="font-medium">{item.processo ?? "—"}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {item.autor ?? "—"} · {item.juizo ?? "—"}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void baixarUm(item)}
+                  disabled={gerandoIdx === item.idx || !cliente.procuracaoCaminho}
+                >
+                  <FileDown className="size-4" />
+                  {gerandoIdx === item.idx ? "Gerando..." : "Baixar"}
+                </Button>
+              </div>
+            ))
+          )}
+        </div>
+      ) : null}
     </>
   );
 }
