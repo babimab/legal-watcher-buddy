@@ -1,22 +1,27 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 
-import { type ItemSubstabelecimento } from "@/lib/substabelecimento";
+import { type ClienteSubstabelecimento, type ItemSubstabelecimento } from "@/lib/substabelecimento";
+import { obterUrlSubstabelecimentoModeloCliente } from "@/lib/clientes-substabelecimento";
 import {
   obterUrlModeloPdfCorrespondente,
   type ModeloCorrespondente,
 } from "@/lib/modelos-correspondente";
 
 // Preenche as 3 linhas em branco da página 2 (SUBSTABELECIMENTO) do PDF
-// de Procuração + Substabelecimento cadastrado como "PDF de referência"
-// do modelo de correspondente local daquele estado (modeloPdfCaminho em
-// ModeloCorrespondente) -- caso real: AF/KLM mandam a própria Procuração
-// + Substabelecimento já assinada pro correspondente local (mesmos
+// de Procuração + Substabelecimento já assinada -- caso real: AF/KLM
+// mandam o próprio documento assinado pro correspondente local (mesmos
 // advogados da lista de correspondente), só faltando preencher processo/
-// autor/juízo da página 2. Diferente do gerador de substabelecimento
-// normal (pdf-base.ts), que desenha a página inteira do zero: aqui o
-// documento já vem assinado digitalmente pela companhia aérea, então só
-// sobrepomos texto nas 3 linhas em branco, sem tocar no resto do PDF
-// (procuração + assinaturas ficam intactas).
+// autor/juízo da página 2. O PDF em si pode estar cadastrado em dois
+// lugares -- tenta primeiro o "PDF de referência" do estado (modeloPdfCaminho
+// em ModeloCorrespondente); se não tiver, cai pro "Substabelecimento"
+// cadastrado no próprio cliente (substabelecimentoModeloCaminho em
+// ClienteSubstabelecimento), pra não obrigar cadastrar o mesmo arquivo
+// duas vezes quando a BDR já subiu ele na ficha do cliente. Diferente do
+// gerador de substabelecimento normal (pdf-base.ts), que desenha a
+// página inteira do zero: aqui o documento já vem assinado digitalmente
+// pela companhia aérea, então só sobrepomos texto nas 3 linhas em
+// branco, sem tocar no resto do PDF (procuração + assinaturas ficam
+// intactas).
 //
 // Coordenadas medidas e conferidas visualmente nos PDFs de referência da
 // AF e da KLM (layout idêntico nos dois -- mesmo texto gerado de um
@@ -65,14 +70,21 @@ function desenharNaLinha(pagina: PDFPage, font: PDFFont, texto: string | null, l
 
 export async function gerarPdfProcuracaoPreenchida(
   modelo: ModeloCorrespondente,
+  cliente: ClienteSubstabelecimento | null,
   item: ItemSubstabelecimento,
 ): Promise<Blob> {
-  if (!modelo.modeloPdfCaminho) {
+  const url = modelo.modeloPdfCaminho
+    ? await obterUrlModeloPdfCorrespondente(modelo.modeloPdfCaminho)
+    : cliente?.substabelecimentoModeloCaminho
+      ? await obterUrlSubstabelecimentoModeloCliente(cliente.substabelecimentoModeloCaminho)
+      : null;
+  if (!url) {
     throw new Error(
-      `O estado "${modelo.estado}" não tem o PDF de referência cadastrado em "Modelos de correspondente".`,
+      cliente
+        ? `Nem o estado "${modelo.estado}" nem o cliente "${cliente.nome}" têm um PDF de referência cadastrado.`
+        : `O estado "${modelo.estado}" não tem o PDF de referência cadastrado em "Modelos de correspondente".`,
     );
   }
-  const url = await obterUrlModeloPdfCorrespondente(modelo.modeloPdfCaminho);
   const pdf = await carregarPdf(url);
   if (pdf.getPageCount() < 2) {
     throw new Error(`O PDF de referência de "${modelo.estado}" não tem uma segunda página.`);

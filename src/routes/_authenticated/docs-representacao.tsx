@@ -795,6 +795,7 @@ function AbaSubstabelecimentoCorrespondente() {
   const [editando, setEditando] = useState<ItemSubstabelecimento | null>(null);
   const [apagando, setApagando] = useState<ItemSubstabelecimento | null>(null);
   const [gerenciando, setGerenciando] = useState(false);
+  const [pastaAberta, setPastaAberta] = useState(false);
 
   useEffect(() => {
     if (!modeloId && modelosQuery.data && modelosQuery.data.length > 0) {
@@ -1019,6 +1020,20 @@ function AbaSubstabelecimentoCorrespondente() {
             <Button type="button" variant="ghost" size="sm" onClick={() => setGerenciando(true)}>
               <Settings className="size-4" /> Modelos de correspondente
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPastaAberta(true)}
+              disabled={!modelo}
+              title={
+                modelo
+                  ? "Preenche a Procuração + Substabelecimento já assinada (ex.: AF/KLM) em vez de gerar do zero"
+                  : "Escolha o estado primeiro"
+              }
+            >
+              <FolderOpen className="size-4" /> Pasta (PDF já assinado)
+            </Button>
           </div>
           {!modelosQuery.isLoading && modelos.length === 0 ? (
             <p className="text-sm text-muted-foreground">
@@ -1225,6 +1240,12 @@ function AbaSubstabelecimentoCorrespondente() {
         modelos={modelos}
         onChanged={recarregarModelos}
       />
+
+      <Dialog open={pastaAberta} onOpenChange={setPastaAberta}>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+          {modelo ? <PastaModeloCorrespondenteDialog modelo={modelo} /> : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -2446,11 +2467,11 @@ function GerenciarClientesDialog({
                                 setPastaModeloDe(m);
                                 setPastaClienteId(c.id);
                               }}
-                              disabled={!m.modeloPdfCaminho}
+                              disabled={!m.modeloPdfCaminho && !c.substabelecimentoModeloCaminho}
                               title={
-                                m.modeloPdfCaminho
+                                m.modeloPdfCaminho || c.substabelecimentoModeloCaminho
                                   ? undefined
-                                  : `Cadastre o PDF de referência de "${m.estado}" em Modelos de correspondente`
+                                  : `Cadastre o PDF em "PDF de referência" (${m.estado}) ou em "Substabelecimento" (${c.nome})`
                               }
                             >
                               <FolderOpen className="size-4" />
@@ -2749,10 +2770,6 @@ function GerenciarModelosCorrespondenteDialog({
                         variant="outline"
                         size="sm"
                         onClick={() => setPastaDe(m)}
-                        disabled={!m.modeloPdfCaminho}
-                        title={
-                          m.modeloPdfCaminho ? undefined : "Cadastre o PDF de referência primeiro"
-                        }
                       >
                         <FolderOpen className="size-4" />
                         Pasta
@@ -2901,6 +2918,13 @@ function PastaModeloCorrespondenteDialog({
       )
     : itensDoEstado;
 
+  // PDF de cada linha pode vir do estado (modelo.modeloPdfCaminho) ou,
+  // se o estado não tiver, do próprio cliente casado com a "Cia aérea"
+  // dessa linha (substabelecimentoModeloCaminho) -- ver fallback em
+  // gerarPdfProcuracaoPreenchida.
+  const clienteDoItem = (item: ItemSubstabelecimento): ClienteSubstabelecimento | null =>
+    encontrarClientePorNome(clientes, item.ciaAereaTexto);
+
   const ler = async (arquivo: File) => {
     const nome = arquivo.name.toLowerCase();
     if (!EXTENSOES.some((ext) => nome.endsWith(ext))) {
@@ -2936,7 +2960,7 @@ function PastaModeloCorrespondenteDialog({
   const baixarUm = async (item: ItemSubstabelecimento) => {
     setGerandoIdx(item.idx);
     try {
-      const blob = await gerarPdfProcuracaoPreenchida(modelo, item);
+      const blob = await gerarPdfProcuracaoPreenchida(modelo, clienteDoItem(item), item);
       baixarBlob(blob, nomeArquivoProcuracaoPreenchida(modelo, item));
     } catch (e) {
       console.error("Erro ao gerar procuração preenchida:", e);
@@ -2957,7 +2981,7 @@ function PastaModeloCorrespondenteDialog({
       let falhas = 0;
       for (const item of itensFiltrados) {
         try {
-          const blob = await gerarPdfProcuracaoPreenchida(modelo, item);
+          const blob = await gerarPdfProcuracaoPreenchida(modelo, clienteDoItem(item), item);
           zip.file(nomeArquivoProcuracaoPreenchida(modelo, item), blob);
         } catch (e) {
           console.error("Erro ao gerar procuração preenchida (lote):", e);
@@ -2988,15 +3012,17 @@ function PastaModeloCorrespondenteDialog({
         </DialogTitle>
         <DialogDescription>
           Suba a planilha com os processos (mesmo formato da aba Substabelecimento) pra gerar a
-          Procuração + Substabelecimento já preenchida (página 2) de cada um, usando o PDF de
-          referência cadastrado nesse estado.
+          Procuração + Substabelecimento já preenchida (página 2) de cada um. Usa o PDF de
+          referência desse estado se tiver, senão usa o "Substabelecimento" cadastrado no cliente
+          (Clientes e assinaturas) casado com a "Cia aérea" de cada linha.
         </DialogDescription>
       </DialogHeader>
 
       {!modelo.modeloPdfCaminho ? (
         <p className="rounded-md border border-amber-400 bg-amber-50 p-3 text-sm text-amber-800">
-          Esse estado ainda não tem o PDF de referência cadastrado — suba primeiro pelo botão "PDF
-          de referência", na lista de estados, antes de gerar documentos aqui.
+          Esse estado não tem o PDF de referência cadastrado — vai usar o "Substabelecimento" de
+          cada cliente (Clientes e assinaturas). Se faltar nos dois lugares pra alguma linha, a
+          geração dela falha e avisa qual foi.
         </p>
       ) : null}
 
@@ -3037,7 +3063,7 @@ function PastaModeloCorrespondenteDialog({
         <Button
           type="button"
           onClick={() => void baixarTodas()}
-          disabled={gerandoZip || itensFiltrados.length === 0 || !modelo.modeloPdfCaminho}
+          disabled={gerandoZip || itensFiltrados.length === 0}
         >
           <Files className="size-4" />
           {gerandoZip ? "Gerando..." : "Gerar todas (.zip)"}
@@ -3068,7 +3094,7 @@ function PastaModeloCorrespondenteDialog({
                   variant="outline"
                   size="sm"
                   onClick={() => void baixarUm(item)}
-                  disabled={gerandoIdx === item.idx || !modelo.modeloPdfCaminho}
+                  disabled={gerandoIdx === item.idx}
                 >
                   <FileDown className="size-4" />
                   {gerandoIdx === item.idx ? "Gerando..." : "Baixar"}

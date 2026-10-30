@@ -246,6 +246,21 @@ export async function obterUrlAssinaturaCliente(caminho: string): Promise<string
   return data.signedUrl;
 }
 
+// Mesma ideia de obterUrlAssinaturaCliente, mas pro bucket do modelo de
+// substabelecimento "pronto" (campo substabelecimentoModeloCaminho) --
+// usada pelo gerador de Procuração + Substabelecimento preenchida
+// (pdf-procuracao-substabelecimento.ts) como alternativa ao PDF de
+// referência cadastrado por estado em Modelos de correspondente: quando
+// o cliente (ex.: KLM) já tem o próprio PDF assinado cadastrado aqui, a
+// Pasta usa esse em vez de pedir pra cadastrar de novo lá.
+export async function obterUrlSubstabelecimentoModeloCliente(caminho: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from(BUCKET_SUBSTABELECIMENTO_MODELO)
+    .createSignedUrl(caminho, 300);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
 // Só guarda a versão atual: subir um novo arquivo substitui o anterior
 // (sem manter histórico).
 export const enviarProcuracaoCliente = gerenciadorProcuracao.enviar;
