@@ -254,6 +254,17 @@ export function nomeArquivoSubstabelecimento(
   return `substabelecimento-${cliente.id}-${base || item.idx + 1}.pdf`;
 }
 
+// UF do processo, tirada do fim do texto já montado em "juizo"
+// (compuserJuizo sempre deixa a UF no final, como "- RJ" quando vem de
+// coluna própria ou "/RJ" quando embutida na Comarca) -- usada pra
+// filtrar a planilha da "Pasta" do correspondente local por estado
+// (ver PastaModeloCorrespondenteDialog em docs-representacao.tsx).
+export function ufDoItem(item: ItemSubstabelecimento): string | null {
+  if (!item.juizo) return null;
+  const m = item.juizo.match(/[/-]\s*([A-Za-z]{2})\s*$/);
+  return m ? m[1]!.toUpperCase() : null;
+}
+
 // Casa o texto da coluna "Cia aérea" da planilha com o cadastro de
 // clientes de Docs de Representação -- planilha real costuma vir com o
 // nome completo ("KLM CIA Real Holandesa de Aviação") enquanto o
@@ -284,7 +295,9 @@ export function encontrarClientePorNome(
 // dá pra ter cadastrando a companhia de verdade.
 export function clienteAdHoc(textoCiaAerea: string): ClienteSubstabelecimento {
   return {
-    id: `adhoc-${normalizar(textoCiaAerea).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`,
+    id: `adhoc-${normalizar(textoCiaAerea)
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")}`,
     nome: textoCiaAerea,
     textoOutorgante: textoCiaAerea,
     assinanteNome: null,

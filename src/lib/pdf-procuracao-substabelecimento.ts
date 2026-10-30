@@ -1,15 +1,22 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 
-import { type ClienteSubstabelecimento, type ItemSubstabelecimento } from "@/lib/substabelecimento";
-import { obterUrlProcuracaoCliente } from "@/lib/clientes-substabelecimento";
+import { type ItemSubstabelecimento } from "@/lib/substabelecimento";
+import {
+  obterUrlModeloPdfCorrespondente,
+  type ModeloCorrespondente,
+} from "@/lib/modelos-correspondente";
 
 // Preenche as 3 linhas em branco da página 2 (SUBSTABELECIMENTO) do PDF
-// de procuração já cadastrado no cliente (ver procuracaoCaminho em
-// ClienteSubstabelecimento) -- diferente do gerador de substabelecimento
+// de Procuração + Substabelecimento cadastrado como "PDF de referência"
+// do modelo de correspondente local daquele estado (modeloPdfCaminho em
+// ModeloCorrespondente) -- caso real: AF/KLM mandam a própria Procuração
+// + Substabelecimento já assinada pro correspondente local (mesmos
+// advogados da lista de correspondente), só faltando preencher processo/
+// autor/juízo da página 2. Diferente do gerador de substabelecimento
 // normal (pdf-base.ts), que desenha a página inteira do zero: aqui o
-// documento já vem assinado digitalmente pela companhia aérea (AF/KLM),
-// então só sobrepomos texto nas 3 linhas em branco, sem tocar no resto
-// do PDF (procuração + assinaturas ficam intactas).
+// documento já vem assinado digitalmente pela companhia aérea, então só
+// sobrepomos texto nas 3 linhas em branco, sem tocar no resto do PDF
+// (procuração + assinaturas ficam intactas).
 //
 // Coordenadas medidas e conferidas visualmente nos PDFs de referência da
 // AF e da KLM (layout idêntico nos dois -- mesmo texto gerado de um
@@ -35,7 +42,7 @@ const TAMANHO_FONTE_MIN = 6;
 
 async function carregarPdf(url: string): Promise<PDFDocument> {
   const resposta = await fetch(url);
-  if (!resposta.ok) throw new Error("Não consegui baixar o PDF de referência da procuração.");
+  if (!resposta.ok) throw new Error("Não consegui baixar o PDF de referência.");
   const bytes = await resposta.arrayBuffer();
   return PDFDocument.load(bytes);
 }
@@ -57,18 +64,18 @@ function desenharNaLinha(pagina: PDFPage, font: PDFFont, texto: string | null, l
 }
 
 export async function gerarPdfProcuracaoPreenchida(
-  cliente: ClienteSubstabelecimento,
+  modelo: ModeloCorrespondente,
   item: ItemSubstabelecimento,
 ): Promise<Blob> {
-  if (!cliente.procuracaoCaminho) {
-    throw new Error(`"${cliente.nome}" não tem procuração cadastrada em "Clientes e assinaturas".`);
+  if (!modelo.modeloPdfCaminho) {
+    throw new Error(
+      `O estado "${modelo.estado}" não tem o PDF de referência cadastrado em "Modelos de correspondente".`,
+    );
   }
-  const url = await obterUrlProcuracaoCliente(cliente.procuracaoCaminho);
+  const url = await obterUrlModeloPdfCorrespondente(modelo.modeloPdfCaminho);
   const pdf = await carregarPdf(url);
   if (pdf.getPageCount() < 2) {
-    throw new Error(
-      `A procuração de "${cliente.nome}" não tem uma segunda página (substabelecimento).`,
-    );
+    throw new Error(`O PDF de referência de "${modelo.estado}" não tem uma segunda página.`);
   }
   const pagina = pdf.getPage(PAGINA_SUBSTABELECIMENTO);
   const font = await pdf.embedFont(StandardFonts.Helvetica);
@@ -85,7 +92,7 @@ export async function gerarPdfProcuracaoPreenchida(
 }
 
 export function nomeArquivoProcuracaoPreenchida(
-  cliente: ClienteSubstabelecimento,
+  modelo: ModeloCorrespondente,
   item: ItemSubstabelecimento,
 ): string {
   const base = (item.processo ?? String(item.idx + 1))
@@ -94,5 +101,5 @@ export function nomeArquivoProcuracaoPreenchida(
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
-  return `procuracao-substabelecimento-${cliente.id}-${base || item.idx + 1}.pdf`;
+  return `procuracao-substabelecimento-${modelo.id}-${base || item.idx + 1}.pdf`;
 }

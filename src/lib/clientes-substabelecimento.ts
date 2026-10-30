@@ -246,18 +246,6 @@ export async function obterUrlAssinaturaCliente(caminho: string): Promise<string
   return data.signedUrl;
 }
 
-// Mesma ideia de obterUrlAssinaturaCliente, mas pro bucket de procuração
-// -- usada pelo gerador de Procuração + Substabelecimento preenchida
-// (pdf-procuracao-substabelecimento.ts), que precisa baixar o PDF em si
-// pra sobrepor texto nele.
-export async function obterUrlProcuracaoCliente(caminho: string): Promise<string> {
-  const { data, error } = await supabase.storage
-    .from(BUCKET_PROCURACAO)
-    .createSignedUrl(caminho, 300);
-  if (error) throw error;
-  return data.signedUrl;
-}
-
 // Só guarda a versão atual: subir um novo arquivo substitui o anterior
 // (sem manter histórico).
 export const enviarProcuracaoCliente = gerenciadorProcuracao.enviar;
