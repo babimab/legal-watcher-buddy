@@ -223,17 +223,3 @@ export async function obterUrlAssinaturaModeloCorrespondente(caminho: string): P
   if (error) throw error;
   return data.signedUrl;
 }
-
-// Mesma ideia de obterUrlAssinaturaModeloCorrespondente, mas pro bucket
-// do PDF de referência (modeloPdfCaminho) -- usada pelo gerador de
-// Procuração + Substabelecimento preenchida
-// (pdf-procuracao-substabelecimento.ts), que precisa baixar o PDF em si
-// pra sobrepor texto nele (ex.: AF/KLM, que mandam a própria Procuração
-// + Substabelecimento já assinada pro correspondente local).
-export async function obterUrlModeloPdfCorrespondente(caminho: string): Promise<string> {
-  const { data, error } = await supabase.storage
-    .from(BUCKET_MODELO_PDF)
-    .createSignedUrl(caminho, 300);
-  if (error) throw error;
-  return data.signedUrl;
-}

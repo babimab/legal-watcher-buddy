@@ -2,26 +2,17 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf
 
 import { type ClienteSubstabelecimento, type ItemSubstabelecimento } from "@/lib/substabelecimento";
 import { obterUrlSubstabelecimentoModeloCliente } from "@/lib/clientes-substabelecimento";
-import {
-  obterUrlModeloPdfCorrespondente,
-  type ModeloCorrespondente,
-} from "@/lib/modelos-correspondente";
 
 // Preenche as 3 linhas em branco da página 2 (SUBSTABELECIMENTO) do PDF
-// de Procuração + Substabelecimento já assinada -- caso real: AF/KLM
-// mandam o próprio documento assinado pro correspondente local (mesmos
-// advogados da lista de correspondente), só faltando preencher processo/
-// autor/juízo da página 2. O PDF em si pode estar cadastrado em dois
-// lugares -- tenta primeiro o "PDF de referência" do estado (modeloPdfCaminho
-// em ModeloCorrespondente); se não tiver, cai pro "Substabelecimento"
-// cadastrado no próprio cliente (substabelecimentoModeloCaminho em
-// ClienteSubstabelecimento), pra não obrigar cadastrar o mesmo arquivo
-// duas vezes quando a BDR já subiu ele na ficha do cliente. Diferente do
-// gerador de substabelecimento normal (pdf-base.ts), que desenha a
-// página inteira do zero: aqui o documento já vem assinado digitalmente
-// pela companhia aérea, então só sobrepomos texto nas 3 linhas em
-// branco, sem tocar no resto do PDF (procuração + assinaturas ficam
-// intactas).
+// de Procuração + Substabelecimento já cadastrado no cliente (campo
+// "Substabelecimento" / substabelecimentoModeloCaminho em
+// ClienteSubstabelecimento) -- caso real: AF/KLM mandam o próprio
+// documento já assinado pro correspondente local, só faltando preencher
+// processo/autor/juízo da página 2. Diferente do gerador de
+// substabelecimento normal (pdf-base.ts), que desenha a página inteira
+// do zero: aqui o documento já vem assinado digitalmente pela companhia
+// aérea, então só sobrepomos texto nas 3 linhas em branco, sem tocar no
+// resto do PDF (procuração + assinaturas ficam intactas).
 //
 // Coordenadas medidas e conferidas visualmente nos PDFs de referência da
 // AF e da KLM (layout idêntico nos dois -- mesmo texto gerado de um
@@ -69,25 +60,18 @@ function desenharNaLinha(pagina: PDFPage, font: PDFFont, texto: string | null, l
 }
 
 export async function gerarPdfProcuracaoPreenchida(
-  modelo: ModeloCorrespondente,
-  cliente: ClienteSubstabelecimento | null,
+  cliente: ClienteSubstabelecimento,
   item: ItemSubstabelecimento,
 ): Promise<Blob> {
-  const url = modelo.modeloPdfCaminho
-    ? await obterUrlModeloPdfCorrespondente(modelo.modeloPdfCaminho)
-    : cliente?.substabelecimentoModeloCaminho
-      ? await obterUrlSubstabelecimentoModeloCliente(cliente.substabelecimentoModeloCaminho)
-      : null;
-  if (!url) {
+  if (!cliente.substabelecimentoModeloCaminho) {
     throw new Error(
-      cliente
-        ? `Nem o estado "${modelo.estado}" nem o cliente "${cliente.nome}" têm um PDF de referência cadastrado.`
-        : `O estado "${modelo.estado}" não tem o PDF de referência cadastrado em "Modelos de correspondente".`,
+      `"${cliente.nome}" não tem o PDF de Substabelecimento cadastrado em "Clientes e assinaturas".`,
     );
   }
+  const url = await obterUrlSubstabelecimentoModeloCliente(cliente.substabelecimentoModeloCaminho);
   const pdf = await carregarPdf(url);
   if (pdf.getPageCount() < 2) {
-    throw new Error(`O PDF de referência de "${modelo.estado}" não tem uma segunda página.`);
+    throw new Error(`O PDF de Substabelecimento de "${cliente.nome}" não tem uma segunda página.`);
   }
   const pagina = pdf.getPage(PAGINA_SUBSTABELECIMENTO);
   const font = await pdf.embedFont(StandardFonts.Helvetica);
@@ -104,7 +88,7 @@ export async function gerarPdfProcuracaoPreenchida(
 }
 
 export function nomeArquivoProcuracaoPreenchida(
-  modelo: ModeloCorrespondente,
+  cliente: ClienteSubstabelecimento,
   item: ItemSubstabelecimento,
 ): string {
   const base = (item.processo ?? String(item.idx + 1))
@@ -113,5 +97,5 @@ export function nomeArquivoProcuracaoPreenchida(
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
-  return `procuracao-substabelecimento-${modelo.id}-${base || item.idx + 1}.pdf`;
+  return `procuracao-substabelecimento-${cliente.id}-${base || item.idx + 1}.pdf`;
 }
