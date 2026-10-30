@@ -275,6 +275,14 @@ function AbaSubstabelecimento() {
     queryFn: listarClientesSubstabelecimento,
   });
   const clientes = clientesQuery.data ?? [];
+  // Mesma queryKey usada em AbaSubstabelecimentoCorrespondente -- só pra
+  // ligar o atalho "Pasta" na linha do cliente (ver GerenciarClientesDialog)
+  // ao modelo de correspondente certo, sem duplicar o fetch.
+  const modelosQuery = useQuery({
+    queryKey: ["modelos-substabelecimento-correspondente"],
+    queryFn: listarModelosCorrespondente,
+  });
+  const modelos = modelosQuery.data ?? [];
   const [clienteId, setClienteId] = useState("");
   const [itens, setItens] = useState<ItemSubstabelecimento[]>([]);
   const [nomeArquivo, setNomeArquivo] = useState<string | null>(null);
@@ -757,6 +765,7 @@ function AbaSubstabelecimento() {
         onOpenChange={setGerenciando}
         clientes={clientes}
         onChanged={recarregarClientes}
+        modelos={modelos}
       />
     </div>
   );
@@ -2252,11 +2261,18 @@ function GerenciarClientesDialog({
   onOpenChange,
   clientes,
   onChanged,
+  modelos,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   clientes: ClienteSubstabelecimento[];
   onChanged: () => void;
+  // Opcional: só a aba de Substabelecimento para o Correspondente Local
+  // passa isso -- liga o atalho "Pasta" de cada cliente (ex.: KLM) ao
+  // modelo de correspondente cujo "estado" bate com o nome do cliente
+  // (ex.: "RJ-KLM"), sem duplicar o PDF de referência: ele continua
+  // cadastrado só no modelo (ver PastaModeloCorrespondenteDialog).
+  modelos?: ModeloCorrespondente[];
 }) {
   const [novoNome, setNovoNome] = useState("");
   const [novoTexto, setNovoTexto] = useState("");
@@ -2267,6 +2283,8 @@ function GerenciarClientesDialog({
   const [cartaModeloDe, setCartaModeloDe] = useState<ClienteSubstabelecimento | null>(null);
   const [substabModeloDe, setSubstabModeloDe] = useState<ClienteSubstabelecimento | null>(null);
   const [excluindo, setExcluindo] = useState<ClienteSubstabelecimento | null>(null);
+  const [pastaModeloDe, setPastaModeloDe] = useState<ModeloCorrespondente | null>(null);
+  const [pastaClienteId, setPastaClienteId] = useState<string | null>(null);
 
   const criar = async () => {
     if (!novoNome.trim() || !novoTexto.trim()) {
@@ -2301,6 +2319,13 @@ function GerenciarClientesDialog({
       setExcluindo(null);
     }
   };
+
+  // Modelos de correspondente cujo "estado" bate com o nome desse
+  // cliente (ex.: cliente "KLM" casa com o modelo "RJ-KLM") -- liga o
+  // atalho "Pasta" na linha do cliente ao cadastro certo em Modelos de
+  // correspondente, sem duplicar o PDF de referência.
+  const modelosDoCliente = (cliente: ClienteSubstabelecimento): ModeloCorrespondente[] =>
+    (modelos ?? []).filter((m) => encontrarClientePorNome([cliente], m.estado) != null);
 
   return (
     <>
@@ -2410,6 +2435,29 @@ function GerenciarClientesDialog({
                       >
                         Substabelecimento
                       </Button>
+                      {modelos
+                        ? modelosDoCliente(c).map((m) => (
+                            <Button
+                              key={m.id}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setPastaModeloDe(m);
+                                setPastaClienteId(c.id);
+                              }}
+                              disabled={!m.modeloPdfCaminho}
+                              title={
+                                m.modeloPdfCaminho
+                                  ? undefined
+                                  : `Cadastre o PDF de referência de "${m.estado}" em Modelos de correspondente`
+                              }
+                            >
+                              <FolderOpen className="size-4" />
+                              Pasta{modelosDoCliente(c).length > 1 ? `: ${m.estado}` : ""}
+                            </Button>
+                          ))
+                        : null}
                       <Button
                         type="button"
                         variant="ghost"
@@ -2536,6 +2584,25 @@ function GerenciarClientesDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={pastaModeloDe != null}
+        onOpenChange={(v) => {
+          if (!v) {
+            setPastaModeloDe(null);
+            setPastaClienteId(null);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+          {pastaModeloDe ? (
+            <PastaModeloCorrespondenteDialog
+              modelo={pastaModeloDe}
+              clienteInicialId={pastaClienteId}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -2798,12 +2865,20 @@ function GerenciarModelosCorrespondenteDialog({
 // cliente (companhia aérea) escolhido no seletor -- já que o mesmo
 // estado pode servir a mais de uma companhia, mas o PDF de referência
 // aqui cadastrado é de uma companhia só.
-function PastaModeloCorrespondenteDialog({ modelo }: { modelo: ModeloCorrespondente }) {
+function PastaModeloCorrespondenteDialog({
+  modelo,
+  clienteInicialId,
+}: {
+  modelo: ModeloCorrespondente;
+  // Preenche o seletor "Filtrar por cliente" já marcado -- usado pelo
+  // atalho "Pasta" na linha do cliente, em Clientes e assinaturas.
+  clienteInicialId?: string | null;
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [lendo, setLendo] = useState(false);
   const [itens, setItens] = useState<ItemSubstabelecimento[]>([]);
   const [clientes, setClientes] = useState<ClienteSubstabelecimento[]>([]);
-  const [clienteId, setClienteId] = useState<string>("todos");
+  const [clienteId, setClienteId] = useState<string>(clienteInicialId ?? "todos");
   const [gerandoIdx, setGerandoIdx] = useState<number | null>(null);
   const [gerandoZip, setGerandoZip] = useState(false);
 
