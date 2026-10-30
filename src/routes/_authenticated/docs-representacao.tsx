@@ -168,7 +168,8 @@ type TipoDocRepresentacao =
   | "substabelecimento"
   | "substabelecimentoCorrespondente"
   | "preposicao"
-  | "preposicaoCorrespondente";
+  | "preposicaoCorrespondente"
+  | "procuracaoSubstabelecimento";
 
 function CartaoTipoDoc({
   selecionado,
@@ -255,12 +256,20 @@ function DocsRepresentacaoPage() {
           descricao="Credencia a lista de prepostos de um estado, em vez de nomear prepostos um a um."
           onClick={() => setAba("preposicaoCorrespondente")}
         />
+        <CartaoTipoDoc
+          selecionado={aba === "procuracaoSubstabelecimento"}
+          icone={<FolderOpen className="size-5" />}
+          titulo="Procuração + Substabelecimento"
+          descricao="Preenche a Procuração + Substabelecimento já assinada por cliente (ex.: AF, KLM), sem gerar do zero."
+          onClick={() => setAba("procuracaoSubstabelecimento")}
+        />
       </div>
 
       {aba === "substabelecimento" ? <AbaSubstabelecimento /> : null}
       {aba === "substabelecimentoCorrespondente" ? <AbaSubstabelecimentoCorrespondente /> : null}
       {aba === "preposicao" ? <AbaCartaPreposicao /> : null}
       {aba === "preposicaoCorrespondente" ? <AbaCartaPreposicaoCorrespondente /> : null}
+      {aba === "procuracaoSubstabelecimento" ? <AbaProcuracaoSubstabelecimento /> : null}
     </div>
   );
 }
@@ -2265,7 +2274,6 @@ function GerenciarClientesDialog({
   const [cartaModeloDe, setCartaModeloDe] = useState<ClienteSubstabelecimento | null>(null);
   const [substabModeloDe, setSubstabModeloDe] = useState<ClienteSubstabelecimento | null>(null);
   const [excluindo, setExcluindo] = useState<ClienteSubstabelecimento | null>(null);
-  const [pastaAberta, setPastaAberta] = useState(false);
 
   const criar = async () => {
     if (!novoNome.trim() || !novoTexto.trim()) {
@@ -2306,18 +2314,7 @@ function GerenciarClientesDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex flex-wrap items-center justify-between gap-2">
-              <span>Clientes e assinaturas</span>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="font-normal"
-                onClick={() => setPastaAberta(true)}
-              >
-                <FolderOpen className="size-4" /> Pasta (gerar em lote)
-              </Button>
-            </DialogTitle>
+            <DialogTitle>Clientes e assinaturas</DialogTitle>
             <DialogDescription>
               Cadastre o cliente e, se quiser, suba a imagem da assinatura (PNG ou JPG) — ela fica
               guardada de forma privada e só é usada nos documentos desse cliente.
@@ -2546,12 +2543,6 @@ function GerenciarClientesDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <Dialog open={pastaAberta} onOpenChange={setPastaAberta}>
-        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
-          <PastaGeralDialog clientes={clientes} />
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
@@ -2780,18 +2771,128 @@ function GerenciarModelosCorrespondenteDialog({
   );
 }
 
+// Card dedicado "Procuração + Substabelecimento" -- pedido da BDR:
+// separado de "Clientes e assinaturas" (que mistura várias coisas de
+// cada cliente) porque esse fluxo é um só, de ponta a ponta -- cadastra
+// o PDF já assinado por cliente (ex.: AF, KLM, mesmo arquivo usado pelo
+// gerador normal como "modelo pronto") e gera em lote pela Pasta logo
+// abaixo. "Clientes e assinaturas" continua existindo pra cadastrar
+// cliente novo e mexer nos outros campos (assinatura, procuração, carta
+// de preposição).
+function AbaProcuracaoSubstabelecimento() {
+  const queryClient = useQueryClient();
+  const clientesQuery = useQuery({
+    queryKey: ["clientes-substabelecimento"],
+    queryFn: listarClientesSubstabelecimento,
+  });
+  const clientes = clientesQuery.data ?? [];
+  const [substabModeloDe, setSubstabModeloDe] = useState<ClienteSubstabelecimento | null>(null);
+  const [gerenciandoClientes, setGerenciandoClientes] = useState(false);
+
+  const recarregarClientes = () =>
+    queryClient.invalidateQueries({ queryKey: ["clientes-substabelecimento"] });
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-serif text-lg">Clientes</CardTitle>
+          <CardDescription>
+            PDF da Procuração + Substabelecimento já assinada pela companhia (ex.: AF, KLM) -- a
+            Pasta logo abaixo preenche só as 3 linhas em branco da página 2 (processo, autor/polo
+            ativo e juízo), sem gerar nada do zero. Pra cadastrar um cliente novo ou mexer em
+            assinatura/procuração/carta, use "Clientes e assinaturas".
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setGerenciandoClientes(true)}
+          >
+            <Settings className="size-4" /> Clientes e assinaturas
+          </Button>
+          {!clientesQuery.isLoading && clientes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nenhum cliente cadastrado ainda. Clique em "Clientes e assinaturas" pra cadastrar o
+              primeiro.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {clientes.map((c) => (
+                <div
+                  key={c.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium">{c.nome}</p>
+                    {c.substabelecimentoModeloCaminho ? (
+                      <Badge variant="outline">Substabelecimento cadastrado</Badge>
+                    ) : (
+                      <Badge variant="secondary">Sem Substabelecimento</Badge>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSubstabModeloDe(c)}
+                  >
+                    Substabelecimento
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <PastaGeralCard clientes={clientes} />
+
+      <Dialog open={substabModeloDe != null} onOpenChange={(v) => !v && setSubstabModeloDe(null)}>
+        <DialogContent className="max-w-md">
+          {substabModeloDe ? (
+            <EditorPdfCliente
+              titulo={`Substabelecimento (modelo) de ${substabModeloDe.nome}`}
+              descricao="PDF já pronto, pra cliente com texto/rol de advogados próprio, diferente da cláusula padrão do gerador. Guarda só a versão atual — subir um novo arquivo substitui o anterior."
+              caminhoAtual={substabModeloDe.substabelecimentoModeloCaminho}
+              nomeArquivoAtual={substabModeloDe.substabelecimentoModeloNomeArquivo}
+              onEnviar={(arquivo) => enviarSubstabelecimentoModeloCliente(substabModeloDe, arquivo)}
+              onRemover={() => removerSubstabelecimentoModeloCliente(substabModeloDe)}
+              onBaixar={() => baixarSubstabelecimentoModeloCliente(substabModeloDe)}
+              onSalvar={() => {
+                setSubstabModeloDe(null);
+                recarregarClientes();
+              }}
+              onCancelar={() => setSubstabModeloDe(null)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <GerenciarClientesDialog
+        open={gerenciandoClientes}
+        onOpenChange={setGerenciandoClientes}
+        clientes={clientes}
+        onChanged={recarregarClientes}
+      />
+    </div>
+  );
+}
+
 // "Pasta" geral -- pedido da BDR/Joanice: sobe a planilha com TODOS os
 // clientes misturados (ex.: "Novas - 8075", KLM/AF/outras cias juntas)
 // de uma vez só, e cada linha casa sozinha com o cliente certo pela
 // coluna "Cia aérea" (mesma lógica de encontrarClientePorNome já usada
 // no resto da tela), usando o PDF já assinado que esse cliente tem
-// cadastrado em "Substabelecimento" (Clientes e assinaturas) pra
-// preencher só as 3 linhas em branco da página 2 (processo, autor/polo
-// ativo e juízo) -- ver pdf-procuracao-substabelecimento.ts. Sem
-// escolher estado nem cliente antes: quem não casar com nenhum cliente
-// cadastrado (ou casar com um sem PDF) fica de fora, com o motivo
-// mostrado na lista.
-function PastaGeralDialog({ clientes }: { clientes: ClienteSubstabelecimento[] }) {
+// cadastrado em "Substabelecimento" (cadastro de clientes, ver Card
+// "Clientes" logo acima) pra preencher só as 3 linhas em branco da
+// página 2 (processo, autor/polo ativo e juízo) -- ver
+// pdf-procuracao-substabelecimento.ts. Sem escolher estado nem cliente
+// antes: quem não casar com nenhum cliente cadastrado (ou casar com um
+// sem PDF) fica de fora, com o motivo mostrado na lista.
+function PastaGeralCard({ clientes }: { clientes: ClienteSubstabelecimento[] }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [lendo, setLendo] = useState(false);
   const [itens, setItens] = useState<ItemSubstabelecimento[]>([]);
@@ -2892,93 +2993,94 @@ function PastaGeralDialog({ clientes }: { clientes: ClienteSubstabelecimento[] }
   };
 
   return (
-    <>
-      <DialogHeader>
-        <DialogTitle className="flex items-center gap-2">
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 font-serif text-lg">
           <FolderOpen className="size-5" /> Pasta
-        </DialogTitle>
-        <DialogDescription>
+        </CardTitle>
+        <CardDescription>
           Suba a planilha com os processos de todos os clientes misturados (mesmo formato da aba
           Substabelecimento) -- cada linha casa sozinha com o cliente certo pela coluna "Cia aérea"
           e usa o PDF que esse cliente já tem em "Substabelecimento" pra preencher a Procuração +
           Substabelecimento já assinada (página 2).
-        </DialogDescription>
-      </DialogHeader>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".xlsx,.xls,.xlsm"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void ler(f);
-            e.target.value = "";
-          }}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => inputRef.current?.click()}
-          disabled={lendo}
-        >
-          <Upload className="size-4" />
-          {lendo ? "Lendo..." : "Subir planilha"}
-        </Button>
-        <Button
-          type="button"
-          onClick={() => void baixarTodas()}
-          disabled={gerandoZip || prontos.length === 0}
-        >
-          <Files className="size-4" />
-          {gerandoZip ? "Gerando..." : `Gerar todas prontas (.zip) — ${prontos.length}`}
-        </Button>
-      </div>
-
-      {itens.length > 0 ? (
-        <div className="space-y-2">
-          {itens.map((item) => {
-            const cliente = clienteDoItem(item);
-            const pronto = !!cliente?.substabelecimentoModeloCaminho;
-            return (
-              <div
-                key={item.idx}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3 text-sm"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium">{item.processo ?? "—"}</p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {item.autor ?? "—"} · {item.juizo ?? "—"}
-                  </p>
-                  {pronto ? (
-                    <Badge variant="outline" className="mt-1">
-                      {cliente!.nome}
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary" className="mt-1">
-                      {cliente
-                        ? `${cliente.nome} sem "Substabelecimento" cadastrado`
-                        : 'Nenhum cliente casou com a "Cia aérea" dessa linha'}
-                    </Badge>
-                  )}
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void baixarUm(item)}
-                  disabled={gerandoIdx === item.idx || !pronto}
-                >
-                  <FileDown className="size-4" />
-                  {gerandoIdx === item.idx ? "Gerando..." : "Baixar"}
-                </Button>
-              </div>
-            );
-          })}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".xlsx,.xls,.xlsm"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void ler(f);
+              e.target.value = "";
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => inputRef.current?.click()}
+            disabled={lendo}
+          >
+            <Upload className="size-4" />
+            {lendo ? "Lendo..." : "Subir planilha"}
+          </Button>
+          <Button
+            type="button"
+            onClick={() => void baixarTodas()}
+            disabled={gerandoZip || prontos.length === 0}
+          >
+            <Files className="size-4" />
+            {gerandoZip ? "Gerando..." : `Gerar todas prontas (.zip) — ${prontos.length}`}
+          </Button>
         </div>
-      ) : null}
-    </>
+
+        {itens.length > 0 ? (
+          <div className="space-y-2">
+            {itens.map((item) => {
+              const cliente = clienteDoItem(item);
+              const pronto = !!cliente?.substabelecimentoModeloCaminho;
+              return (
+                <div
+                  key={item.idx}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3 text-sm"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium">{item.processo ?? "—"}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {item.autor ?? "—"} · {item.juizo ?? "—"}
+                    </p>
+                    {pronto ? (
+                      <Badge variant="outline" className="mt-1">
+                        {cliente!.nome}
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="mt-1">
+                        {cliente
+                          ? `${cliente.nome} sem "Substabelecimento" cadastrado`
+                          : 'Nenhum cliente casou com a "Cia aérea" dessa linha'}
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void baixarUm(item)}
+                    disabled={gerandoIdx === item.idx || !pronto}
+                  >
+                    <FileDown className="size-4" />
+                    {gerandoIdx === item.idx ? "Gerando..." : "Baixar"}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 
