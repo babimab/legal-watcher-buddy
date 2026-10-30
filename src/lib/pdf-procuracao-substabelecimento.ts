@@ -56,7 +56,12 @@ function tamanhoQueCabe(texto: string, largura: number, font: PDFFont): number {
 function desenharNaLinha(pagina: PDFPage, font: PDFFont, texto: string | null, linha: Linha) {
   if (!texto) return;
   const tamanho = tamanhoQueCabe(texto, linha.largura, font);
-  pagina.drawText(texto, { x: linha.x, y: linha.y, size: tamanho, font, color: rgb(0, 0, 0) });
+  // Centralizado no espaço em branco da linha (em vez de grudado na
+  // esquerda), igual o preenchimento manual à caneta/máquina de escrever
+  // costuma ficar.
+  const largura = font.widthOfTextAtSize(texto, tamanho);
+  const x = linha.x + Math.max(0, (linha.largura - largura) / 2);
+  pagina.drawText(texto, { x, y: linha.y, size: tamanho, font, color: rgb(0, 0, 0) });
 }
 
 export async function gerarPdfProcuracaoPreenchida(
@@ -74,7 +79,9 @@ export async function gerarPdfProcuracaoPreenchida(
     throw new Error(`O PDF de Substabelecimento de "${cliente.nome}" não tem uma segunda página.`);
   }
   const pagina = pdf.getPage(PAGINA_SUBSTABELECIMENTO);
-  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  // Times -- o texto gerado por mala direta no Word (AF/KLM) usa uma
+  // serifada, Helvetica destoava bastante do resto da página.
+  const font = await pdf.embedFont(StandardFonts.TimesRoman);
 
   desenharNaLinha(pagina, font, item.processo, LINHA_PROCESSO);
   desenharNaLinha(pagina, font, item.autor, LINHA_AUTOR);
