@@ -39,6 +39,13 @@ export type SugestaoValor = {
   descricao: string;
   valor: number;
   trecho: string;
+  // Sentença com vários valores às vezes dá uma data de correção
+  // diferente pra cada um (ex.: "sobre os R$ 6.277,00... a contar de
+  // 28/07/2025" e "sobre os R$ 7.600,00... a contar de 12/02/2026", no
+  // mesmo dispositivo) -- quando acha uma data "a contar de/a partir
+  // de/desde DD/MM/AAAA" perto desse valor específico, usa ela em vez
+  // da regra genérica da sentença inteira.
+  correcaoDesde: string | null;
 };
 
 export type SugestaoIndice = {
@@ -135,9 +142,12 @@ const PALAVRAS_VERBA: { regex: RegExp; descricao: string }[] = [
   // Singular/plural das duas formas -- "dano moral"/"danos morais" e
   // "dano material"/"danos materiais" aparecem ambas na prática
   // (sentença real de teste usava só o plural, e o regex singular sozinho
-  // não achava nada).
-  { regex: /danos?\s+morais?/i, descricao: "Dano moral" },
-  { regex: /danos?\s+materiais?/i, descricao: "Dano material" },
+  // não achava nada). Pluralização de "-al" é irregular em português
+  // ("moral" -> "morais", não "morals"), por isso "mora(l|is)" em vez de
+  // "morais?" -- essa forma com "s?" não bate com o singular "moral" de
+  // jeito nenhum (só com "morai"/"morais").
+  { regex: /danos?\s+mora(l|is)\b/i, descricao: "Dano moral" },
+  { regex: /danos?\s+materia(l|is)\b/i, descricao: "Dano material" },
   { regex: /lucros?\s+cessantes?/i, descricao: "Lucros cessantes" },
   { regex: /restitui[çc][ãa]o/i, descricao: "Restituição" },
   {
@@ -150,6 +160,16 @@ const PALAVRAS_VERBA: { regex: RegExp; descricao: string }[] = [
   },
 ];
 
+// Diferente da regra genérica em REGRAS_TERMO_INICIAL (uma só pra
+// sentença inteira), essa olha só a janela ao redor de UM valor --
+// pra sentença que detalha "sobre os R$ X... a contar de DATA1" e
+// "sobre os R$ Y... a contar de DATA2" no mesmo dispositivo.
+function dataCorrecaoProxima(janela: string): string | null {
+  if (!/corre[çc][ãa]o|corrigid[oa]|atualizad[oa]|atualiza[çc][ãa]o/i.test(janela)) return null;
+  const m = janela.match(/(?:a\s+contar\s+de|a\s+partir\s+de|desde)\s+\d{1,2}\/\d{1,2}\/\d{4}/i);
+  return m ? dataLiteralEm(m[0]) : null;
+}
+
 function extrairValores(texto: string): SugestaoValor[] {
   const regexValor = /R\$\s?([\d.]{1,12},\d{2})/g;
   const encontrados: SugestaoValor[] = [];
@@ -160,7 +180,13 @@ function extrairValores(texto: string): SugestaoValor[] {
     const valor = Number(bruto.replace(/\./g, "").replace(",", "."));
     if (!Number.isFinite(valor) || valor <= 0) continue;
 
-    const inicioJanela = Math.max(0, m.index - 150);
+    // Janela assimétrica: olha mais pra trás (350) do que pra frente
+    // (150) -- dispositivo real costuma citar o tipo de verba (ex.:
+    // "danos materiais") uma vez só, no início de uma lista com vários
+    // valores datados depois ("sobre os R$ X... sobre os R$ Y..."), então
+    // o valor mais distante da lista ainda precisa alcançar a palavra que
+    // diz do que se trata.
+    const inicioJanela = Math.max(0, m.index - 350);
     const fimJanela = Math.min(texto.length, m.index + bruto.length + 150);
     const janela = texto.slice(inicioJanela, fimJanela);
 
@@ -171,10 +197,21 @@ function extrairValores(texto: string): SugestaoValor[] {
     if (vistos.has(chave)) continue;
     vistos.add(chave);
 
+    // A data de correção, diferente do tipo, só pode olhar PRA FRENTE e
+    // pertinho desse valor específico ("R$ X... a contar de DATA" sempre
+    // nessa ordem) -- usar a janela larga aqui pegaria a data do valor
+    // vizinho por engano quando a sentença lista vários valores com
+    // datas diferentes em sequência.
+    const janelaDataLocal = texto.slice(
+      m.index + bruto.length,
+      Math.min(texto.length, m.index + bruto.length + 180),
+    );
+
     encontrados.push({
       descricao: tipo.descricao,
       valor,
       trecho: aparaBorda(janela.replace(/\s+/g, " ")),
+      correcaoDesde: dataCorrecaoProxima(janelaDataLocal),
     });
   }
   return encontrados;

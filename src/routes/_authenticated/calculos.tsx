@@ -301,7 +301,10 @@ function CalculosPage() {
       descricao: v.descricao,
       parcelas: [{ id: crypto.randomUUID(), valor: v.valor, data: dataParcela }],
       indice: sugestao?.indice?.indice ?? "nenhum",
-      correcaoDesde: termoCorrecao?.dataEncontrada ?? dataParcela,
+      // Prefere a data de correção achada perto DESSE valor específico
+      // (sentença pode dar datas diferentes por verba) à regra genérica
+      // da sentença inteira.
+      correcaoDesde: v.correcaoDesde ?? termoCorrecao?.dataEncontrada ?? dataParcela,
       juros: sugestao?.juros?.juros ?? "nenhum",
       jurosDesde: termoJuros?.dataEncontrada ?? "",
       // taxa é opcional "de verdade" (exactOptionalPropertyTypes não
@@ -892,6 +895,11 @@ function SugestaoPainel({
                 <p>
                   {v.descricao} — {dinheiro(v.valor)}
                 </p>
+                {v.correcaoDesde ? (
+                  <p className="text-xs text-foreground">
+                    Correção a contar de {dataBR(v.correcaoDesde)} (achada perto desse valor)
+                  </p>
+                ) : null}
                 <p className="truncate text-xs text-muted-foreground">{v.trecho}</p>
               </div>
               <Button
