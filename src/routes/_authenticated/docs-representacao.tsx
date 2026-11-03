@@ -227,42 +227,67 @@ function DocsRepresentacaoPage() {
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-4">
-        <CartaoTipoDoc
-          selecionado={aba === "substabelecimento"}
-          icone={<FileText className="size-5" />}
-          titulo="Substabelecimento para Advogados BCW"
-          descricao="Gera o documento de substabelecimento a partir de uma planilha, casando cada linha com a companhia certa."
-          onClick={() => setAba("substabelecimento")}
-        />
-        <CartaoTipoDoc
-          selecionado={aba === "substabelecimentoCorrespondente"}
-          icone={<MapPin className="size-5" />}
-          titulo="Substabelecimento para o Correspondente Local"
-          descricao="A BCW substabelece pra lista de correspondentes de um estado, em vez de pros sócios do escritório."
-          onClick={() => setAba("substabelecimentoCorrespondente")}
-        />
-        <CartaoTipoDoc
-          selecionado={aba === "preposicao"}
-          icone={<Mail className="size-5" />}
-          titulo="Carta de Preposição"
-          descricao="Gera a carta de preposto a partir de uma planilha, também casada por companhia aérea."
-          onClick={() => setAba("preposicao")}
-        />
-        <CartaoTipoDoc
-          selecionado={aba === "preposicaoCorrespondente"}
-          icone={<MapPin className="size-5" />}
-          titulo="Carta de Preposição para o Correspondente Local"
-          descricao="Credencia a lista de prepostos de um estado, em vez de nomear prepostos um a um."
-          onClick={() => setAba("preposicaoCorrespondente")}
-        />
-        <CartaoTipoDoc
-          selecionado={aba === "procuracaoSubstabelecimento"}
-          icone={<FolderOpen className="size-5" />}
-          titulo="Procuração + Substabelecimento"
-          descricao="Preenche a Procuração + Substabelecimento já assinada por cliente (ex.: AF, KLM), sem gerar do zero."
-          onClick={() => setAba("procuracaoSubstabelecimento")}
-        />
+      <div className="space-y-5">
+        <div className="space-y-3 rounded-xl border border-border p-4">
+          <div>
+            <h2 className="font-serif text-base font-semibold text-foreground">
+              Gerar a partir de modelo
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Monta o documento do zero, no timbrado do escritório, a partir de uma planilha.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-4">
+            <CartaoTipoDoc
+              selecionado={aba === "substabelecimento"}
+              icone={<FileText className="size-5" />}
+              titulo="Substabelecimento para Advogados BCW"
+              descricao="Gera o documento de substabelecimento a partir de uma planilha, casando cada linha com a companhia certa."
+              onClick={() => setAba("substabelecimento")}
+            />
+            <CartaoTipoDoc
+              selecionado={aba === "substabelecimentoCorrespondente"}
+              icone={<MapPin className="size-5" />}
+              titulo="Substabelecimento para o Correspondente Local"
+              descricao="A BCW substabelece pra lista de correspondentes de um estado, em vez de pros sócios do escritório."
+              onClick={() => setAba("substabelecimentoCorrespondente")}
+            />
+            <CartaoTipoDoc
+              selecionado={aba === "preposicao"}
+              icone={<Mail className="size-5" />}
+              titulo="Carta de Preposição"
+              descricao="Gera a carta de preposto a partir de uma planilha, também casada por companhia aérea."
+              onClick={() => setAba("preposicao")}
+            />
+            <CartaoTipoDoc
+              selecionado={aba === "preposicaoCorrespondente"}
+              icone={<MapPin className="size-5" />}
+              titulo="Carta de Preposição para o Correspondente Local"
+              descricao="Credencia a lista de prepostos de um estado, em vez de nomear prepostos um a um."
+              onClick={() => setAba("preposicaoCorrespondente")}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-3 rounded-xl border border-border p-4">
+          <div>
+            <h2 className="font-serif text-base font-semibold text-foreground">
+              Documento já assinado
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Preenche só os campos em branco de um PDF que a companhia já assinou.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-4">
+            <CartaoTipoDoc
+              selecionado={aba === "procuracaoSubstabelecimento"}
+              icone={<FolderOpen className="size-5" />}
+              titulo="Procuração + Substabelecimento"
+              descricao="Preenche a Procuração + Substabelecimento já assinada por cliente (ex.: AF, KLM), sem gerar do zero."
+              onClick={() => setAba("procuracaoSubstabelecimento")}
+            />
+          </div>
+        </div>
       </div>
 
       {aba === "substabelecimento" ? <AbaSubstabelecimento /> : null}
