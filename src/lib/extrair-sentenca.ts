@@ -93,6 +93,23 @@ function semAcento(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "");
 }
 
+// Corta a primeira e a última palavra de um trecho pego por janela de
+// caracteres fixa (que não respeita fim de palavra) -- troca um pedaço
+// cortado no meio ("ça, calculados...") por um trecho limpo, começando
+// e terminando em palavra inteira.
+function aparaBorda(s: string): string {
+  const inicio = s.indexOf(" ");
+  const fim = s.lastIndexOf(" ");
+  if (inicio === -1 || fim === -1 || inicio >= fim) return s.trim();
+  return s.slice(inicio + 1, fim).trim();
+}
+
+function dataLiteralEm(trecho: string): string | null {
+  const m = trecho.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!m) return null;
+  return `${m[3]}-${m[2]!.padStart(2, "0")}-${m[1]!.padStart(2, "0")}`;
+}
+
 function extrairProcesso(texto: string): string | null {
   const m = texto.match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/);
   return m ? m[0] : null;
@@ -115,11 +132,18 @@ function extrairDataDecisao(texto: string): string | null {
 }
 
 const PALAVRAS_VERBA: { regex: RegExp; descricao: string }[] = [
-  { regex: /dano\s+moral/i, descricao: "Dano moral" },
-  { regex: /dano\s+material/i, descricao: "Dano material" },
+  // Singular/plural das duas formas -- "dano moral"/"danos morais" e
+  // "dano material"/"danos materiais" aparecem ambas na prática
+  // (sentença real de teste usava só o plural, e o regex singular sozinho
+  // não achava nada).
+  { regex: /danos?\s+morais?/i, descricao: "Dano moral" },
+  { regex: /danos?\s+materiais?/i, descricao: "Dano material" },
   { regex: /lucros?\s+cessantes?/i, descricao: "Lucros cessantes" },
   { regex: /restitui[çc][ãa]o/i, descricao: "Restituição" },
-  { regex: /multa\s+(contratual|compensat[óo]ria|morat[óo]ria)/i, descricao: "Multa contratual" },
+  {
+    regex: /multas?\s+(contratua(l|is)|compensat[óo]ria|morat[óo]ria)/i,
+    descricao: "Multa contratual",
+  },
   {
     regex: /honor[áa]rios?\s+(advocat[íi]cios|sucumbenciais)/i,
     descricao: "Honorários sucumbenciais",
@@ -150,7 +174,7 @@ function extrairValores(texto: string): SugestaoValor[] {
     encontrados.push({
       descricao: tipo.descricao,
       valor,
-      trecho: janela.replace(/\s+/g, " ").trim(),
+      trecho: aparaBorda(janela.replace(/\s+/g, " ")),
     });
   }
   return encontrados;
@@ -183,15 +207,15 @@ function extrairJuros(texto: string): SugestaoJuros | null {
   }
   if (/taxa\s+selic|juros\s+(da\s+)?selic/i.test(texto)) {
     const m = texto.match(/[^.]{0,20}(taxa\s+selic|juros\s+(da\s+)?selic)[^.]{0,20}/i)!;
-    return { juros: "selic", taxa: null, textoEncontrado: m[0].trim() };
+    return { juros: "selic", taxa: null, textoEncontrado: aparaBorda(m[0]) };
   }
   if (/taxa\s+legal|art(?:igo)?\.?\s*406/i.test(texto)) {
     const m = texto.match(/[^.]{0,20}(taxa\s+legal|art(?:igo)?\.?\s*406[^.]{0,30})[^.]{0,20}/i)!;
-    return { juros: "taxa_legal", taxa: null, textoEncontrado: m[0].trim() };
+    return { juros: "taxa_legal", taxa: null, textoEncontrado: aparaBorda(m[0]) };
   }
   if (/juros\s+legais/i.test(texto)) {
     const m = texto.match(/[^.]{0,20}juros\s+legais[^.]{0,20}/i)!;
-    return { juros: null, taxa: null, textoEncontrado: m[0].trim() };
+    return { juros: null, taxa: null, textoEncontrado: aparaBorda(m[0]) };
   }
   return null;
 }
@@ -231,18 +255,42 @@ const REGRAS_TERMO_INICIAL: {
     regra: "desde o ajuizamento",
     tipo: "correcao",
   },
+  {
+    // Sentença às vezes não cita um dos eventos de praxe (citação,
+    // arbitramento, ajuizamento, evento danoso) e só dá a data direto
+    // (ex.: "atualização monetária pelo IPCA a contar de 28/07/2025,
+    // data de emissão das notas fiscais") -- casa isso também, sem
+    // depender de palavra-chave fixa.
+    regex:
+      /(corre[çc][ãa]o|corrigid[oa]|atualizad[oa])[^.]{0,60}?(a\s+contar\s+de|a\s+partir\s+de|desde)\s+\d{1,2}\/\d{1,2}\/\d{4}/i,
+    regra: "data informada no texto",
+    tipo: "correcao",
+  },
+  {
+    regex: /juros[^.]{0,60}?(a\s+contar\s+de|a\s+partir\s+de|desde)\s+\d{1,2}\/\d{1,2}\/\d{4}/i,
+    regra: "data informada no texto",
+    tipo: "juros",
+  },
 ];
 
 function extrairTermosIniciais(texto: string, dataDecisao: string | null): SugestaoTermoInicial[] {
   const achados: SugestaoTermoInicial[] = [];
   for (const regra of REGRAS_TERMO_INICIAL) {
     const m = texto.match(regra.regex);
-    if (!m) continue;
-    // "Desde o arbitramento" é, por definição, a própria data da decisão
-    // -- as outras regras citam um evento que raramente vem com data
-    // literal no corpo da sentença, então fica pra conferir à mão.
-    const dataEncontrada = regra.regra.startsWith("desde o arbitramento") ? dataDecisao : null;
-    achados.push({ tipo: regra.tipo, regra: regra.regra, dataEncontrada });
+    if (!m || m.index == null) continue;
+    const fimMatch = m.index + m[0].length;
+    // Primeiro tenta achar uma data literal dentro do próprio trecho
+    // casado ou logo depois dele (ex.: "...desde o evento danoso,
+    // ocorrido em 13/03/2025"); "desde o arbitramento" não costuma vir
+    // com data literal no texto, mas por definição é a própria data da
+    // decisão (Súmula 362/STJ), então cai nisso como reserva.
+    const dataLiteral = dataLiteralEm(m[0]) ?? dataLiteralEm(texto.slice(fimMatch, fimMatch + 100));
+    const dataArbitramento = regra.regra.startsWith("desde o arbitramento") ? dataDecisao : null;
+    achados.push({
+      tipo: regra.tipo,
+      regra: regra.regra,
+      dataEncontrada: dataLiteral ?? dataArbitramento,
+    });
   }
   return achados;
 }
