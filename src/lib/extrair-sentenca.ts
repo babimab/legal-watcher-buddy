@@ -160,12 +160,20 @@ const PALAVRAS_VERBA: { regex: RegExp; descricao: string }[] = [
   },
 ];
 
+// Palavra-gatilho de correção monetária -- usada tanto na regra global
+// (REGRAS_TERMO_INICIAL) quanto na busca por valor (dataCorrecaoProxima)
+// abaixo. "Atualização" (substantivo) e "atualizado/a" (particípio) são
+// formas DIFERENTES -- fica num lugar só pra não desalinhar as duas de
+// novo (já aconteceu: a regra global só tinha o particípio e não batia
+// com "atualização monetária... a contar de", a forma mais comum).
+const GATILHO_CORRECAO = "corre[çc][ãa]o|corrigid[oa]|atualizad[oa]|atualiza[çc][ãa]o";
+
 // Diferente da regra genérica em REGRAS_TERMO_INICIAL (uma só pra
 // sentença inteira), essa olha só a janela ao redor de UM valor --
 // pra sentença que detalha "sobre os R$ X... a contar de DATA1" e
 // "sobre os R$ Y... a contar de DATA2" no mesmo dispositivo.
 function dataCorrecaoProxima(janela: string): string | null {
-  if (!/corre[çc][ãa]o|corrigid[oa]|atualizad[oa]|atualiza[çc][ãa]o/i.test(janela)) return null;
+  if (!new RegExp(GATILHO_CORRECAO, "i").test(janela)) return null;
   const m = janela.match(/(?:a\s+contar\s+de|a\s+partir\s+de|desde)\s+\d{1,2}\/\d{1,2}\/\d{4}/i);
   return m ? dataLiteralEm(m[0]) : null;
 }
@@ -280,15 +288,20 @@ const REGRAS_TERMO_INICIAL: {
   {
     // "corrigido/atualizado ... a partir do arbitramento" é mais comum na
     // prática do que "correção a partir de" -- sentença usa o verbo
-    // (particípio), não o substantivo.
-    regex:
-      /(corre[çc][ãa]o|corrigid[oa]|atualizad[oa])[^.]{0,100}?(a\s+partir\s+do|desde\s+o)\s+arbitramento/i,
+    // (particípio) ou o substantivo "atualização", não o substantivo
+    // "correção" sozinho (ver GATILHO_CORRECAO).
+    regex: new RegExp(
+      `(${GATILHO_CORRECAO})[^.]{0,100}?(a\\s+partir\\s+do|desde\\s+o)\\s+arbitramento`,
+      "i",
+    ),
     regra: "desde o arbitramento (Súmula 362/STJ)",
     tipo: "correcao",
   },
   {
-    regex:
-      /(corre[çc][ãa]o|corrigid[oa]|atualizad[oa])[^.]{0,100}?(a\s+partir\s+do|desde\s+o)\s+ajuizamento/i,
+    regex: new RegExp(
+      `(${GATILHO_CORRECAO})[^.]{0,100}?(a\\s+partir\\s+do|desde\\s+o)\\s+ajuizamento`,
+      "i",
+    ),
     regra: "desde o ajuizamento",
     tipo: "correcao",
   },
@@ -298,8 +311,10 @@ const REGRAS_TERMO_INICIAL: {
     // (ex.: "atualização monetária pelo IPCA a contar de 28/07/2025,
     // data de emissão das notas fiscais") -- casa isso também, sem
     // depender de palavra-chave fixa.
-    regex:
-      /(corre[çc][ãa]o|corrigid[oa]|atualizad[oa])[^.]{0,60}?(a\s+contar\s+de|a\s+partir\s+de|desde)\s+\d{1,2}\/\d{1,2}\/\d{4}/i,
+    regex: new RegExp(
+      `(${GATILHO_CORRECAO})[^.]{0,60}?(a\\s+contar\\s+de|a\\s+partir\\s+de|desde)\\s+\\d{1,2}/\\d{1,2}/\\d{4}`,
+      "i",
+    ),
     regra: "data informada no texto",
     tipo: "correcao",
   },
