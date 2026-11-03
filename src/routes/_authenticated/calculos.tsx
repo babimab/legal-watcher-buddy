@@ -1,7 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
-import { Calculator, Download, FileText, Plus, Save, Sparkles, Trash2, Upload } from "lucide-react";
+import {
+  Calculator,
+  Check,
+  Download,
+  FileText,
+  Pencil,
+  Plus,
+  Save,
+  Sparkles,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -820,6 +832,29 @@ function SugestaoPainel({
   onAdicionarVerba: (v: SugestaoSentenca["valores"][number]) => void;
 }) {
   const [adicionadas, setAdicionadas] = useState<Set<number>>(new Set());
+  const [descartadas, setDescartadas] = useState<Set<number>>(new Set());
+  const [edicoes, setEdicoes] = useState<Record<number, { descricao: string; valor: number }>>({});
+  const [editando, setEditando] = useState<number | null>(null);
+  const [rascunho, setRascunho] = useState({ descricao: "", valor: "" });
+
+  const valorEfetivo = (i: number): SugestaoSentenca["valores"][number] => {
+    const edicao = edicoes[i];
+    return edicao ? { ...sugestao.valores[i]!, ...edicao } : sugestao.valores[i]!;
+  };
+
+  const aceitarTodas = () => {
+    let quantos = 0;
+    const novasAdicionadas = new Set(adicionadas);
+    sugestao.valores.forEach((_, i) => {
+      if (descartadas.has(i) || adicionadas.has(i)) return;
+      onAdicionarVerba(valorEfetivo(i));
+      novasAdicionadas.add(i);
+      quantos++;
+    });
+    setAdicionadas(novasAdicionadas);
+    if (quantos > 0)
+      toast.success(`${quantos} verba(s) adicionada(s) — confira cada uma antes de calcular.`);
+  };
 
   return (
     <div className="space-y-3 rounded-md border border-dashed border-border p-3">
@@ -885,36 +920,110 @@ function SugestaoPainel({
 
       {sugestao.valores.length > 0 ? (
         <div className="space-y-2">
-          <p className="text-sm font-medium">Valores encontrados</p>
-          {sugestao.valores.map((v, i) => (
-            <div
-              key={i}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-2 text-sm"
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-medium">Valores encontrados</p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={aceitarTodas}
+              disabled={sugestao.valores.every((_, i) => adicionadas.has(i) || descartadas.has(i))}
             >
-              <div className="min-w-0">
-                <p>
-                  {v.descricao} — {dinheiro(v.valor)}
-                </p>
-                {v.correcaoDesde ? (
-                  <p className="text-xs text-foreground">
-                    Correção a contar de {dataBR(v.correcaoDesde)} (achada perto desse valor)
-                  </p>
-                ) : null}
-                <p className="truncate text-xs text-muted-foreground">{v.trecho}</p>
-              </div>
-              <Button
-                size="sm"
-                variant={adicionadas.has(i) ? "ghost" : "outline"}
-                disabled={adicionadas.has(i)}
-                onClick={() => {
-                  onAdicionarVerba(v);
-                  setAdicionadas((s) => new Set(s).add(i));
-                }}
+              Aceitar todas
+            </Button>
+          </div>
+          {sugestao.valores.map((v, i) => {
+            if (descartadas.has(i)) return null;
+            if (editando === i) {
+              return (
+                <div key={i} className="space-y-2 rounded-md border border-border p-2 text-sm">
+                  <Input
+                    value={rascunho.descricao}
+                    onChange={(e) => setRascunho((r) => ({ ...r, descricao: e.target.value }))}
+                    placeholder="Descrição"
+                  />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={rascunho.valor}
+                    onChange={(e) => setRascunho((r) => ({ ...r, valor: e.target.value }))}
+                    placeholder="Valor"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const valorNum = Number(rascunho.valor.replace(",", "."));
+                        setEdicoes((e) => ({
+                          ...e,
+                          [i]: {
+                            descricao: rascunho.descricao.trim() || v.descricao,
+                            valor: Number.isFinite(valorNum) && valorNum > 0 ? valorNum : v.valor,
+                          },
+                        }));
+                        setEditando(null);
+                      }}
+                    >
+                      <Check className="size-4" /> Salvar
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditando(null)}>
+                      <X className="size-4" /> Cancelar
+                    </Button>
+                  </div>
+                </div>
+              );
+            }
+            const efetivo = valorEfetivo(i);
+            return (
+              <div
+                key={i}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-2 text-sm"
               >
-                {adicionadas.has(i) ? "Adicionada" : "Adicionar como verba"}
-              </Button>
-            </div>
-          ))}
+                <div className="min-w-0">
+                  <p>
+                    {efetivo.descricao} — {dinheiro(efetivo.valor)}
+                  </p>
+                  {v.correcaoDesde ? (
+                    <p className="text-xs text-foreground">
+                      Correção a contar de {dataBR(v.correcaoDesde)} (achada perto desse valor)
+                    </p>
+                  ) : null}
+                  <p className="truncate text-xs text-muted-foreground">{v.trecho}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant={adicionadas.has(i) ? "ghost" : "outline"}
+                    disabled={adicionadas.has(i)}
+                    onClick={() => {
+                      onAdicionarVerba(efetivo);
+                      setAdicionadas((s) => new Set(s).add(i));
+                    }}
+                  >
+                    {adicionadas.has(i) ? "Adicionada" : "Adicionar como verba"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={adicionadas.has(i)}
+                    onClick={() => {
+                      setRascunho({ descricao: efetivo.descricao, valor: String(efetivo.valor) });
+                      setEditando(i);
+                    }}
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={adicionadas.has(i)}
+                    onClick={() => setDescartadas((s) => new Set(s).add(i))}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">Nenhum valor condenatório reconhecido.</p>
