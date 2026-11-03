@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Calculator, Download, FileText, Plus, Save, Sparkles, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
@@ -33,7 +33,13 @@ import {
   type EncargoCalculo,
   type IdentificacaoCalculo,
   type ResultadoCalculo,
+  type VerbaCalculo,
 } from "@/lib/calculos-judiciais";
+import {
+  extrairTextoPdf,
+  sugerirDadosSentenca,
+  type SugestaoSentenca,
+} from "@/lib/extrair-sentenca";
 import { exportarCalculoPdfDireto } from "@/lib/pdf-calculo";
 import { exibir, formatarCNJ, listarProcessos, type Processo } from "@/lib/processos";
 
@@ -63,6 +69,11 @@ function hoje() {
 
 function dinheiro(n: number) {
   return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function dataBR(iso: string) {
+  const [a, m, d] = iso.split("-");
+  return a && m && d ? `${d}/${m}/${a}` : iso;
 }
 
 function resumoEncargo(label: string, encargo: EncargoCalculo) {
@@ -105,6 +116,10 @@ function CalculosPage() {
   const [salvando, setSalvando] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
   const [gerandoPdf, setGerandoPdf] = useState(false);
+  const [analisando, setAnalisando] = useState(false);
+  const [sugestao, setSugestao] = useState<SugestaoSentenca | null>(null);
+  const [arquivoAnalisado, setArquivoAnalisado] = useState<string | null>(null);
+  const inputAnaliseRef = useRef<HTMLInputElement>(null);
 
   const processo = useMemo(
     () => (processos.data ?? []).find((p) => p.id === processoId) ?? null,
@@ -245,6 +260,59 @@ function CalculosPage() {
       ...c,
       identificacao: { ...(c.identificacao ?? {}), [campo]: valor },
     }));
+  };
+
+  const analisarSentenca = async (arquivo: File) => {
+    setAnalisando(true);
+    setSugestao(null);
+    try {
+      const texto = await extrairTextoPdf(arquivo);
+      const s = sugerirDadosSentenca(texto);
+      setSugestao(s);
+      setArquivoAnalisado(arquivo.name);
+      const achouAlgo =
+        s.processo ||
+        s.dataDecisao ||
+        s.valores.length > 0 ||
+        s.indice ||
+        s.juros ||
+        s.termosIniciais.length > 0;
+      if (!achouAlgo) {
+        toast.warning(
+          "Não reconheci nada nesse PDF. Confira o texto e preencha os campos manualmente.",
+        );
+      } else {
+        toast.success("Li o documento — confira as sugestões antes de aplicar.");
+      }
+    } catch (e) {
+      console.error("Erro ao analisar sentença/acórdão:", e);
+      toast.error(e instanceof Error ? e.message : "Não consegui ler esse PDF.");
+    } finally {
+      setAnalisando(false);
+    }
+  };
+
+  const adicionarVerbaDaSugestao = (v: SugestaoSentenca["valores"][number]) => {
+    const termoCorrecao = sugestao?.termosIniciais.find((t) => t.tipo === "correcao");
+    const termoJuros = sugestao?.termosIniciais.find((t) => t.tipo === "juros");
+    const dataParcela = sugestao?.dataDecisao ?? "";
+    const nova: VerbaCalculo = {
+      id: crypto.randomUUID(),
+      descricao: v.descricao,
+      parcelas: [{ id: crypto.randomUUID(), valor: v.valor, data: dataParcela }],
+      indice: sugestao?.indice?.indice ?? "nenhum",
+      correcaoDesde: termoCorrecao?.dataEncontrada ?? dataParcela,
+      juros: sugestao?.juros?.juros ?? "nenhum",
+      jurosDesde: termoJuros?.dataEncontrada ?? "",
+      // taxa é opcional "de verdade" (exactOptionalPropertyTypes não
+      // deixa atribuir undefined explícito) -- só entra no objeto quando
+      // a sugestão realmente achou uma taxa numérica.
+      ...(sugestao?.juros?.taxa != null ? { taxa: sugestao.juros.taxa } : {}),
+    };
+    setCriterios((c) => ({ ...c, verbas: [...c.verbas, nova] }));
+    toast.success(
+      `Verba "${v.descricao}" adicionada — confira índice, juros e datas antes de calcular.`,
+    );
   };
 
   const exportarPdf = async () => {
@@ -587,8 +655,9 @@ function CalculosPage() {
             <Upload className="size-4" /> Documentos para o cálculo
           </CardTitle>
           <CardDescription>
-            Área complementar para anexar o título e os autos. A leitura automática por IA permanece
-            em preparação.
+            Área complementar para anexar o título e os autos. A leitura automática (sem IA
+            generativa, só reconhecimento de padrões no texto) sugere campos a partir da
+            sentença/acórdão — confira tudo antes de aplicar.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -606,12 +675,24 @@ function CalculosPage() {
               onDone={() => qc.invalidateQueries({ queryKey: ["calculo-documentos", id] })}
             />
           </div>
+          <input
+            ref={inputAnaliseRef}
+            type="file"
+            accept="application/pdf"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) void analisarSentenca(f);
+            }}
+          />
           <Button
             variant="outline"
-            disabled
-            title="A integração de IA será adicionada sem expor chaves ou criar função anônima."
+            disabled={analisando}
+            onClick={() => inputAnaliseRef.current?.click()}
           >
-            <Sparkles className="size-4" /> Analisar documentos com IA — em preparação
+            <Sparkles className="size-4" />
+            {analisando ? "Lendo o PDF..." : "Ler sentença/acórdão e sugerir campos"}
           </Button>
           {(docs.data ?? []).length > 0 ? (
             <div className="flex flex-wrap gap-2">
@@ -627,6 +708,16 @@ function CalculosPage() {
                 </Button>
               ))}
             </div>
+          ) : null}
+          {sugestao ? (
+            <SugestaoPainel
+              sugestao={sugestao}
+              nomeArquivo={arquivoAnalisado}
+              processoVinculado={!!processo}
+              onUsarProcesso={() => atualizarIdentificacao("processo", sugestao.processo ?? "")}
+              onUsarDataBase={() => setDataBase(sugestao.dataDecisao ?? "")}
+              onAdicionarVerba={adicionarVerbaDaSugestao}
+            />
           ) : null}
         </CardContent>
       </Card>
@@ -707,6 +798,120 @@ function UploadCalculo({
         }}
       />
     </Campo>
+  );
+}
+
+function SugestaoPainel({
+  sugestao,
+  nomeArquivo,
+  processoVinculado,
+  onUsarProcesso,
+  onUsarDataBase,
+  onAdicionarVerba,
+}: {
+  sugestao: SugestaoSentenca;
+  nomeArquivo: string | null;
+  processoVinculado: boolean;
+  onUsarProcesso: () => void;
+  onUsarDataBase: () => void;
+  onAdicionarVerba: (v: SugestaoSentenca["valores"][number]) => void;
+}) {
+  const [adicionadas, setAdicionadas] = useState<Set<number>>(new Set());
+
+  return (
+    <div className="space-y-3 rounded-md border border-dashed border-border p-3">
+      <p className="text-xs text-muted-foreground">
+        Lido de "{nomeArquivo}" — sugestão, nada foi aplicado sozinho. Confira cada item antes de
+        usar.
+      </p>
+
+      {sugestao.processo ? (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span>
+            Nº do processo encontrado: <strong>{sugestao.processo}</strong>
+          </span>
+          {processoVinculado ? (
+            <Badge variant="outline">já tem processo vinculado — confira se bate</Badge>
+          ) : (
+            <Button size="sm" variant="outline" onClick={onUsarProcesso}>
+              Usar esse número
+            </Button>
+          )}
+        </div>
+      ) : null}
+
+      {sugestao.dataDecisao ? (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span>
+            Data da decisão encontrada: <strong>{dataBR(sugestao.dataDecisao)}</strong>
+          </span>
+          <Button size="sm" variant="outline" onClick={onUsarDataBase}>
+            Usar como data-base
+          </Button>
+        </div>
+      ) : null}
+
+      {sugestao.indice ? (
+        <p className="text-sm">
+          Índice de correção mencionado: <strong>{sugestao.indice.textoEncontrado}</strong>
+          {sugestao.indice.indice
+            ? " — já é calculado automaticamente ao adicionar a verba abaixo"
+            : " — esse sistema ainda não calcula esse índice automaticamente, selecione manual na verba"}
+        </p>
+      ) : null}
+
+      {sugestao.juros ? (
+        <p className="text-sm">
+          Juros mencionados: <strong>{sugestao.juros.textoEncontrado}</strong>
+          {!sugestao.juros.juros ? " — confirme manualmente o tipo de juros na verba" : null}
+        </p>
+      ) : null}
+
+      {sugestao.termosIniciais.length > 0 ? (
+        <ul className="space-y-1 text-sm">
+          {sugestao.termosIniciais.map((t, i) => (
+            <li key={i}>
+              {t.tipo === "correcao" ? "Correção" : "Juros"} {t.regra}
+              {t.dataEncontrada
+                ? ` — ${dataBR(t.dataEncontrada)}`
+                : " — preencha a data de início manualmente na verba"}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {sugestao.valores.length > 0 ? (
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Valores encontrados</p>
+          {sugestao.valores.map((v, i) => (
+            <div
+              key={i}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-2 text-sm"
+            >
+              <div className="min-w-0">
+                <p>
+                  {v.descricao} — {dinheiro(v.valor)}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">{v.trecho}</p>
+              </div>
+              <Button
+                size="sm"
+                variant={adicionadas.has(i) ? "ghost" : "outline"}
+                disabled={adicionadas.has(i)}
+                onClick={() => {
+                  onAdicionarVerba(v);
+                  setAdicionadas((s) => new Set(s).add(i));
+                }}
+              >
+                {adicionadas.has(i) ? "Adicionada" : "Adicionar como verba"}
+              </Button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">Nenhum valor condenatório reconhecido.</p>
+      )}
+    </div>
   );
 }
 
