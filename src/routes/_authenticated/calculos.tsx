@@ -842,18 +842,32 @@ function SugestaoPainel({
     return edicao ? { ...sugestao.valores[i]!, ...edicao } : sugestao.valores[i]!;
   };
 
+  // Quando a sentença detalha um total seguido de itens que somam esse
+  // total (ex.: "R$ 13.877,00: a) R$ 2.700,00; b) R$ 3.577,00..."), só
+  // os valores com data de correção PRÓPRIA (achada perto deles) são
+  // verba de verdade -- o total e os itens soltos sem data própria são
+  // só o detalhamento que justifica esses valores, e virar verba
+  // também contaria o mesmo dinheiro mais de uma vez. "Aceitar todas"
+  // só pula esse filtro quando NENHUM valor tem data própria (sentença
+  // mais simples, sem esse padrão de detalhamento).
+  const algumTemDataPropria = sugestao.valores.some((v) => v.correcaoDesde);
+
   const aceitarTodas = () => {
     let quantos = 0;
     const novasAdicionadas = new Set(adicionadas);
-    sugestao.valores.forEach((_, i) => {
+    sugestao.valores.forEach((v, i) => {
       if (descartadas.has(i) || adicionadas.has(i)) return;
+      if (algumTemDataPropria && !v.correcaoDesde) return;
       onAdicionarVerba(valorEfetivo(i));
       novasAdicionadas.add(i);
       quantos++;
     });
     setAdicionadas(novasAdicionadas);
-    if (quantos > 0)
+    if (quantos > 0) {
       toast.success(`${quantos} verba(s) adicionada(s) — confira cada uma antes de calcular.`);
+    } else {
+      toast.warning("Nenhum valor com data de correção própria pra adicionar automaticamente.");
+    }
   };
 
   return (
@@ -926,11 +940,23 @@ function SugestaoPainel({
               size="sm"
               variant="outline"
               onClick={aceitarTodas}
-              disabled={sugestao.valores.every((_, i) => adicionadas.has(i) || descartadas.has(i))}
+              disabled={sugestao.valores.every(
+                (v, i) =>
+                  adicionadas.has(i) ||
+                  descartadas.has(i) ||
+                  (algumTemDataPropria && !v.correcaoDesde),
+              )}
             >
               Aceitar todas
             </Button>
           </div>
+          {algumTemDataPropria ? (
+            <p className="text-xs text-muted-foreground">
+              "Aceitar todas" só pega os valores com data de correção própria (abaixo) -- os sem
+              data costumam ser o detalhamento/total que já soma esses valores, e contariam o mesmo
+              dinheiro de novo.
+            </p>
+          ) : null}
           {sugestao.valores.map((v, i) => {
             if (descartadas.has(i)) return null;
             if (editando === i) {
@@ -985,6 +1011,10 @@ function SugestaoPainel({
                   {v.correcaoDesde ? (
                     <p className="text-xs text-foreground">
                       Correção a contar de {dataBR(v.correcaoDesde)} (achada perto desse valor)
+                    </p>
+                  ) : algumTemDataPropria ? (
+                    <p className="text-xs text-amber-700">
+                      Sem data própria — pode ser total/detalhamento de outros valores da lista
                     </p>
                   ) : null}
                   <p className="truncate text-xs text-muted-foreground">{v.trecho}</p>
