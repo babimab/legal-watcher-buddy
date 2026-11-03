@@ -118,7 +118,15 @@ const BUCKET = "calculos-judiciais";
 const INICIO_SELIC_TAXA_LEGAL = "2024-08-30";
 const FIM_UM_PORCENTO_TAXA_LEGAL = "2024-08-29";
 const FONTE_SELIC = "Fonte oficial: Banco Central do Brasil - SGS série 11 (SELIC diária)";
-const CRITERIO_TAXA_LEGAL = "Taxa Legal — 1% a.m. até 29/08/2024 + SELIC a partir de 30/08/2024";
+// Art. 406, §1º do CC (redação da Lei 14.905/2024) e Resolução CMN
+// 5.171/2024: a partir de 30/08/2024 a taxa legal não é SELIC pura --
+// é a Taxa Legal mensal já calculada e publicada pelo BCB (série SGS
+// 29543), que combina SELIC e IPCA-15 do mês anterior com piso zero.
+// Lida com fator diário pro rata mês a mês (ver taxaLegalAcumuladaPct).
+const FONTE_TAXA_LEGAL =
+  "Fonte oficial: Banco Central do Brasil - SGS série 29543 (Taxa Legal, art. 406, §1º, CC)";
+const CRITERIO_TAXA_LEGAL =
+  "Taxa Legal — 1% a.m. até 29/08/2024 + Taxa Legal do BCB (SELIC - IPCA-15) a partir de 30/08/2024";
 
 export function novaVerba(): VerbaCalculo {
   return {
@@ -222,6 +230,60 @@ async function fatorIgpm(de: string, ate: string): Promise<number> {
   return taxas.reduce((f, taxa) => f * (1 + taxa / 100), 1);
 }
 
+// Taxa Legal (art. 406, §1º, CC, redação da Lei 14.905/2024) já vem
+// pronta, calculada e publicada pelo próprio Banco Central -- série SGS
+// 29543 "Taxa Legal" (% a.m., Fonte BCB-Demab, dados a partir de
+// 08/2024). Evita reimplementar a fórmula de combinação SELIC/IPCA-15
+// (defasagem de um mês, piso zero) por conta própria: usa o número que
+// o BCB já calculou. Retorna um mapa "AAAA-MM" -> taxa do mês (%).
+async function obterTaxaLegalMensal(de: string, ate: string): Promise<Map<string, number>> {
+  const br = (s: string) => {
+    const [a, m, d] = s.split("-");
+    return `${d}/${m}/${a}`;
+  };
+  const url = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.29543/dados?formato=json&dataInicial=${encodeURIComponent(br(de))}&dataFinal=${encodeURIComponent(br(ate))}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("Não foi possível consultar a Taxa Legal no Banco Central.");
+  const json = (await r.json()) as Array<{ data: string; valor: string }>;
+  const mapa = new Map<string, number>();
+  for (const item of json) {
+    const [, mes, ano] = item.data.split("/");
+    const taxa = Number(item.valor.replace(",", "."));
+    if (Number.isFinite(taxa)) mapa.set(`${ano}-${mes}`, taxa);
+  }
+  return mapa;
+}
+
+function diasNoMes(ano: number, mes: number): number {
+  return new Date(ano, mes, 0).getDate();
+}
+
+// Soma simples (não composta) da Taxa Legal mensal, com pro rata diário
+// dentro de cada mês -- exatamente a metodologia da Resolução CMN
+// 5.171/2024: juro diário = (Taxa Legal do mês / dias do mês), somado
+// pelos dias efetivamente dentro do período, mês a mês. Testado contra
+// o exemplo oficial do BCB (30/08/2024 a 31/08/2024 = 1 dia de
+// agosto/2024) antes de ir pra produção.
+async function taxaLegalAcumuladaPct(inicio: string, dataBase: string): Promise<number> {
+  const mapa = await obterTaxaLegalMensal(inicio, dataBase);
+  let somaPct = 0;
+  let cursor = inicio;
+  while (cursor < dataBase) {
+    const [anoStr, mesStr] = cursor.split("-");
+    const ano = Number(anoStr);
+    const mes = Number(mesStr);
+    const totalDiasMes = diasNoMes(ano, mes);
+    const inicioProxMes =
+      mes === 12 ? `${ano + 1}-01-01` : `${ano}-${String(mes + 1).padStart(2, "0")}-01`;
+    const fimTrecho = inicioProxMes < dataBase ? inicioProxMes : dataBase;
+    const dias = diasEntre(cursor, fimTrecho);
+    const taxaMes = mapa.get(`${anoStr}-${mesStr}`) ?? 0;
+    somaPct += (taxaMes / totalDiasMes) * dias;
+    cursor = fimTrecho;
+  }
+  return somaPct;
+}
+
 async function calcularTaxaLegalTransicao(
   base: number,
   inicio: string,
@@ -249,17 +311,17 @@ async function calcularTaxaLegalTransicao(
   }
 
   if (dataBase >= INICIO_SELIC_TAXA_LEGAL) {
-    const inicioSelic = inicio > INICIO_SELIC_TAXA_LEGAL ? inicio : INICIO_SELIC_TAXA_LEGAL;
-    if (inicioSelic < dataBase) {
-      const fator = await fatorSelic(inicioSelic, dataBase);
-      const valor = base * (fator - 1);
+    const inicioTL = inicio > INICIO_SELIC_TAXA_LEGAL ? inicio : INICIO_SELIC_TAXA_LEGAL;
+    if (inicioTL < dataBase) {
+      const somaPct = await taxaLegalAcumuladaPct(inicioTL, dataBase);
+      const valor = base * (somaPct / 100);
       juros += valor;
       periodos.push({
-        descricao: "SELIC",
-        de: inicioSelic,
+        descricao: "Taxa Legal (SELIC - IPCA-15)",
+        de: inicioTL,
         ate: dataBase,
         juros: valor,
-        fonte: FONTE_SELIC,
+        fonte: FONTE_TAXA_LEGAL,
       });
     }
   }
@@ -323,7 +385,9 @@ export async function calcularJudicial(
         periodosJuros = calculo.periodos;
         fonteJuros = CRITERIO_TAXA_LEGAL;
         fontes.add(CRITERIO_TAXA_LEGAL);
-        if (calculo.periodos.some((p) => p.descricao === "SELIC")) fontes.add(FONTE_SELIC);
+        if (calculo.periodos.some((p) => p.descricao.startsWith("Taxa Legal"))) {
+          fontes.add(FONTE_TAXA_LEGAL);
+        }
       }
 
       memoria.push({

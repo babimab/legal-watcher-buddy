@@ -1177,7 +1177,7 @@ function VerbaCard({
                 <SelectItem value="mensal">% ao mês</SelectItem>
                 <SelectItem value="anual">% ao ano</SelectItem>
                 <SelectItem value="selic">SELIC — Banco Central</SelectItem>
-                <SelectItem value="taxa_legal">Taxa Legal — 1% a.m. + SELIC</SelectItem>
+                <SelectItem value="taxa_legal">Taxa Legal — 1% a.m. + SELIC - IPCA-15</SelectItem>
               </SelectContent>
             </Select>
           </Campo>
@@ -1201,13 +1201,16 @@ function VerbaCard({
         </div>
         {verba.juros === "taxa_legal" ? (
           <p className="text-xs text-muted-foreground">
-            Transição automática: 1% a.m. até 29/08/2024 e SELIC a partir de 30/08/2024.
+            Transição automática: 1% a.m. até 29/08/2024 e Taxa Legal do Banco Central (SELIC mensal
+            - IPCA-15 mensal, pro rata por dia) a partir de 30/08/2024 — já desconta o IPCA, não
+            duplica com a correção monetária.
           </p>
         ) : null}
-        {verba.indice !== "nenhum" && (verba.juros === "selic" || verba.juros === "taxa_legal") ? (
+        {verba.indice !== "nenhum" && verba.juros === "selic" ? (
           <p className="text-xs text-amber-700">
-            Atenção: correção monetária + SELIC podem não ser cumuláveis conforme o título e o
-            regime jurídico. Confira antes de utilizar.
+            Atenção: correção monetária + SELIC pura podem não ser cumuláveis conforme o título e o
+            regime jurídico (SELIC pura não desconta inflação). Confira antes de utilizar; pra juros
+            de mora sem taxa convencionada desde 30/08/2024, o normal é usar "Taxa Legal".
           </p>
         ) : null}
       </CardContent>
