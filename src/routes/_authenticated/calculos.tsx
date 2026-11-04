@@ -466,6 +466,79 @@ function CalculosPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 font-serif text-lg">
+            <Upload className="size-4" /> Documentos para o cálculo
+          </CardTitle>
+          <CardDescription>
+            Suba a sentença/acórdão primeiro: a leitura automática (sem IA generativa, só
+            reconhecimento de padrões no texto) sugere os campos abaixo — confira tudo antes de
+            aplicar. A área também serve para anexar o título e os autos.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid gap-3 md:grid-cols-2">
+            <UploadCalculo
+              calculoId={id}
+              categoria="titulo"
+              label="Sentença / acórdão / decisão / acordo"
+              onDone={() => qc.invalidateQueries({ queryKey: ["calculo-documentos", id] })}
+            />
+            <UploadCalculo
+              calculoId={id}
+              categoria="autos"
+              label="Autos / processo integral em PDF"
+              onDone={() => qc.invalidateQueries({ queryKey: ["calculo-documentos", id] })}
+            />
+          </div>
+          <input
+            ref={inputAnaliseRef}
+            type="file"
+            accept="application/pdf"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) void analisarSentenca(f);
+            }}
+          />
+          <Button
+            variant="outline"
+            disabled={analisando}
+            onClick={() => inputAnaliseRef.current?.click()}
+          >
+            <Sparkles className="size-4" />
+            {analisando ? "Lendo o PDF..." : "Ler sentença/acórdão e sugerir campos"}
+          </Button>
+          {(docs.data ?? []).length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {(docs.data ?? []).map((d) => (
+                <Button
+                  key={d.id}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void abrirDocumentoCalculo(d)}
+                >
+                  <FileText className="size-4" /> {d.categoria === "autos" ? "Autos" : "Título"}:{" "}
+                  {d.nome_arquivo}
+                </Button>
+              ))}
+            </div>
+          ) : null}
+          {sugestao ? (
+            <SugestaoPainel
+              sugestao={sugestao}
+              nomeArquivo={arquivoAnalisado}
+              processoVinculado={!!processo}
+              onUsarProcesso={() => atualizarIdentificacao("processo", sugestao.processo ?? "")}
+              onUsarDataBase={() => setDataBase(sugestao.dataDecisao ?? "")}
+              onAdicionarVerba={adicionarVerbaDaSugestao}
+            />
+          ) : null}
+        </CardContent>
+      </Card>
+
       <div className="space-y-4">
         {criterios.verbas.map((v, vi) => (
           <VerbaCard
@@ -663,79 +736,6 @@ function CalculosPage() {
       {resultado ? (
         <Resultado resultado={resultado} identificacao={identificacaoAtual} dataBase={dataBase} />
       ) : null}
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 font-serif text-lg">
-            <Upload className="size-4" /> Documentos para o cálculo
-          </CardTitle>
-          <CardDescription>
-            Área complementar para anexar o título e os autos. A leitura automática (sem IA
-            generativa, só reconhecimento de padrões no texto) sugere campos a partir da
-            sentença/acórdão — confira tudo antes de aplicar.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid gap-3 md:grid-cols-2">
-            <UploadCalculo
-              calculoId={id}
-              categoria="titulo"
-              label="Sentença / acórdão / decisão / acordo"
-              onDone={() => qc.invalidateQueries({ queryKey: ["calculo-documentos", id] })}
-            />
-            <UploadCalculo
-              calculoId={id}
-              categoria="autos"
-              label="Autos / processo integral em PDF"
-              onDone={() => qc.invalidateQueries({ queryKey: ["calculo-documentos", id] })}
-            />
-          </div>
-          <input
-            ref={inputAnaliseRef}
-            type="file"
-            accept="application/pdf"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              e.target.value = "";
-              if (f) void analisarSentenca(f);
-            }}
-          />
-          <Button
-            variant="outline"
-            disabled={analisando}
-            onClick={() => inputAnaliseRef.current?.click()}
-          >
-            <Sparkles className="size-4" />
-            {analisando ? "Lendo o PDF..." : "Ler sentença/acórdão e sugerir campos"}
-          </Button>
-          {(docs.data ?? []).length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {(docs.data ?? []).map((d) => (
-                <Button
-                  key={d.id}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void abrirDocumentoCalculo(d)}
-                >
-                  <FileText className="size-4" /> {d.categoria === "autos" ? "Autos" : "Título"}:{" "}
-                  {d.nome_arquivo}
-                </Button>
-              ))}
-            </div>
-          ) : null}
-          {sugestao ? (
-            <SugestaoPainel
-              sugestao={sugestao}
-              nomeArquivo={arquivoAnalisado}
-              processoVinculado={!!processo}
-              onUsarProcesso={() => atualizarIdentificacao("processo", sugestao.processo ?? "")}
-              onUsarDataBase={() => setDataBase(sugestao.dataDecisao ?? "")}
-              onAdicionarVerba={adicionarVerbaDaSugestao}
-            />
-          ) : null}
-        </CardContent>
-      </Card>
 
       <p className="text-sm text-muted-foreground">
         Confira os critérios jurídicos antes de utilizar a memória em juízo.
