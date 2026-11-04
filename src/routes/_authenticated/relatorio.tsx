@@ -652,6 +652,8 @@ function RelatorioPage() {
   const [soProntos, setSoProntos] = useState(false);
   const [ufEncerramento, setUfEncerramento] = useState("todos");
   const [estagiarioEncerramento, setEstagiarioEncerramento] = useState("todos");
+  const [clienteEncerramento, setClienteEncerramento] = useState("todos");
+  const [numeroClienteEncerramento, setNumeroClienteEncerramento] = useState("todos");
   const [buscaEncerramento, setBuscaEncerramento] = useState("");
   const minhaSigla = useSiglaAtual();
 
@@ -784,10 +786,39 @@ function RelatorioPage() {
     [encerramento, encerramentoAstro],
   );
 
+  // Mesma lógica do filtro de estagiária: junta as duas carteiras pra não
+  // deixar de fora quem só tem processo numa delas.
+  const clientesEncerramento = useMemo(
+    () =>
+      [
+        ...new Set([...encerramento, ...encerramentoAstro].map((p) => p.cliente).filter(Boolean)),
+      ].sort() as string[],
+    [encerramento, encerramentoAstro],
+  );
+  const numerosClienteEncerramento = useMemo(
+    () =>
+      [
+        ...new Set(
+          [...encerramento, ...encerramentoAstro].map((p) => p.numero_cliente).filter(Boolean),
+        ),
+      ].sort() as string[],
+    [encerramento, encerramentoAstro],
+  );
+
   const filtrarPorEstagiarioEncerramento = (itens: Processo[]) =>
     estagiarioEncerramento === "todos"
       ? itens
       : itens.filter((p) => p.estagiario === estagiarioEncerramento);
+
+  const filtrarPorClienteEncerramento = (itens: Processo[]) =>
+    clienteEncerramento === "todos"
+      ? itens
+      : itens.filter((p) => p.cliente === clienteEncerramento);
+
+  const filtrarPorNumeroClienteEncerramento = (itens: Processo[]) =>
+    numeroClienteEncerramento === "todos"
+      ? itens
+      : itens.filter((p) => p.numero_cliente === numeroClienteEncerramento);
 
   const filtrarPorBuscaEncerramento = (itens: Processo[]) => {
     const termo = buscaEncerramento.trim().toLowerCase();
@@ -800,10 +831,14 @@ function RelatorioPage() {
   };
 
   const encerramentoFiltrado = filtrarPorBuscaEncerramento(
-    filtrarPorEstagiarioEncerramento(
-      ufEncerramento === "todos"
-        ? encerramentoPorAdvogado
-        : encerramentoPorAdvogado.filter((p) => p.uf === ufEncerramento),
+    filtrarPorNumeroClienteEncerramento(
+      filtrarPorClienteEncerramento(
+        filtrarPorEstagiarioEncerramento(
+          ufEncerramento === "todos"
+            ? encerramentoPorAdvogado
+            : encerramentoPorAdvogado.filter((p) => p.uf === ufEncerramento),
+        ),
+      ),
     ),
   );
 
@@ -811,14 +846,18 @@ function RelatorioPage() {
   const encerramentoExibido = soProntos ? encerramentoProntos : encerramentoFiltrado;
 
   const encerramentoAstroPorAdvogado = filtrarPorBuscaEncerramento(
-    filtrarPorEstagiarioEncerramento(
-      advogado === "todos"
-        ? encerramentoAstro
-        : encerramentoAstro.filter((p) =>
-            advogado === "eu"
-              ? ehResponsavelDaSigla(p.responsavel, minhaSigla)
-              : p.responsavel === advogado,
-          ),
+    filtrarPorNumeroClienteEncerramento(
+      filtrarPorClienteEncerramento(
+        filtrarPorEstagiarioEncerramento(
+          advogado === "todos"
+            ? encerramentoAstro
+            : encerramentoAstro.filter((p) =>
+                advogado === "eu"
+                  ? ehResponsavelDaSigla(p.responsavel, minhaSigla)
+                  : p.responsavel === advogado,
+              ),
+        ),
+      ),
     ),
   );
   const encerramentoAstroProntos = encerramentoAstroPorAdvogado.filter(
@@ -1187,13 +1226,45 @@ function RelatorioPage() {
               </SelectContent>
             </Select>
           ) : null}
+          {(aba === "encerramento" || aba === "encerramento-astro") &&
+          clientesEncerramento.length > 1 ? (
+            <Select value={clienteEncerramento} onValueChange={setClienteEncerramento}>
+              <SelectTrigger className="w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os clientes</SelectItem>
+                {clientesEncerramento.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {exibir(c) ?? c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
+          {(aba === "encerramento" || aba === "encerramento-astro") &&
+          numerosClienteEncerramento.length > 1 ? (
+            <Select value={numeroClienteEncerramento} onValueChange={setNumeroClienteEncerramento}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os nº de cliente</SelectItem>
+                {numerosClienteEncerramento.map((n) => (
+                  <SelectItem key={n} value={n}>
+                    {n}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
           {aba === "encerramento" || aba === "encerramento-astro" ? (
             <Input
               type="text"
-              placeholder="Buscar por cliente, nº do cliente ou CNJ..."
+              placeholder="Buscar..."
               value={buscaEncerramento}
               onChange={(e) => setBuscaEncerramento(e.target.value)}
-              className="w-64"
+              className="w-56"
             />
           ) : null}
           {aba === "encerramento" || aba === "encerramento-astro" ? (
