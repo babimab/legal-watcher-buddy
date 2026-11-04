@@ -652,6 +652,7 @@ function RelatorioPage() {
   const [soProntos, setSoProntos] = useState(false);
   const [ufEncerramento, setUfEncerramento] = useState("todos");
   const [estagiarioEncerramento, setEstagiarioEncerramento] = useState("todos");
+  const [buscaEncerramento, setBuscaEncerramento] = useState("");
   const minhaSigla = useSiglaAtual();
 
   useEffect(() => {
@@ -788,23 +789,37 @@ function RelatorioPage() {
       ? itens
       : itens.filter((p) => p.estagiario === estagiarioEncerramento);
 
-  const encerramentoFiltrado = filtrarPorEstagiarioEncerramento(
-    ufEncerramento === "todos"
-      ? encerramentoPorAdvogado
-      : encerramentoPorAdvogado.filter((p) => p.uf === ufEncerramento),
+  const filtrarPorBuscaEncerramento = (itens: Processo[]) => {
+    const termo = buscaEncerramento.trim().toLowerCase();
+    if (!termo) return itens;
+    return itens.filter((p) =>
+      [p.cliente, p.numero_cliente, p.numero_cnj, p.autor, p.reu, p.parte_contraria]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(termo)),
+    );
+  };
+
+  const encerramentoFiltrado = filtrarPorBuscaEncerramento(
+    filtrarPorEstagiarioEncerramento(
+      ufEncerramento === "todos"
+        ? encerramentoPorAdvogado
+        : encerramentoPorAdvogado.filter((p) => p.uf === ufEncerramento),
+    ),
   );
 
   const encerramentoProntos = encerramentoFiltrado.filter((p) => p.pronto_para_encerrar);
   const encerramentoExibido = soProntos ? encerramentoProntos : encerramentoFiltrado;
 
-  const encerramentoAstroPorAdvogado = filtrarPorEstagiarioEncerramento(
-    advogado === "todos"
-      ? encerramentoAstro
-      : encerramentoAstro.filter((p) =>
-          advogado === "eu"
-            ? ehResponsavelDaSigla(p.responsavel, minhaSigla)
-            : p.responsavel === advogado,
-        ),
+  const encerramentoAstroPorAdvogado = filtrarPorBuscaEncerramento(
+    filtrarPorEstagiarioEncerramento(
+      advogado === "todos"
+        ? encerramentoAstro
+        : encerramentoAstro.filter((p) =>
+            advogado === "eu"
+              ? ehResponsavelDaSigla(p.responsavel, minhaSigla)
+              : p.responsavel === advogado,
+          ),
+    ),
   );
   const encerramentoAstroProntos = encerramentoAstroPorAdvogado.filter(
     (p) => p.pronto_para_encerrar,
@@ -1171,6 +1186,15 @@ function RelatorioPage() {
                 ))}
               </SelectContent>
             </Select>
+          ) : null}
+          {aba === "encerramento" || aba === "encerramento-astro" ? (
+            <Input
+              type="text"
+              placeholder="Buscar por cliente, nº do cliente ou CNJ..."
+              value={buscaEncerramento}
+              onChange={(e) => setBuscaEncerramento(e.target.value)}
+              className="w-64"
+            />
           ) : null}
           {aba === "encerramento" || aba === "encerramento-astro" ? (
             <label className="flex items-center gap-2 rounded-md border border-input px-3 text-sm">
