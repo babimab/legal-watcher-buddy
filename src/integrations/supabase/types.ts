@@ -587,6 +587,90 @@ export type Database = {
         }
         Relationships: []
       }
+      modelos_carta_preposicao_correspondente: {
+        Row: {
+          assinante_nome: string | null
+          assinante_oab: string | null
+          assinatura_caminho: string | null
+          created_at: string
+          created_by: string | null
+          estado: string
+          id: string
+          lista_prepostos: string
+          modelo_pdf_caminho: string | null
+          modelo_pdf_nome_arquivo: string | null
+          updated_at: string
+        }
+        Insert: {
+          assinante_nome?: string | null
+          assinante_oab?: string | null
+          assinatura_caminho?: string | null
+          created_at?: string
+          created_by?: string | null
+          estado: string
+          id: string
+          lista_prepostos: string
+          modelo_pdf_caminho?: string | null
+          modelo_pdf_nome_arquivo?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assinante_nome?: string | null
+          assinante_oab?: string | null
+          assinatura_caminho?: string | null
+          created_at?: string
+          created_by?: string | null
+          estado?: string
+          id?: string
+          lista_prepostos?: string
+          modelo_pdf_caminho?: string | null
+          modelo_pdf_nome_arquivo?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      modelos_substabelecimento_correspondente: {
+        Row: {
+          assinante_nome: string | null
+          assinante_oab: string | null
+          assinatura_caminho: string | null
+          created_at: string
+          created_by: string | null
+          estado: string
+          id: string
+          lista_advogados: string
+          modelo_pdf_caminho: string | null
+          modelo_pdf_nome_arquivo: string | null
+          updated_at: string
+        }
+        Insert: {
+          assinante_nome?: string | null
+          assinante_oab?: string | null
+          assinatura_caminho?: string | null
+          created_at?: string
+          created_by?: string | null
+          estado: string
+          id: string
+          lista_advogados: string
+          modelo_pdf_caminho?: string | null
+          modelo_pdf_nome_arquivo?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assinante_nome?: string | null
+          assinante_oab?: string | null
+          assinatura_caminho?: string | null
+          created_at?: string
+          created_by?: string | null
+          estado?: string
+          id?: string
+          lista_advogados?: string
+          modelo_pdf_caminho?: string | null
+          modelo_pdf_nome_arquivo?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       movimentacoes: {
         Row: {
           concluida: boolean
