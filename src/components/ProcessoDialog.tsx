@@ -35,6 +35,7 @@ import {
   CARTEIRAS_CONHECIDAS,
   listarProcessos,
   exibir,
+  formatarCNJ,
   type Processo,
 } from "@/lib/processos";
 import { listarGrupos, listarPastas } from "@/lib/grupos";
@@ -111,9 +112,13 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais, onSalvo }: 
     const conflito = (processos.data ?? []).find(
       (p) => p.numero_cnj === numeroCnj && p.id !== processo?.id && !familia.has(p.id),
     );
+    let vincularComoDesdobramentoDe: string | null = null;
     if (conflito) {
-      toast.error("Já existe outro processo com esse número.");
-      return;
+      const confirmar = window.confirm(
+        `Já existe o processo ${formatarCNJ(conflito.numero_cnj)} (${conflito.cliente}) com esse número.\n\nVincular este processo como desdobramento dele e continuar salvando?`,
+      );
+      if (!confirmar) return;
+      vincularComoDesdobramentoDe = conflito.id;
     }
 
     const payload = {
@@ -155,6 +160,7 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais, onSalvo }: 
             tipo_desdobramento: String(form.get("tipo_desdobramento") ?? "").trim() || null,
           }
         : {}),
+      ...(vincularComoDesdobramentoDe ? { processo_pai_id: vincularComoDesdobramentoDe } : {}),
     };
 
     setSalvando(true);
