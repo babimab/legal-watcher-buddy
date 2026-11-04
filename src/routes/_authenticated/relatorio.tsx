@@ -951,12 +951,32 @@ function RelatorioPage() {
   // Encerra em lote todos os processos já marcados "pronto para encerrar"
   // na aba Souza Cruz, e já deixa todos na fila de "Baixa na Souza Cruz"
   // -- evita abrir o diálogo um por um quando são vários de uma vez.
+  // Esse encerramento em lote não passa pelo EncerramentoDialog (que já
+  // checa desdobramento ativo antes de encerrar o principal), então
+  // checa aqui também -- senão desdobramento vinculado a um desses
+  // processos ficava esquecido como "ativo" depois do principal fechado.
   const [encerrandoTodos, setEncerrandoTodos] = useState(false);
   const encerrarTodosProntos = async () => {
     if (encerramentoProntos.length === 0) return;
+    const idsPrincipais = encerramentoProntos.map((p) => p.id);
+    const { data: desdobramentos, error: erroDesdobramentos } = await supabaseSolto
+      .from("processos")
+      .select("id, numero_cnj, tipo_desdobramento, status")
+      .in("processo_pai_id", idsPrincipais);
+    if (erroDesdobramentos) {
+      toast.error(erroDesdobramentos.message);
+      return;
+    }
+    const desdobramentosAtivos = (desdobramentos ?? []).filter((d) => d.status !== "encerrado");
+    const idsExtras = desdobramentosAtivos.map((d) => d.id);
+
+    const avisoDesdobramentos =
+      idsExtras.length > 0
+        ? `\n\nTambém tem ${idsExtras.length} desdobramento(s) ainda ativo(s) vinculado(s) a esses processos, que serão encerrados junto:\n${desdobramentosAtivos.map((d) => `• ${formatarCNJ(d.numero_cnj)}${d.tipo_desdobramento ? ` — ${d.tipo_desdobramento}` : ""}`).join("\n")}`
+        : "";
     if (
       !window.confirm(
-        `Marcar ${encerramentoProntos.length} processo(s) como encerrado e mandar pra fila de baixa no cliente?`,
+        `Marcar ${encerramentoProntos.length} processo(s) como encerrado e mandar pra fila de baixa no cliente?${avisoDesdobramentos}`,
       )
     )
       return;
@@ -968,17 +988,16 @@ function RelatorioPage() {
         baixa_cliente_pendente: true,
         encerrado_em: new Date().toISOString(),
       })
-      .in(
-        "id",
-        encerramentoProntos.map((p) => p.id),
-      );
+      .in("id", [...idsPrincipais, ...idsExtras]);
     setEncerrandoTodos(false);
     if (error) {
       toast.error(error.message);
       return;
     }
     toast.success(
-      `${encerramentoProntos.length} processo(s) encerrado(s) — foram pra fila de baixa na Souza Cruz.`,
+      idsExtras.length > 0
+        ? `${encerramentoProntos.length} processo(s) e ${idsExtras.length} desdobramento(s) encerrados — foram pra fila de baixa na Souza Cruz.`
+        : `${encerramentoProntos.length} processo(s) encerrado(s) — foram pra fila de baixa na Souza Cruz.`,
     );
     await queryClient.invalidateQueries({ queryKey: ["processos"] });
   };
