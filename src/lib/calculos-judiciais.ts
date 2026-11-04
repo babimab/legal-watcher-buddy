@@ -61,6 +61,14 @@ export type PeriodoJurosCalculo = {
   fonte: string;
 };
 
+export type PeriodoCorrecaoCalculo = {
+  descricao: string;
+  de: string;
+  ate: string;
+  correcao: number;
+  fonte: string;
+};
+
 export type LinhaMemoria = {
   verba: string;
   parcela: string;
@@ -72,6 +80,7 @@ export type LinhaMemoria = {
   atualizado: number;
   fonteCorrecao: string;
   fonteJuros: string;
+  periodosCorrecao?: PeriodoCorrecaoCalculo[] | undefined;
   periodosJuros?: PeriodoJurosCalculo[] | undefined;
 };
 
@@ -345,22 +354,37 @@ export async function calcularJudicial(
 
       let fatorCorrecao = 1;
       let fonteCorrecao = "Sem correção monetária";
+      let descricaoIndice: string | null = null;
       if (verba.indice === "ipca") {
         fatorCorrecao = await fatorIpca(inicioCorrecao, dataBase);
         fonteCorrecao = "Fonte oficial: IBGE/SIDRA - IPCA, tabela 1737";
+        descricaoIndice = "IPCA";
         fontes.add(fonteCorrecao);
       } else if (verba.indice === "igpm") {
         fatorCorrecao = await fatorIgpm(inicioCorrecao, dataBase);
         fonteCorrecao = "Fonte oficial: Banco Central do Brasil - SGS série 189 (IGP-M/FGV)";
+        descricaoIndice = "IGP-M";
         fontes.add(fonteCorrecao);
       } else if (verba.indice === "manual") {
         fatorCorrecao = Math.max(0, Number(verba.fatorManual) || 1);
         fonteCorrecao = "Fator de correção informado manualmente";
+        descricaoIndice = "Fator manual";
         fontes.add(fonteCorrecao);
       }
 
       const corrigido = principal * fatorCorrecao;
       const correcao = corrigido - principal;
+      const periodosCorrecao: PeriodoCorrecaoCalculo[] | undefined = descricaoIndice
+        ? [
+            {
+              descricao: descricaoIndice,
+              de: inicioCorrecao,
+              ate: dataBase,
+              correcao,
+              fonte: fonteCorrecao,
+            },
+          ]
+        : undefined;
       let juros = 0;
       let fonteJuros = "Sem juros";
       let periodosJuros: PeriodoJurosCalculo[] | undefined;
@@ -401,6 +425,7 @@ export async function calcularJudicial(
         atualizado: corrigido + juros,
         fonteCorrecao,
         fonteJuros,
+        periodosCorrecao,
         periodosJuros,
       });
     }
@@ -675,6 +700,37 @@ export async function exportarCalculoExcel(
   estilizarCabecalho(mem);
   centralizarLinhas(mem, new Set(["verba", "fonteCorrecao", "fonteJuros"]));
   finalizarPlanilha(mem);
+
+  const periodosCorrecao = resultado.memoria.flatMap((linha) =>
+    (linha.periodosCorrecao ?? []).map((periodo) => ({ linha, periodo })),
+  );
+  if (periodosCorrecao.length) {
+    const correcaoPeriodo = wb.addWorksheet("Correção por período");
+    correcaoPeriodo.columns = [
+      { header: "Verba", key: "verba", width: 24 },
+      { header: "Parcela", key: "parcela", width: 32 },
+      { header: "De", key: "de", width: 14 },
+      { header: "Até", key: "ate", width: 14 },
+      { header: "Índice", key: "criterio", width: 38 },
+      { header: "Correção", key: "correcao", width: 18 },
+      { header: "Fonte / metodologia", key: "fonte", width: 56 },
+    ];
+    periodosCorrecao.forEach(({ linha, periodo }) =>
+      correcaoPeriodo.addRow({
+        verba: linha.verba,
+        parcela: linha.parcela,
+        de: isoBR(periodo.de),
+        ate: isoBR(periodo.ate),
+        criterio: periodo.descricao,
+        correcao: periodo.correcao,
+        fonte: periodo.fonte,
+      }),
+    );
+    correcaoPeriodo.getColumn("correcao").numFmt = "R$ #,##0.00";
+    estilizarCabecalho(correcaoPeriodo);
+    centralizarLinhas(correcaoPeriodo, new Set(["verba", "parcela", "criterio", "fonte"]));
+    finalizarPlanilha(correcaoPeriodo);
+  }
 
   const periodos = resultado.memoria.flatMap((linha) =>
     (linha.periodosJuros ?? []).map((periodo) => ({ linha, periodo })),

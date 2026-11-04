@@ -1353,9 +1353,22 @@ function Resultado({
           <p className="text-sm text-muted-foreground">Total atualizado</p>
           <p className="font-serif text-3xl font-semibold">{dinheiro(resultado.total)}</p>
         </div>
+        {resultado.memoria.some((m) => (m.periodosCorrecao ?? []).length > 0) ? (
+          <div className="rounded-md border p-3">
+            <p className="mb-2 text-sm font-medium">Correção monetária — períodos aplicados</p>
+            {resultado.memoria.flatMap((m) =>
+              (m.periodosCorrecao ?? []).map((p, i) => (
+                <p key={`${m.parcela}-${i}`} className="text-xs text-muted-foreground">
+                  {m.verba}: {p.descricao} de {p.de.split("-").reverse().join("/")} a{" "}
+                  {p.ate.split("-").reverse().join("/")} — {dinheiro(p.correcao)}
+                </p>
+              )),
+            )}
+          </div>
+        ) : null}
         {resultado.memoria.some((m) => (m.periodosJuros ?? []).length > 0) ? (
           <div className="rounded-md border p-3">
-            <p className="mb-2 text-sm font-medium">Taxa Legal — períodos aplicados</p>
+            <p className="mb-2 text-sm font-medium">Juros legais — períodos aplicados</p>
             {resultado.memoria.flatMap((m) =>
               (m.periodosJuros ?? []).map((p, i) => (
                 <p key={`${m.parcela}-${i}`} className="text-xs text-muted-foreground">
