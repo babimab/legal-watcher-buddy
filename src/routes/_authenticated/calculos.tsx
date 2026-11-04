@@ -847,6 +847,7 @@ function SugestaoPainel({
   const [edicoes, setEdicoes] = useState<Record<number, { descricao: string; valor: number }>>({});
   const [editando, setEditando] = useState<number | null>(null);
   const [rascunho, setRascunho] = useState({ descricao: "", valor: "" });
+  const [honorariosAplicados, setHonorariosAplicados] = useState(false);
 
   const valorEfetivo = (i: number): SugestaoSentenca["valores"][number] => {
     const edicao = edicoes[i];
@@ -936,8 +937,19 @@ function SugestaoPainel({
             Honorários sucumbenciais mencionados: <strong>{sugestao.honorarios.percentual}%</strong>{" "}
             — "{sugestao.honorarios.textoEncontrado}"
           </span>
-          <Button size="sm" variant="outline" onClick={onUsarHonorarios}>
-            Usar nos Acréscimos finais
+          <Button
+            size="sm"
+            variant={honorariosAplicados ? "ghost" : "outline"}
+            disabled={honorariosAplicados}
+            onClick={() => {
+              onUsarHonorarios();
+              setHonorariosAplicados(true);
+              toast.success(
+                `Honorários sucumbenciais de ${sugestao.honorarios!.percentual}% aplicados — veja em "Acréscimos finais", abaixo das verbas.`,
+              );
+            }}
+          >
+            {honorariosAplicados ? "Aplicado" : "Usar nos Acréscimos finais"}
           </Button>
         </div>
       ) : null}
