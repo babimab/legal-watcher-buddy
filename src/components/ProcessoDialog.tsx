@@ -96,8 +96,28 @@ export function ProcessoDialog({ processo, trigger, paiId, iniciais, onSalvo }: 
       .replace(/\./g, "")
       .replace(",", ".");
     const pastaId = String(form.get("pasta_id") ?? "");
+    const numeroCnj = String(form.get("numero_cnj") ?? "").trim();
+
+    // Número CNJ não é mais único no banco: um desdobramento pode
+    // legitimamente repetir o número do processo principal (depende do
+    // recurso, o tribunal às vezes não emite número novo). Ainda
+    // bloqueia duplicata fora da família (pai + seus desdobramentos),
+    // que é o caso real de cadastro repetido por engano.
+    const idPaiEfetivo = paiId && !processo ? paiId : (processo?.processo_pai_id ?? null);
+    const familia = new Set<string>(idPaiEfetivo ? [idPaiEfetivo] : []);
+    for (const p of processos.data ?? []) {
+      if (p.processo_pai_id && p.processo_pai_id === idPaiEfetivo) familia.add(p.id);
+    }
+    const conflito = (processos.data ?? []).find(
+      (p) => p.numero_cnj === numeroCnj && p.id !== processo?.id && !familia.has(p.id),
+    );
+    if (conflito) {
+      toast.error("Já existe outro processo com esse número.");
+      return;
+    }
+
     const payload = {
-      numero_cnj: String(form.get("numero_cnj") ?? "").trim(),
+      numero_cnj: numeroCnj,
       cliente: String(form.get("cliente") ?? "").trim(),
       autor: String(form.get("autor") ?? "").trim() || null,
       reu: String(form.get("reu") ?? "").trim() || null,
