@@ -472,9 +472,8 @@ function CalculosPage() {
             <Upload className="size-4" /> Documentos para o cálculo
           </CardTitle>
           <CardDescription>
-            Suba a sentença/acórdão primeiro: a leitura automática (sem IA generativa, só
-            reconhecimento de padrões no texto) sugere os campos abaixo — confira tudo antes de
-            aplicar. A área também serve para anexar o título e os autos.
+            Arraste a sentença ou o acórdão aqui: a leitura automática sugere os campos abaixo —
+            confira tudo antes de aplicar. A área também serve para anexar o título e os autos.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
