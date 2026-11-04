@@ -534,6 +534,16 @@ function CalculosPage() {
               onUsarProcesso={() => atualizarIdentificacao("processo", sugestao.processo ?? "")}
               onUsarDataBase={() => setDataBase(sugestao.dataDecisao ?? "")}
               onAdicionarVerba={adicionarVerbaDaSugestao}
+              onUsarHonorarios={() =>
+                setCriterios((c) => ({
+                  ...c,
+                  honorariosSucumbenciais: {
+                    modo: "percentual",
+                    valor: sugestao.honorarios?.percentual ?? 0,
+                    base: "subtotal",
+                  },
+                }))
+              }
             />
           ) : null}
         </CardContent>
@@ -823,6 +833,7 @@ function SugestaoPainel({
   onUsarProcesso,
   onUsarDataBase,
   onAdicionarVerba,
+  onUsarHonorarios,
 }: {
   sugestao: SugestaoSentenca;
   nomeArquivo: string | null;
@@ -830,6 +841,7 @@ function SugestaoPainel({
   onUsarProcesso: () => void;
   onUsarDataBase: () => void;
   onAdicionarVerba: (v: SugestaoSentenca["valores"][number]) => void;
+  onUsarHonorarios: () => void;
 }) {
   const [adicionadas, setAdicionadas] = useState<Set<number>>(new Set());
   const [descartadas, setDescartadas] = useState<Set<number>>(new Set());
@@ -917,6 +929,18 @@ function SugestaoPainel({
           Juros mencionados: <strong>{sugestao.juros.textoEncontrado}</strong>
           {!sugestao.juros.juros ? " — confirme manualmente o tipo de juros na verba" : null}
         </p>
+      ) : null}
+
+      {sugestao.honorarios ? (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span>
+            Honorários sucumbenciais mencionados: <strong>{sugestao.honorarios.percentual}%</strong>{" "}
+            — "{sugestao.honorarios.textoEncontrado}"
+          </span>
+          <Button size="sm" variant="outline" onClick={onUsarHonorarios}>
+            Usar nos Acréscimos finais
+          </Button>
+        </div>
       ) : null}
 
       {sugestao.termosIniciais.length > 0 ? (

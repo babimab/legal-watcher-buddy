@@ -63,6 +63,16 @@ export type SugestaoJuros = {
   textoEncontrado: string;
 };
 
+export type SugestaoHonorarios = {
+  // Honorários sucumbenciais quase sempre vêm como percentual (ex.:
+  // "10% sobre o proveito econômico"), não como R$ fixo -- por isso não
+  // aparecem na lista de "valores encontrados" (essa só pega R$
+  // literal). Mapeia direto pro campo "Honorários sucumbenciais" dos
+  // Acréscimos finais, que já é percentual sobre o subtotal.
+  percentual: number;
+  textoEncontrado: string;
+};
+
 export type SugestaoTermoInicial = {
   tipo: "correcao" | "juros";
   regra: string;
@@ -78,6 +88,7 @@ export type SugestaoSentenca = {
   valores: SugestaoValor[];
   indice: SugestaoIndice | null;
   juros: SugestaoJuros | null;
+  honorarios: SugestaoHonorarios | null;
   termosIniciais: SugestaoTermoInicial[];
 };
 
@@ -122,14 +133,33 @@ function extrairProcesso(texto: string): string | null {
   return m ? m[0] : null;
 }
 
-// Linha de fechamento típica de sentença/acórdão: "São Paulo, 10 de
-// março de 2026." -- pega a ÚLTIMA ocorrência (a primeira pode ser do
-// cabeçalho/relatório, citando outra data).
+// Rodapé de assinatura eletrônica (eproc/PJe) tem "Data e Hora:
+// DD/MM/AAAA" -- sinal bem mais confiável que qualquer data por extenso
+// solta no corpo do texto, que pode vir de uma citação de lei (ex.:
+// "...na forma do artigo 1º, da Lei 11.419, de 19 de dezembro de 2006"
+// aparece em quase todo rodapé de assinatura eletrônica e não tem nada
+// a ver com a data da decisão -- sem essa prioridade, por ser a ÚLTIMA
+// data por extenso do documento, essa citação acabava "vencendo" a
+// data real da decisão).
 function extrairDataDecisao(texto: string): string | null {
+  const assinatura = texto.match(/Data\s+e\s+Hora:\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/i);
+  if (assinatura) {
+    const [, dia, mes, ano] = assinatura;
+    return `${ano}-${mes!.padStart(2, "0")}-${dia!.padStart(2, "0")}`;
+  }
+
+  // Sem rodapé de assinatura: cai pra "DD de mês de AAAA" por extenso
+  // (ex.: "São Paulo, 10 de março de 2026."), pegando a última
+  // ocorrência -- mas pulando datas de citação de lei (precedidas por
+  // "lei" perto o suficiente), pelo mesmo motivo acima.
   const regex = /(\d{1,2})\s+de\s+([a-zç]+)\s+de\s+(\d{4})/gi;
   let ultimo: RegExpExecArray | null = null;
   let m: RegExpExecArray | null;
-  while ((m = regex.exec(texto)) != null) ultimo = m;
+  while ((m = regex.exec(texto)) != null) {
+    const antes = texto.slice(Math.max(0, m.index - 45), m.index);
+    if (/\blei\b/i.test(antes)) continue;
+    ultimo = m;
+  }
   if (!ultimo) return null;
   const dia = ultimo[1]!.padStart(2, "0");
   const mes = MESES[semAcento(ultimo[2]!.toLowerCase())];
@@ -265,6 +295,14 @@ function extrairJuros(texto: string): SugestaoJuros | null {
   return null;
 }
 
+function extrairHonorarios(texto: string): SugestaoHonorarios | null {
+  const m = texto.match(/honor[áa]rios?[^.]{0,150}?(\d+(?:,\d+)?)\s?%/i);
+  if (!m) return null;
+  const percentual = Number(m[1]!.replace(",", "."));
+  if (!Number.isFinite(percentual) || percentual <= 0) return null;
+  return { percentual, textoEncontrado: aparaBorda(m[0]) };
+}
+
 const REGRAS_TERMO_INICIAL: {
   regex: RegExp;
   regra: string;
@@ -355,6 +393,7 @@ export function sugerirDadosSentenca(texto: string): SugestaoSentenca {
     valores: extrairValores(texto),
     indice: extrairIndice(texto),
     juros: extrairJuros(texto),
+    honorarios: extrairHonorarios(texto),
     termosIniciais: extrairTermosIniciais(texto, dataDecisao),
   };
 }

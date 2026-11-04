@@ -202,20 +202,35 @@ async function fatorIpca(de: string, ate: string): Promise<number> {
   return taxas.reduce((f, taxa) => f * (1 + taxa / 100), 1);
 }
 
+// A API do SGS/BCB (endpoint sem paginação) recusa pedido de série
+// diária (caso da SELIC) com período longo demais. Quebra em janelas de
+// no máximo ~5 anos e multiplica os fatores -- compõe exatamente igual
+// a um pedido único, só em mais de uma chamada quando o período é
+// grande (ex.: juros desde uma citação de anos atrás).
+const JANELA_MAX_DIAS_SELIC = 1825;
+
 async function fatorSelic(de: string, ate: string): Promise<number> {
   if (!de || de >= ate) return 1;
   const br = (s: string) => {
     const [a, m, d] = s.split("-");
     return `${d}/${m}/${a}`;
   };
-  const url = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.11/dados?formato=json&dataInicial=${encodeURIComponent(br(de))}&dataFinal=${encodeURIComponent(br(ate))}`;
-  const r = await fetch(url);
-  if (!r.ok) throw new Error("Não foi possível consultar a SELIC no Banco Central.");
-  const json = (await r.json()) as Array<{ valor: string }>;
-  return json.reduce((f, item) => {
-    const taxa = Number(item.valor.replace(",", "."));
-    return Number.isFinite(taxa) ? f * (1 + taxa / 100) : f;
-  }, 1);
+  let fator = 1;
+  let inicio = de;
+  while (inicio < ate) {
+    const fimJanela = adicionarDias(inicio, JANELA_MAX_DIAS_SELIC);
+    const fim = fimJanela < ate ? fimJanela : ate;
+    const url = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.11/dados?formato=json&dataInicial=${encodeURIComponent(br(inicio))}&dataFinal=${encodeURIComponent(br(fim))}`;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error("Não foi possível consultar a SELIC no Banco Central.");
+    const json = (await r.json()) as Array<{ valor: string }>;
+    fator = json.reduce((f, item) => {
+      const taxa = Number(item.valor.replace(",", "."));
+      return Number.isFinite(taxa) ? f * (1 + taxa / 100) : f;
+    }, fator);
+    inicio = adicionarDias(fim, 1);
+  }
+  return fator;
 }
 
 // IGP-M é calculado pela FGV, não pelo IBGE -- por isso não sai do
