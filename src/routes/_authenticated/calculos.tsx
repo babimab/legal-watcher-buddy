@@ -875,8 +875,25 @@ function SugestaoPainel({
       quantos++;
     });
     setAdicionadas(novasAdicionadas);
-    if (quantos > 0) {
-      toast.success(`${quantos} verba(s) adicionada(s) — confira cada uma antes de calcular.`);
+
+    // Honorários sucumbenciais não são uma verba (percentual nos
+    // Acréscimos finais, não entram no "forEach" acima) -- mas é
+    // esquisito "Aceitar todas" aceitar tudo, menos isso, deixando pra
+    // um segundo clique separado. Entra junto aqui também.
+    let honorariosAgora = false;
+    if (sugestao.honorarios && !honorariosAplicados) {
+      onUsarHonorarios();
+      setHonorariosAplicados(true);
+      honorariosAgora = true;
+    }
+
+    const partes: string[] = [];
+    if (quantos > 0) partes.push(`${quantos} verba(s) adicionada(s)`);
+    if (honorariosAgora) {
+      partes.push(`honorários sucumbenciais de ${sugestao.honorarios!.percentual}% aplicados`);
+    }
+    if (partes.length > 0) {
+      toast.success(`${partes.join(" e ")} — confira antes de calcular.`);
     } else {
       toast.warning("Nenhum valor com data de correção própria pra adicionar automaticamente.");
     }
@@ -975,12 +992,15 @@ function SugestaoPainel({
               size="sm"
               variant="outline"
               onClick={aceitarTodas}
-              disabled={sugestao.valores.every(
-                (v, i) =>
-                  adicionadas.has(i) ||
-                  descartadas.has(i) ||
-                  (algumTemDataPropria && !v.correcaoDesde),
-              )}
+              disabled={
+                sugestao.valores.every(
+                  (v, i) =>
+                    adicionadas.has(i) ||
+                    descartadas.has(i) ||
+                    (algumTemDataPropria && !v.correcaoDesde),
+                ) &&
+                (!sugestao.honorarios || honorariosAplicados)
+              }
             >
               Aceitar todas
             </Button>
