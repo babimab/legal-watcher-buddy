@@ -26,7 +26,9 @@ import {
   agruparPorSemana,
   alternarConcluidaAutomatico,
   atualizarPrazoManual,
+  classificarImportacaoWord,
   criarPrazoManual,
+  criarPrazosManuaisEmLote,
   excluirPrazoManual,
   exportarListaPrazosWord,
   filtrarItens,
@@ -38,6 +40,7 @@ import {
   salvarObservacaoAutomatico,
   tituloSemanaWord as tituloSemana,
   type FiltrosListaPrazos,
+  type ItemImportadoClassificado,
   type ItemListaPrazos,
 } from "@/lib/lista-prazos";
 import { listarProcessos } from "@/lib/processos";
@@ -56,6 +59,11 @@ function ListaPrazos() {
   const [importando, setImportando] = useState(false);
   const [novaNotaAberta, setNovaNotaAberta] = useState(false);
   const [salvandoNota, setSalvandoNota] = useState(false);
+  const [previewImportacao, setPreviewImportacao] = useState<ItemImportadoClassificado[] | null>(
+    null,
+  );
+  const [selecionadosImportacao, setSelecionadosImportacao] = useState<Set<number>>(new Set());
+  const [confirmandoImportacao, setConfirmandoImportacao] = useState(false);
 
   const automaticos = useQuery({
     queryKey: ["lista-prazos-automaticos"],
@@ -184,6 +192,9 @@ function ListaPrazos() {
     }
   };
 
+  // Só lê e classifica -- não grava nada no banco ainda. A gravação só
+  // acontece quando a pessoa confere a prévia e clica em "Confirmar
+  // importação" (handleConfirmarImportacao).
   const importarWord = async (arquivo: File) => {
     setImportando(true);
     try {
@@ -192,16 +203,53 @@ function ListaPrazos() {
         toast.error("Não encontrei nenhuma linha no formato de prazo nesse Word.");
         return;
       }
-      for (const item of itensImportados) {
-        await criarPrazoManual(item.texto, item.dataOrdenacao);
-      }
-      await invalidar();
-      toast.success(`${itensImportados.length} item(ns) importado(s) como notas manuais.`);
+      const classificados = classificarImportacaoWord(itensImportados, manuais.data ?? []);
+      setPreviewImportacao(classificados);
+      // Pré-seleciona só os novos -- duplicado (existente ou repetido no
+      // arquivo) começa desmarcado, mas dá pra marcar na mão quando for
+      // intencional (ex.: prazo que só parece duplicado).
+      setSelecionadosImportacao(
+        new Set(
+          classificados
+            .map((item, i) => [item, i] as const)
+            .filter(([item]) => item.status === "novo")
+            .map(([, i]) => i),
+        ),
+      );
     } catch (e) {
       toast.error(e instanceof Error ? `Não consegui importar: ${e.message}` : "Não consegui importar o Word.");
     } finally {
       setImportando(false);
       if (inputWordRef.current) inputWordRef.current.value = "";
+    }
+  };
+
+  const fecharPreviewImportacao = () => {
+    setPreviewImportacao(null);
+    setSelecionadosImportacao(new Set());
+  };
+
+  const confirmarImportacao = async () => {
+    if (!previewImportacao) return;
+    const escolhidos = previewImportacao.filter((_, i) => selecionadosImportacao.has(i));
+    if (escolhidos.length === 0) {
+      toast.error("Marque pelo menos um item pra importar.");
+      return;
+    }
+    setConfirmandoImportacao(true);
+    try {
+      await criarPrazosManuaisEmLote(
+        escolhidos.map((item) => ({ texto: item.texto, dataOrdenacao: item.dataOrdenacao })),
+      );
+      await invalidar();
+      toast.success(`${escolhidos.length} item(ns) importado(s) como notas manuais.`);
+      fecharPreviewImportacao();
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? `Não consegui importar: ${e.message}` : "Não consegui importar.",
+      );
+    } finally {
+      setConfirmandoImportacao(false);
     }
   };
 
@@ -323,6 +371,24 @@ function ListaPrazos() {
           {importando ? "Importando..." : "Importar Word (início)"}
         </Button>
       </div>
+
+      {previewImportacao ? (
+        <PreviewImportacaoDialog
+          itens={previewImportacao}
+          selecionados={selecionadosImportacao}
+          onAlternar={(i) =>
+            setSelecionadosImportacao((atual) => {
+              const novo = new Set(atual);
+              if (novo.has(i)) novo.delete(i);
+              else novo.add(i);
+              return novo;
+            })
+          }
+          confirmando={confirmandoImportacao}
+          onConfirmar={() => void confirmarImportacao()}
+          onCancelar={fecharPreviewImportacao}
+        />
+      ) : null}
 
       <Card>
         <CardContent className="grid gap-3 py-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -537,5 +603,103 @@ function ItemLinha({
         }}
       />
     </div>
+  );
+}
+
+function dataBR(iso: string | null): string {
+  if (!iso) return "sem data";
+  const [ano, mes, dia] = iso.split("-");
+  return `${dia}/${mes}/${ano}`;
+}
+
+const ROTULO_STATUS: Record<ItemImportadoClassificado["status"], string> = {
+  novo: "Novo",
+  duplicado_existente: "Possível duplicata — já existe no FaroLex",
+  repetido_no_arquivo: "Repetido no próprio arquivo",
+};
+
+function PreviewImportacaoDialog({
+  itens,
+  selecionados,
+  onAlternar,
+  confirmando,
+  onConfirmar,
+  onCancelar,
+}: {
+  itens: ItemImportadoClassificado[];
+  selecionados: Set<number>;
+  onAlternar: (i: number) => void;
+  confirmando: boolean;
+  onConfirmar: () => void;
+  onCancelar: () => void;
+}) {
+  const novos = itens.filter((i) => i.status === "novo").length;
+  const duplicadosExistentes = itens.filter((i) => i.status === "duplicado_existente").length;
+  const repetidos = itens.filter((i) => i.status === "repetido_no_arquivo").length;
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && onCancelar()}>
+      <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="font-serif">Conferir importação do Word</DialogTitle>
+          <DialogDescription>
+            {novos} novo(s), {duplicadosExistentes} possível(eis) duplicata(s) já no FaroLex,{" "}
+            {repetidos} repetido(s) no próprio arquivo. Confira e marque o que deve entrar — nada é
+            gravado até confirmar.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          {itens.map((item, i) => (
+            <div
+              key={i}
+              className={`rounded-md border p-2 ${
+                item.status === "novo"
+                  ? "border-border"
+                  : "border-dashed border-amber-400/60 bg-amber-50/40"
+              }`}
+            >
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  className="mt-0.5 shrink-0"
+                  checked={selecionados.has(i)}
+                  onCheckedChange={() => onAlternar(i)}
+                  aria-label="Incluir na importação"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge
+                      variant={item.status === "novo" ? "secondary" : "outline"}
+                      className="px-2 py-0 text-[10px]"
+                    >
+                      {ROTULO_STATUS[item.status]}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {dataBR(item.dataOrdenacao)}
+                    </span>
+                  </div>
+                  <p className="text-sm">{item.texto}</p>
+                  {item.existente ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Já cadastrado ({dataBR(item.existente.data_ordenacao)}): "
+                      {item.existente.texto}"
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancelar} disabled={confirmando}>
+            Cancelar
+          </Button>
+          <Button onClick={onConfirmar} disabled={confirmando}>
+            {confirmando
+              ? "Importando..."
+              : `Confirmar importação (${selecionados.size} selecionado(s))`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -83,6 +83,96 @@ export async function criarPrazoManual(
   if (error) throw error;
 }
 
+// Cria vários itens manuais numa ÚNICA instrução -- usado na importação
+// de Word em vez de um insert por item num loop. Um INSERT com várias
+// linhas é tudo-ou-nada no Postgres (se uma linha falhar, nenhuma
+// entra); um loop com N inserts separados podia parar na metade e
+// deixar algumas linhas já gravadas sem avisar quais -- reimportar o
+// mesmo Word depois duplicava justamente essas.
+export async function criarPrazosManuaisEmLote(
+  itens: { texto: string; dataOrdenacao: string | null }[],
+): Promise<void> {
+  if (itens.length === 0) return;
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+  const criadoPor = userData.user?.id ?? null;
+  const { error } = await supabaseSolto.from("lista_prazos_manual").insert(
+    itens.map((item) => ({
+      texto: item.texto,
+      data_ordenacao: item.dataOrdenacao,
+      created_by: criadoPor,
+    })),
+  );
+  if (error) throw error;
+}
+
+// Compara só por data + texto normalizado (minúsculo, sem acento, sem
+// espaço duplicado) -- tolera diferença de espaçamento/formatação (o
+// que a BDR pediu), mas NUNCA por "um contém o outro" ou substring: nota
+// de prazo é texto livre curto, e dois prazos de processos diferentes
+// podem compartilhar um monte de palavras em comum (mesmo cliente, mesma
+// comarca, mesmo tipo de ato) sem serem o mesmo prazo -- diferente da
+// checagem de movimentação duplicada (saude.ts), que lida com texto
+// longo colado de publicação, onde "um contém o outro" faz sentido.
+export function normalizarTextoPrazoManual(s: string): string {
+  return s
+    .toLocaleLowerCase("pt-BR")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function chavePrazoManual(texto: string, dataOrdenacao: string | null): string {
+  return `${dataOrdenacao ?? "sem-data"}|${normalizarTextoPrazoManual(texto)}`;
+}
+
+export type StatusImportacaoWord = "novo" | "duplicado_existente" | "repetido_no_arquivo";
+
+export type ItemImportadoClassificado = ItemImportadoWord & {
+  status: StatusImportacaoWord;
+  // Só preenchido quando status é "duplicado_existente" -- pra mostrar
+  // qual nota já cadastrada bateu, na prévia.
+  existente?: Pick<ItemManualPrazo, "id" | "texto" | "data_ordenacao">;
+};
+
+// Classifica cada item recém-lido do Word em "novo" (não bate com nada),
+// "duplicado_existente" (já tem uma nota igual cadastrada) ou
+// "repetido_no_arquivo" (outro item do MESMO arquivo, mais acima na
+// lista, já é igual a esse) -- nunca decide sozinho o que importar, só
+// monta a prévia pra confirmação manual.
+export function classificarImportacaoWord(
+  itensImportados: ItemImportadoWord[],
+  existentes: ItemManualPrazo[],
+): ItemImportadoClassificado[] {
+  const existentesPorChave = new Map<string, ItemManualPrazo>();
+  for (const e of existentes) {
+    existentesPorChave.set(chavePrazoManual(e.texto, e.data_ordenacao), e);
+  }
+
+  const vistosNoArquivo = new Set<string>();
+  return itensImportados.map((item) => {
+    const chave = chavePrazoManual(item.texto, item.dataOrdenacao);
+    const existente = existentesPorChave.get(chave);
+    if (existente) {
+      return {
+        ...item,
+        status: "duplicado_existente",
+        existente: {
+          id: existente.id,
+          texto: existente.texto,
+          data_ordenacao: existente.data_ordenacao,
+        },
+      };
+    }
+    if (vistosNoArquivo.has(chave)) {
+      return { ...item, status: "repetido_no_arquivo" };
+    }
+    vistosNoArquivo.add(chave);
+    return { ...item, status: "novo" };
+  });
+}
+
 export async function atualizarPrazoManual(
   id: string,
   patch: Partial<Pick<ItemManualPrazo, "texto" | "data_ordenacao" | "concluida">>,
