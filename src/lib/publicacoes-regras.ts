@@ -201,15 +201,26 @@ const REGEX_DATA_DESIGNADA =
 // data real da audiência, bem mais adiante.
 const REGEX_DATA_AUDIENCIA_ROTULO = /data\s+da\s+audiencia\s*:?\s*(\d{2})\/(\d{2})\/(\d{4})/;
 
+// Pauta de sessão de julgamento colegiada ("processo... foi pautado para
+// a Sessão Virtual... do dia DD-MM-AAAA") -- formato bem comum nesse
+// tipo de publicação, e com um detalhe que os outros dois padrões não
+// têm: a data vem separada por HÍFEN, não barra.
+const REGEX_PAUTA_SESSAO = /\bpautad[ao]\b[^.]{0,80}?\bdo\s+dia\s+(\d{2})[-/](\d{2})[-/](\d{4})/;
+
+const PADROES_DATA_DESIGNADA: { regex: RegExp; fonte: string }[] = [
+  { regex: REGEX_DATA_DESIGNADA, fonte: '"designada para o dia"' },
+  { regex: REGEX_DATA_AUDIENCIA_ROTULO, fonte: '"Data da Audiência"' },
+  { regex: REGEX_PAUTA_SESSAO, fonte: '"pautado ... do dia"' },
+];
+
 function extrairDataDesignada(alvo: string): { data: string; fonte: string } | null {
-  const porVerbo = REGEX_DATA_DESIGNADA.exec(alvo);
-  const m = porVerbo ?? REGEX_DATA_AUDIENCIA_ROTULO.exec(alvo);
-  if (!m) return null;
-  const [, dd, mm, aaaa] = m;
-  return {
-    data: `${aaaa}-${mm}-${dd}`,
-    fonte: porVerbo ? '"designada para o dia"' : '"Data da Audiência"',
-  };
+  for (const { regex, fonte } of PADROES_DATA_DESIGNADA) {
+    const m = regex.exec(alvo);
+    if (!m) continue;
+    const [, dd, mm, aaaa] = m;
+    return { data: `${aaaa}-${mm}-${dd}`, fonte };
+  }
+  return null;
 }
 
 // "às 16:00" / "as 16h30" / "as 14h" (acento já foi removido por
@@ -304,7 +315,12 @@ function classificarProvidencia(alvo: string, dias: number | null, tipoAto: stri
     };
   }
 
-  if (contem(alvo, "sessao") && contem(alvo, "julgamento")) {
+  // Pauta de sessão de julgamento (câmara/turma colegiada) costuma usar
+  // "processo... foi pautado para a Sessão Virtual/Presencial... do dia
+  // DD-MM-AAAA", com o verbo "julgado" ("caso não seja julgado..."), não
+  // o substantivo "julgamento" -- por isso "pauta" entra como gatilho
+  // junto com "julgamento", além de "sessao" sozinho não bastar.
+  if (contem(alvo, "sessao") && (contem(alvo, "julgamento") || contem(alvo, "pauta"))) {
     if (contem(alvo, "encerra"))
       return { label: "Encerramento do julgamento virtual", tier: "confirmado", motivo: null };
     if (contem(alvo, "inicio"))
