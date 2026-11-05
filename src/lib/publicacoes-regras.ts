@@ -191,11 +191,25 @@ const TERMOS_MANIFESTACAO = ["manifeste-se", "manifestacao", "intime-se", "manif
 const REGEX_DATA_DESIGNADA =
   /\b(?:designo|designa|designad[ao]|marco|marca|marcad[ao]|aprazo|apraza|aprazad[ao])\b[^.]{0,60}?\bpara\s+o\s+dia\s+(\d{2})\/(\d{2})\/(\d{4})/i;
 
-function extrairDataDesignada(alvo: string): string | null {
-  const m = REGEX_DATA_DESIGNADA.exec(alvo);
+// Certidão de audiência virtual (Teams/videoconferência, comum em JEC)
+// costuma não usar "designada ... para o dia", e sim um campo rotulado
+// solto no meio do texto ("Data da Audiência: DD/MM/AAAA"), separado da
+// frase que menciona a designação ("Audiência designada para ocorrer
+// na... será realizada por meio da plataforma Microsoft TEAMS. Data da
+// Audiência: 10/12/2026") -- sem esse padrão à parte, caía pro cálculo
+// genérico de prazo (JEC, 10 dias úteis da disponibilização) em vez da
+// data real da audiência, bem mais adiante.
+const REGEX_DATA_AUDIENCIA_ROTULO = /data\s+da\s+audiencia\s*:?\s*(\d{2})\/(\d{2})\/(\d{4})/;
+
+function extrairDataDesignada(alvo: string): { data: string; fonte: string } | null {
+  const porVerbo = REGEX_DATA_DESIGNADA.exec(alvo);
+  const m = porVerbo ?? REGEX_DATA_AUDIENCIA_ROTULO.exec(alvo);
   if (!m) return null;
   const [, dd, mm, aaaa] = m;
-  return `${aaaa}-${mm}-${dd}`;
+  return {
+    data: `${aaaa}-${mm}-${dd}`,
+    fonte: porVerbo ? '"designada para o dia"' : '"Data da Audiência"',
+  };
 }
 
 // "às 16:00" / "as 16h30" / "as 14h" (acento já foi removido por
@@ -396,11 +410,11 @@ export function classificarLinha(item: ItemParaClassificar): ClassificacaoPublic
       dataEncontrada: item.dataPublicacao,
       ehJEC: false,
       diasUteisSugeridos: null,
-      regraAplicada: `Data extraída do texto ("designada para o dia") — ${dataDesignada}`,
+      regraAplicada: `Data extraída do texto (${dataDesignada.fonte}) — ${dataDesignada.data}`,
       revisar: false,
       resumo: null,
       dataPublicacaoEfetiva,
-      dataVencimento: dataDesignada,
+      dataVencimento: dataDesignada.data,
       providencia: providenciaAudiencia.label,
       horario,
       tier: "confirmado",
