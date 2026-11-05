@@ -6,6 +6,11 @@
 // Autenticação: header "x-api-key" (ver ../_shared/chave-api.ts).
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { validarChaveApi } from "../_shared/chave-api.ts";
+import {
+  buscarTudoComPaginacaoInterna,
+  filtroCursorPagina,
+  TETO_SEGURANCA_PADRAO,
+} from "../_shared/paginacao.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -75,19 +80,64 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const { data: processos, error: erroProcessos } = await supabase
-      .from("processos")
-      .select(
-        "numero_cnj, cliente, numero_cliente, resultado_encerramento, valor_encerramento, observacao_encerramento, pronto_para_encerrar_em, fase",
-      )
-      .eq("pronto_para_encerrar", true)
-      .in("pasta_id", pastaIds)
-      .gte("pronto_para_encerrar_em", de)
-      .lte("pronto_para_encerrar_em", ate)
-      .order("pronto_para_encerrar_em", { ascending: true });
-    if (erroProcessos) throw erroProcessos;
+    type ProcessoEncerramento = {
+      id: string;
+      numero_cnj: string;
+      cliente: string | null;
+      numero_cliente: string | null;
+      resultado_encerramento: string | null;
+      valor_encerramento: number | null;
+      observacao_encerramento: string | null;
+      pronto_para_encerrar_em: string;
+      fase: string | null;
+    };
 
-    const encerramentos = (processos ?? []).map((p) => ({
+    const resultado = await buscarTudoComPaginacaoInterna<ProcessoEncerramento>({
+      contarTotal: async () => {
+        const { count, error } = await supabase
+          .from("processos")
+          .select("id", { count: "exact", head: true })
+          .eq("pronto_para_encerrar", true)
+          .in("pasta_id", pastaIds)
+          .gte("pronto_para_encerrar_em", de)
+          .lte("pronto_para_encerrar_em", ate);
+        if (error) throw error;
+        return count ?? 0;
+      },
+      buscarPagina: async (cursor, tamanho) => {
+        let query = supabase
+          .from("processos")
+          .select(
+            "id, numero_cnj, cliente, numero_cliente, resultado_encerramento, valor_encerramento, observacao_encerramento, pronto_para_encerrar_em, fase",
+          )
+          .eq("pronto_para_encerrar", true)
+          .in("pasta_id", pastaIds)
+          .gte("pronto_para_encerrar_em", de)
+          .lte("pronto_para_encerrar_em", ate);
+        if (cursor) query = query.or(filtroCursorPagina("pronto_para_encerrar_em", cursor));
+        const { data, error } = await query
+          .order("pronto_para_encerrar_em", { ascending: true })
+          .order("id", { ascending: true })
+          .limit(tamanho);
+        if (error) throw error;
+        return (data ?? []) as ProcessoEncerramento[];
+      },
+      valorOrdenacaoDe: (linha) => linha.pronto_para_encerrar_em,
+      teto: TETO_SEGURANCA_PADRAO,
+    });
+
+    if (!resultado.ok) {
+      console.error(
+        "Paginação interna da integração de encerramentos não concluiu com segurança",
+        resultado,
+      );
+      return new Response(JSON.stringify({ error: "Falha ao buscar encerramentos." }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const encerramentos = resultado.linhas.map((p) => ({
       numero_cnj: p.numero_cnj,
       cliente: p.cliente,
       numero_cliente: p.numero_cliente,

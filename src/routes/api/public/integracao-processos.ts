@@ -1,6 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
+import {
+  buscarTudoComPaginacaoInterna,
+  filtroCursorPagina,
+  TETO_SEGURANCA_PADRAO,
+} from "@/lib/paginacao-integracao.server";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "content-type, x-api-key",
@@ -33,6 +39,24 @@ const querySchema = z
 function json(body: unknown, status = 200): Response {
   return Response.json(body, { status, headers: corsHeaders });
 }
+
+// "id" só é usado internamente, como desempate estável na paginação --
+// nunca fez parte da resposta JSON devolvida ao TI (ver filtro no final
+// do handler GET, que remove esse campo antes de responder).
+type ProcessoIntegracao = {
+  id: string;
+  numero_cnj: string;
+  cliente: string;
+  numero_cliente: string | null;
+  parte_contraria: string | null;
+  vara: string | null;
+  comarca: string | null;
+  tribunal: string | null;
+  classe: string | null;
+  responsavel: string | null;
+  fase: string | null;
+  created_at: string;
+};
 
 function intervaloDoPedido(query: z.infer<typeof querySchema>): { de: string; ate: string } {
   if (query.data) {
@@ -85,17 +109,49 @@ export const Route = createFileRoute("/api/public/integracao-processos")({
           if (erroChave || !chaveAtiva) return json({ error: "Não autorizado." }, 401);
 
           const { de, ate } = intervaloDoPedido(parsed.data);
-          const { data: processos, error } = await supabaseAdmin
-            .from("processos")
-            .select(
-              "numero_cnj, cliente, numero_cliente, parte_contraria, vara, comarca, tribunal, classe, responsavel, fase, created_at",
-            )
-            .gte("created_at", de)
-            .lte("created_at", ate)
-            .order("created_at", { ascending: true });
+          const COLUNAS_PROCESSO =
+            "numero_cnj, cliente, numero_cliente, parte_contraria, vara, comarca, tribunal, classe, responsavel, fase, created_at";
 
-          if (error) throw error;
-          return json({ processos: processos ?? [] });
+          const resultado = await buscarTudoComPaginacaoInterna<ProcessoIntegracao>({
+            contarTotal: async () => {
+              const { count, error } = await supabaseAdmin
+                .from("processos")
+                .select("id", { count: "exact", head: true })
+                .gte("created_at", de)
+                .lte("created_at", ate);
+              if (error) throw error;
+              return count ?? 0;
+            },
+            buscarPagina: async (cursor, tamanho) => {
+              let query = supabaseAdmin
+                .from("processos")
+                .select(`id, ${COLUNAS_PROCESSO}`)
+                .gte("created_at", de)
+                .lte("created_at", ate);
+              if (cursor) query = query.or(filtroCursorPagina("created_at", cursor));
+              const { data, error } = await query
+                .order("created_at", { ascending: true })
+                .order("id", { ascending: true })
+                .limit(tamanho);
+              if (error) throw error;
+              return (data ?? []) as ProcessoIntegracao[];
+            },
+            valorOrdenacaoDe: (linha) => linha.created_at,
+            teto: TETO_SEGURANCA_PADRAO,
+          });
+
+          if (!resultado.ok) {
+            console.error(
+              "Paginação interna da integração de processos não concluiu com segurança",
+              resultado,
+            );
+            return json({ error: "Falha ao listar processos." }, 500);
+          }
+
+          // "id" só existe pra servir de desempate na paginação -- nunca fez
+          // parte da resposta, então não entra no JSON devolvido ao TI.
+          const processos = resultado.linhas.map(({ id: _id, ...resto }) => resto);
+          return json({ processos });
         } catch (erro) {
           console.error("Falha na integração de processos", erro);
           return json({ error: "Falha ao listar processos." }, 500);

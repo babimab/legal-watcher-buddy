@@ -5,6 +5,11 @@
 // Autenticação: header "x-api-key" (ver ../_shared/chave-api.ts).
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { validarChaveApi } from "../_shared/chave-api.ts";
+import {
+  buscarTudoComPaginacaoInterna,
+  filtroCursorPagina,
+  TETO_SEGURANCA_PADRAO,
+} from "../_shared/paginacao.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -74,17 +79,6 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const { data: movs, error: erroMovs } = await supabase
-      .from("movimentacoes")
-      .select(
-        "data_movimentacao, descricao, tipo, created_at, processos!inner(numero_cnj, cliente, numero_cliente, pasta_id)",
-      )
-      .in("processos.pasta_id", pastaIds)
-      .gte("created_at", de)
-      .lte("created_at", ate)
-      .order("created_at", { ascending: true });
-    if (erroMovs) throw erroMovs;
-
     // A relação movimentacao -> processo é muitos-para-um, então o PostgREST
     // devolve um objeto. O verificador de tipos do Deno declara esse embutido
     // como lista, então normalizamos pra um objeto antes de ler os campos.
@@ -93,7 +87,59 @@ Deno.serve(async (req: Request) => {
       cliente: string | null;
       numero_cliente: string | null;
     };
-    const andamentos = (movs ?? []).map((m) => {
+    type MovimentacaoComId = {
+      id: string;
+      data_movimentacao: string | null;
+      descricao: string | null;
+      tipo: string | null;
+      created_at: string;
+      processos: ProcessoEmb | ProcessoEmb[] | null;
+    };
+
+    const resultado = await buscarTudoComPaginacaoInterna<MovimentacaoComId>({
+      contarTotal: async () => {
+        const { count, error } = await supabase
+          .from("movimentacoes")
+          .select("id, processos!inner(pasta_id)", { count: "exact", head: true })
+          .in("processos.pasta_id", pastaIds)
+          .gte("created_at", de)
+          .lte("created_at", ate);
+        if (error) throw error;
+        return count ?? 0;
+      },
+      buscarPagina: async (cursor, tamanho) => {
+        let query = supabase
+          .from("movimentacoes")
+          .select(
+            "id, data_movimentacao, descricao, tipo, created_at, processos!inner(numero_cnj, cliente, numero_cliente, pasta_id)",
+          )
+          .in("processos.pasta_id", pastaIds)
+          .gte("created_at", de)
+          .lte("created_at", ate);
+        if (cursor) query = query.or(filtroCursorPagina("created_at", cursor));
+        const { data, error } = await query
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
+          .limit(tamanho);
+        if (error) throw error;
+        return (data ?? []) as unknown as MovimentacaoComId[];
+      },
+      valorOrdenacaoDe: (linha) => linha.created_at,
+      teto: TETO_SEGURANCA_PADRAO,
+    });
+
+    if (!resultado.ok) {
+      console.error(
+        "Paginação interna da integração de andamentos não concluiu com segurança",
+        resultado,
+      );
+      return new Response(JSON.stringify({ error: "Falha ao buscar andamentos." }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const andamentos = resultado.linhas.map((m) => {
       const embutido = m.processos as unknown as ProcessoEmb | ProcessoEmb[] | null;
       const p = Array.isArray(embutido) ? embutido[0] : embutido;
       return {
