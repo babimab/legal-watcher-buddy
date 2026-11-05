@@ -1,5 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
-import { buscarTudoPaginado, listarProcessos, type Processo } from "@/lib/processos";
+import {
+  buscarTudoPaginado,
+  listarProcessos,
+  type Movimentacao,
+  type Processo,
+} from "@/lib/processos";
 
 // --- Detecção/correção de mojibake (espelha a migração corrigir_mojibake:
 // normaliza os caracteres especiais do Windows-1252 pros bytes 0x80-0x9F
@@ -572,4 +577,118 @@ export function objetosForaDoPadrao(processos: Processo[]): ObjetoForaDoPadrao[]
 
 export async function listarProcessosParaSaude(): Promise<Processo[]> {
   return listarProcessos();
+}
+
+// --- Movimentações potencialmente duplicadas ---
+// Duplicata de verdade costuma vir de reimportação (mesma publicação
+// processada duas vezes, ou importação em lote rodada de novo por
+// engano) -- por isso compara dentro do MESMO processo, MESMA data e
+// MESMO tipo (ou ambos sem tipo). O texto não precisa ser idêntico:
+// reimportação às vezes trunca ou acrescenta um pedaço a mais da
+// mesma publicação, então "um contém o outro" também conta -- mas só
+// a partir de um tamanho mínimo de texto, pra não disparar em
+// descrições curtas e genéricas ("Conclusos", "Publicado") que se
+// repetem legitimamente sem serem duplicata.
+export type MovimentacaoParaSaude = Pick<
+  Movimentacao,
+  "id" | "processo_id" | "data_movimentacao" | "descricao" | "tipo" | "created_at"
+> & {
+  processos: Pick<Processo, "id" | "numero_cnj" | "cliente"> | null;
+};
+
+export async function listarMovimentacoesParaSaude(): Promise<MovimentacaoParaSaude[]> {
+  const linhas = await buscarTudoPaginado<MovimentacaoParaSaude>((offset, limite) =>
+    supabase
+      .from("movimentacoes")
+      .select(
+        "id, processo_id, data_movimentacao, descricao, tipo, created_at, processos(id, numero_cnj, cliente)",
+      )
+      .order("processo_id", { ascending: true })
+      .order("data_movimentacao", { ascending: true })
+      .range(offset, offset + limite - 1),
+  );
+  return linhas as unknown as MovimentacaoParaSaude[];
+}
+
+const TAMANHO_MINIMO_TEXTO_DUPLICATA = 20;
+
+function normalizarTextoDuplicata(s: string): string {
+  return s
+    .toLocaleLowerCase("pt-BR")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function textosParecidos(a: string, b: string): boolean {
+  const na = normalizarTextoDuplicata(a);
+  const nb = normalizarTextoDuplicata(b);
+  if (na.length < TAMANHO_MINIMO_TEXTO_DUPLICATA || nb.length < TAMANHO_MINIMO_TEXTO_DUPLICATA) {
+    return na === nb;
+  }
+  return na === nb || na.includes(nb) || nb.includes(na);
+}
+
+export type GrupoMovimentacaoDuplicada = {
+  processoId: string;
+  numeroCnj: string;
+  cliente: string | null;
+  itens: Pick<
+    MovimentacaoParaSaude,
+    "id" | "data_movimentacao" | "descricao" | "tipo" | "created_at"
+  >[];
+};
+
+export function movimentacoesDuplicadas(
+  movimentacoes: MovimentacaoParaSaude[],
+): GrupoMovimentacaoDuplicada[] {
+  const porProcesso = new Map<string, MovimentacaoParaSaude[]>();
+  for (const m of movimentacoes) {
+    const lista = porProcesso.get(m.processo_id) ?? [];
+    lista.push(m);
+    porProcesso.set(m.processo_id, lista);
+  }
+
+  const grupos: GrupoMovimentacaoDuplicada[] = [];
+  for (const [processoId, itens] of porProcesso) {
+    const usados = new Set<string>();
+    for (let i = 0; i < itens.length; i++) {
+      const a = itens[i]!;
+      if (usados.has(a.id)) continue;
+      const grupo = [a];
+      for (let j = i + 1; j < itens.length; j++) {
+        const b = itens[j]!;
+        if (usados.has(b.id)) continue;
+        if (a.data_movimentacao !== b.data_movimentacao) continue;
+        if ((a.tipo ?? null) !== (b.tipo ?? null)) continue;
+        if (!textosParecidos(a.descricao, b.descricao)) continue;
+        grupo.push(b);
+      }
+      if (grupo.length > 1) {
+        grupo.forEach((m) => usados.add(m.id));
+        grupos.push({
+          processoId,
+          numeroCnj: a.processos?.numero_cnj ?? "",
+          cliente: a.processos?.cliente ?? null,
+          itens: grupo.map((m) => ({
+            id: m.id,
+            data_movimentacao: m.data_movimentacao,
+            descricao: m.descricao,
+            tipo: m.tipo,
+            created_at: m.created_at,
+          })),
+        });
+      }
+    }
+  }
+  return grupos.sort((x, y) => x.numeroCnj.localeCompare(y.numeroCnj, "pt-BR"));
+}
+
+// Exclusão sempre manual, uma por uma, a partir da tela de revisão --
+// nunca automática (ver comentário acima: "um contém o outro" é só um
+// indício, não prova de duplicata de verdade).
+export async function excluirMovimentacao(id: string): Promise<void> {
+  const { error } = await supabase.from("movimentacoes").delete().eq("id", id);
+  if (error) throw error;
 }

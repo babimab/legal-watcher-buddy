@@ -33,15 +33,19 @@ import {
   definirResponsavel,
   desdobramentosNaoVinculados,
   excluirDuplicatasSegurasAcento,
+  excluirMovimentacao,
   gruposPorParteAdversa,
+  listarMovimentacoesParaSaude,
   listarProblemasAcento,
   listarProcessosParaSaude,
+  movimentacoesDuplicadas,
   objetosForaDoPadrao,
   primeirasMovimentacoesDe,
   processosSemClienteOuCaso,
   processosSemPasta,
   processosSemResponsavel,
   type GrupoDesdobramentoNaoVinculado,
+  type GrupoMovimentacaoDuplicada,
   type ProblemaAcento,
   type ProcessoSemResponsavel,
 } from "@/lib/saude";
@@ -72,6 +76,10 @@ function QualidadeDadosPage() {
   });
   const grupos = useQuery({ queryKey: ["grupos"], queryFn: listarGrupos });
   const pastas = useQuery({ queryKey: ["pastas"], queryFn: listarPastas });
+  const movimentacoes = useQuery({
+    queryKey: ["movimentacoes-saude"],
+    queryFn: listarMovimentacoesParaSaude,
+  });
 
   const [corrigindo, setCorrigindo] = useState<Set<string>>(new Set());
   const [corrigindoTodos, setCorrigindoTodos] = useState(false);
@@ -89,6 +97,10 @@ function QualidadeDadosPage() {
   );
   const objetoForaDoPadrao = processos.data ? objetosForaDoPadrao(processos.data) : [];
   const acentos = problemasAcento.data ?? [];
+  const movDuplicadas = useMemo(
+    () => (movimentacoes.data ? movimentacoesDuplicadas(movimentacoes.data) : []),
+    [movimentacoes.data],
+  );
 
   // Data da movimentação mais antiga de cada processo envolvido num grupo
   // duplicado -- usada só pra sugerir qual processo do grupo é o
@@ -160,7 +172,8 @@ function QualidadeDadosPage() {
     duplicados.length === 0 &&
     desdobramentos.length === 0 &&
     objetoForaDoPadrao.length === 0 &&
-    acentos.length === 0;
+    acentos.length === 0 &&
+    movDuplicadas.length === 0;
 
   const corrigir = async (problema: ProblemaAcento) => {
     const chave = `${problema.tabela}-${problema.id}-${problema.campo}`;
@@ -596,6 +609,8 @@ function QualidadeDadosPage() {
           </CardContent>
         </Card>
       ) : null}
+
+      {movDuplicadas.length > 0 ? <MovimentacoesDuplicadasCard grupos={movDuplicadas} /> : null}
     </div>
   );
 }
@@ -895,5 +910,88 @@ function GrupoDesdobramentoCard({
         })}
       </div>
     </div>
+  );
+}
+
+function MovimentacoesDuplicadasCard({ grupos }: { grupos: GrupoMovimentacaoDuplicada[] }) {
+  const queryClient = useQueryClient();
+  const [excluindo, setExcluindo] = useState<Set<string>>(new Set());
+
+  const excluir = async (grupo: GrupoMovimentacaoDuplicada, id: string) => {
+    if (
+      !window.confirm(
+        "Excluir esta movimentação? As outras do grupo continuam. Essa ação não poderá ser desfeita.",
+      )
+    )
+      return;
+    setExcluindo((s) => new Set(s).add(id));
+    try {
+      await excluirMovimentacao(id);
+      toast.success("Movimentação excluída.");
+      await queryClient.invalidateQueries({ queryKey: ["movimentacoes-saude"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não consegui excluir.");
+    } finally {
+      setExcluindo((s) => {
+        const novo = new Set(s);
+        novo.delete(id);
+        return novo;
+      });
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 font-serif text-lg">
+          <AlertTriangle className="size-5 text-amber-500" />
+          {grupos.length} grupo(s) de movimentação potencialmente duplicada
+        </CardTitle>
+        <CardDescription>
+          Mesmo processo, mesma data, mesmo tipo e texto igual (ou um contendo o outro) — comum em
+          reimportação. É só um indício, não prova de duplicata de verdade: confira o texto antes de
+          excluir, e exclua uma por vez.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {grupos.map((grupo) => (
+          <div key={grupo.processoId} className="rounded-md border border-border p-3">
+            <Link
+              to="/processos/$id"
+              params={{ id: grupo.processoId }}
+              className="mb-2 flex flex-wrap items-center gap-2 text-sm hover:underline"
+            >
+              <span className="font-mono text-xs">{formatarCNJ(grupo.numeroCnj)}</span>
+              <span>{exibir(grupo.cliente)}</span>
+            </Link>
+            <div className="space-y-2">
+              {grupo.itens.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex flex-wrap items-start justify-between gap-2 rounded-md border border-border bg-muted/40 p-2 text-sm"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(`${item.data_movimentacao}T12:00:00`).toLocaleDateString("pt-BR")}
+                      {item.tipo ? ` · ${item.tipo}` : ""}
+                    </p>
+                    <p className="truncate">{item.descricao}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={excluindo.has(item.id)}
+                    onClick={() => void excluir(grupo, item.id)}
+                  >
+                    <Trash2 className="size-4" />
+                    {excluindo.has(item.id) ? "Excluindo..." : "Excluir"}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
