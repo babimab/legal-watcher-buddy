@@ -32,6 +32,7 @@ import { formatarMoeda, lerPlanilhaFatura, type ItemFatura, type NotaFatura } fr
 import { gerarEBaixarPdfNota, gerarPdfNotas } from "@/lib/pdf-fatura";
 import { baixarBlob } from "@/lib/pdf-base";
 import { carregarUsuarioAtual } from "@/lib/processos";
+import { hojeBrasilia } from "@/lib/data-hoje";
 
 export const Route = createFileRoute("/_authenticated/fatura")({
   // Dado confidencial de fatura de cliente -- só quem tem o campo
@@ -154,7 +155,7 @@ function FaturaPage() {
     setGerando(true);
     try {
       const blob = await gerarPdfNotas(escolhidas);
-      baixarBlob(blob, `notas-honorarios-${new Date().toISOString().slice(0, 10)}.pdf`);
+      baixarBlob(blob, `notas-honorarios-${hojeBrasilia()}.pdf`);
       toast.success(`${escolhidas.length} nota(s) gerada(s) num PDF só.`);
     } catch {
       toast.error("Não consegui gerar as notas.");

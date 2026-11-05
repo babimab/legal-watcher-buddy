@@ -23,6 +23,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { listarCaixaEntrada } from "@/lib/caixa-entrada";
+import { hojeBrasilia, somarDiasData } from "@/lib/data-hoje";
 import {
   listarNaoValidados,
   listarPendencias,
@@ -109,10 +110,8 @@ function PainelPage() {
     [processos.data, minhaSigla],
   );
 
-  const hojeISO = new Date().toISOString().slice(0, 10);
-  const emSeteDias = new Date();
-  emSeteDias.setDate(emSeteDias.getDate() + 7);
-  const emSeteDiasISO = emSeteDias.toISOString().slice(0, 10);
+  const hojeISO = hojeBrasilia();
+  const emSeteDiasISO = somarDiasData(hojeISO, 7);
 
   const prazosVencidos = (pendencias.data ?? []).filter((m) => m.prazo && m.prazo < hojeISO);
   const prazosProximos = (pendencias.data ?? []).filter(

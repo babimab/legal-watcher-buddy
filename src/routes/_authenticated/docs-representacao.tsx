@@ -132,6 +132,7 @@ import {
   type ModeloCartaPreposicaoCorrespondente,
 } from "@/lib/modelos-carta-preposicao-correspondente";
 import { baixarBlob } from "@/lib/pdf-base";
+import { hojeBrasilia } from "@/lib/data-hoje";
 
 export const Route = createFileRoute("/_authenticated/docs-representacao")({
   head: () => ({
@@ -478,7 +479,7 @@ function AbaSubstabelecimento() {
     setGerando(true);
     try {
       const blob = await gerarPdfSubstabelecimentos(comCliente);
-      baixarBlob(blob, `substabelecimentos-${new Date().toISOString().slice(0, 10)}.pdf`);
+      baixarBlob(blob, `substabelecimentos-${hojeBrasilia()}.pdf`);
       toast.success(
         semCliente > 0
           ? `${comCliente.length} documento(s) gerado(s) num PDF só. ${semCliente} ficaram de fora por falta de cliente -- cadastre a companhia e gere de novo só essas.`
@@ -512,7 +513,7 @@ function AbaSubstabelecimento() {
       const zip = new JSZip();
       documentos.forEach(({ nomeArquivo, blob }) => zip.file(nomeArquivo, blob));
       const conteudo = await zip.generateAsync({ type: "blob" });
-      baixarBlob(conteudo, `substabelecimentos-${new Date().toISOString().slice(0, 10)}.zip`);
+      baixarBlob(conteudo, `substabelecimentos-${hojeBrasilia()}.zip`);
       toast.success(
         semCliente > 0
           ? `${comCliente.length} documento(s) gerado(s) em arquivos separados. ${semCliente} ficaram de fora por falta de cliente -- cadastre a companhia e gere de novo só essas.`
@@ -949,10 +950,7 @@ function AbaSubstabelecimentoCorrespondente() {
     setGerando(true);
     try {
       const blob = await gerarPdfSubstabelecimentosCorrespondente(modelo, comCliente);
-      baixarBlob(
-        blob,
-        `substabelecimentos-correspondente-${modelo.id}-${new Date().toISOString().slice(0, 10)}.pdf`,
-      );
+      baixarBlob(blob, `substabelecimentos-correspondente-${modelo.id}-${hojeBrasilia()}.pdf`);
       toast.success(
         semCliente > 0
           ? `${comCliente.length} documento(s) gerado(s) num PDF só. ${semCliente} ficaram de fora por falta de companhia -- confira a coluna "Cia aérea" dessas linhas.`
@@ -988,10 +986,7 @@ function AbaSubstabelecimentoCorrespondente() {
       const zip = new JSZip();
       documentos.forEach(({ nomeArquivo, blob }) => zip.file(nomeArquivo, blob));
       const conteudo = await zip.generateAsync({ type: "blob" });
-      baixarBlob(
-        conteudo,
-        `substabelecimentos-correspondente-${modelo.id}-${new Date().toISOString().slice(0, 10)}.zip`,
-      );
+      baixarBlob(conteudo, `substabelecimentos-correspondente-${modelo.id}-${hojeBrasilia()}.zip`);
       toast.success(
         semCliente > 0
           ? `${comCliente.length} documento(s) gerado(s) em arquivos separados. ${semCliente} ficaram de fora por falta de companhia.`
@@ -1422,7 +1417,7 @@ function AbaCartaPreposicao() {
     setGerando(true);
     try {
       const blob = await gerarPdfCartasPreposicao(comCliente);
-      baixarBlob(blob, `cartas-preposicao-${new Date().toISOString().slice(0, 10)}.pdf`);
+      baixarBlob(blob, `cartas-preposicao-${hojeBrasilia()}.pdf`);
       toast.success(
         semCliente > 0
           ? `${comCliente.length} documento(s) gerado(s) num PDF só. ${semCliente} ficaram de fora por falta de cliente -- cadastre a companhia e gere de novo só essas.`
@@ -1456,7 +1451,7 @@ function AbaCartaPreposicao() {
       const zip = new JSZip();
       documentos.forEach(({ nomeArquivo, blob }) => zip.file(nomeArquivo, blob));
       const conteudo = await zip.generateAsync({ type: "blob" });
-      baixarBlob(conteudo, `cartas-preposicao-${new Date().toISOString().slice(0, 10)}.zip`);
+      baixarBlob(conteudo, `cartas-preposicao-${hojeBrasilia()}.zip`);
       toast.success(
         semCliente > 0
           ? `${comCliente.length} documento(s) gerado(s) em arquivos separados. ${semCliente} ficaram de fora por falta de cliente -- cadastre a companhia e gere de novo só essas.`
@@ -1974,10 +1969,7 @@ function AbaCartaPreposicaoCorrespondente() {
     setGerando(true);
     try {
       const blob = await gerarPdfCartasPreposicaoCorrespondente(modelo, comCliente);
-      baixarBlob(
-        blob,
-        `carta-preposicao-correspondente-${modelo.id}-${new Date().toISOString().slice(0, 10)}.pdf`,
-      );
+      baixarBlob(blob, `carta-preposicao-correspondente-${modelo.id}-${hojeBrasilia()}.pdf`);
       toast.success(
         semCliente > 0
           ? `${comCliente.length} documento(s) gerado(s) num PDF só. ${semCliente} ficaram de fora por falta de companhia -- confira a coluna "Cia aérea" dessas linhas.`
@@ -2013,10 +2005,7 @@ function AbaCartaPreposicaoCorrespondente() {
       const zip = new JSZip();
       documentos.forEach(({ nomeArquivo, blob }) => zip.file(nomeArquivo, blob));
       const conteudo = await zip.generateAsync({ type: "blob" });
-      baixarBlob(
-        conteudo,
-        `carta-preposicao-correspondente-${modelo.id}-${new Date().toISOString().slice(0, 10)}.zip`,
-      );
+      baixarBlob(conteudo, `carta-preposicao-correspondente-${modelo.id}-${hojeBrasilia()}.zip`);
       toast.success(
         semCliente > 0
           ? `${comCliente.length} documento(s) gerado(s) em arquivos separados. ${semCliente} ficaram de fora por falta de companhia.`
@@ -3003,10 +2992,7 @@ function PastaGeralCard({ clientes }: { clientes: ClienteSubstabelecimento[] }) 
         return;
       }
       const conteudo = await zip.generateAsync({ type: "blob" });
-      baixarBlob(
-        conteudo,
-        `procuracoes-substabelecimento-${new Date().toISOString().slice(0, 10)}.zip`,
-      );
+      baixarBlob(conteudo, `procuracoes-substabelecimento-${hojeBrasilia()}.zip`);
       toast.success(
         falhas > 0
           ? `${prontos.length - falhas} documento(s) gerado(s). ${falhas} falharam.`

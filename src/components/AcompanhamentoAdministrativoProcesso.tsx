@@ -24,9 +24,10 @@ import {
   listarAcompanhamentos,
 } from "@/lib/acompanhamentos";
 import { ESTAGIARIOS_CONHECIDOS } from "@/lib/processos";
+import { hojeBrasilia } from "@/lib/data-hoje";
 
 function hoje() {
-  return new Date().toISOString().slice(0, 10);
+  return hojeBrasilia();
 }
 
 // Seção "Acompanhamento administrativo" -- registro das ligações

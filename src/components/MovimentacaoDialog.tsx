@@ -27,6 +27,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { supabaseSolto } from "@/lib/supabase-solto";
 import { FASE_OPCOES, TIPOS_MOVIMENTACAO, type Movimentacao } from "@/lib/processos";
+import { hojeBrasilia } from "@/lib/data-hoje";
 
 type MovimentacaoComFase = Movimentacao & {
   fase_anterior?: string | null;
@@ -232,9 +233,7 @@ export function MovimentacaoDialog({
                 name="data_movimentacao"
                 type="date"
                 required
-                defaultValue={
-                  movimentacao?.data_movimentacao ?? new Date().toISOString().slice(0, 10)
-                }
+                defaultValue={movimentacao?.data_movimentacao ?? hojeBrasilia()}
               />
             </div>
             <div className="space-y-2">

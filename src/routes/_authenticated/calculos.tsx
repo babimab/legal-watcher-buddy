@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { hojeBrasilia } from "@/lib/data-hoje";
 import {
   abrirDocumentoCalculo,
   calcularJudicial,
@@ -76,7 +77,7 @@ const TIPOS_VERBA = [
 ];
 
 function hoje() {
-  return new Date().toISOString().slice(0, 10);
+  return hojeBrasilia();
 }
 
 function dinheiro(n: number) {

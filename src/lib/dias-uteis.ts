@@ -8,6 +8,8 @@
 // o resto do app pra data_movimentacao/prazo), sempre interpretadas ao
 // meio-dia local pra evitar bug de fuso horário na borda da meia-noite.
 
+import { hojeBrasilia } from "@/lib/data-hoje";
+
 function paraDate(iso: string): Date {
   return new Date(`${iso}T12:00:00`);
 }
@@ -101,7 +103,7 @@ export function somarDiasUteis(iso: string, dias: number): string {
 export type Urgencia = "vencido" | "urgente" | "atencao" | "normal" | "sem_prazo";
 
 /** Classifica a urgência de um prazo com base em quantos dias corridos faltam a partir de hoje. */
-export function classificarUrgencia(prazo: string | null, hojeISO = paraISO(new Date())): Urgencia {
+export function classificarUrgencia(prazo: string | null, hojeISO = hojeBrasilia()): Urgencia {
   if (!prazo) return "sem_prazo";
   const diffMs = paraDate(prazo).getTime() - paraDate(hojeISO).getTime();
   const diasRestantes = Math.round(diffMs / (1000 * 60 * 60 * 24));

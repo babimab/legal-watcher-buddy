@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 
 import { chaveCabecalho, dataISO, dataPorExtenso, normalizar, texto } from "@/lib/substabelecimento";
+import { hojeBrasilia } from "@/lib/data-hoje";
 
 export type Preposto = { nome: string; cpf: string | null };
 
@@ -154,7 +155,7 @@ export function lerPlanilhaCartaPreposicao(buffer: ArrayBuffer): ItemCartaPrepos
       juizo: compuserJuizo(dados),
       prepostos: lerPrepostos(dados.prepostos),
       cidade: texto(dados.cidade) ?? "Rio de Janeiro",
-      data: dataISO(dados.data) ?? new Date().toISOString().slice(0, 10),
+      data: dataISO(dados.data) ?? hojeBrasilia(),
       ciaAereaTexto: texto(dados.ciaAerea),
     });
   }

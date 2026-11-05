@@ -33,6 +33,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { listarBaixasCliente } from "@/lib/baixas-cliente";
 import { listarCaixaEntrada } from "@/lib/caixa-entrada";
 import { listarPainelAdministrativos } from "@/lib/acompanhamentos";
+import { hojeBrasilia, somarDiasData } from "@/lib/data-hoje";
 import {
   listarPendencias,
   ehResponsavelDaSigla,
@@ -64,9 +65,7 @@ function AppLayout() {
   const minhaSigla = useSiglaAtual();
   const ehEstagiaria = useCargoAtual() === "Estagiário";
   const podeVerFatura = usePodeVerFatura();
-  const emSeteDias = new Date();
-  emSeteDias.setDate(emSeteDias.getDate() + 7);
-  const emSeteDiasISO = emSeteDias.toISOString().slice(0, 10);
+  const emSeteDiasISO = somarDiasData(hojeBrasilia(), 7);
   const prazosUrgentes = (pendencias.data ?? []).filter(
     (m) => m.prazo && m.prazo <= emSeteDiasISO,
   ).length;

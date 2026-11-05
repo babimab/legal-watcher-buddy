@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { mensagemErroEdgeFunction } from "@/lib/edge-functions";
+import { hojeBrasilia, somarDiasData } from "@/lib/data-hoje";
 import {
   capitalizarNome,
   categoriaCliente,
@@ -1122,7 +1123,7 @@ function PublicacoesPage() {
   const [gruposAtivos, setGruposAtivos] = useState<Set<Grupo>>(new Set());
   const [selecionadas, setSelecionadas] = useState<Set<number>>(new Set());
   const [importando, setImportando] = useState(false);
-  const [dataPlanilha, setDataPlanilha] = useState(() => new Date().toISOString().slice(0, 10));
+  const [dataPlanilha, setDataPlanilha] = useState(() => hojeBrasilia());
   const [advogadosDjen, setAdvogadosDjen] = useState<AdvogadoDjenRow[]>([
     { nome: "", numeroOab: "", ufOab: "", fixado: false },
   ]);
@@ -1175,13 +1176,11 @@ function PublicacoesPage() {
   // Padrão de alguns dias pra trás (não só hoje) -- uma disponibilização
   // de ontem já escapava da busca com o período de 1 dia só.
   const [periodoDjen, setPeriodoDjen] = useState(() => {
-    const hoje = new Date();
-    const inicio = new Date(hoje);
-    inicio.setDate(inicio.getDate() - 3);
+    const hoje = hojeBrasilia();
     return {
       siglaTribunal: "",
-      dataInicio: inicio.toISOString().slice(0, 10),
-      dataFim: hoje.toISOString().slice(0, 10),
+      dataInicio: somarDiasData(hoje, -3),
+      dataFim: hoje,
     };
   });
   const [buscandoDjen, setBuscandoDjen] = useState(false);
@@ -2139,7 +2138,7 @@ function PublicacoesPage() {
                     new Blob([JSON.stringify(ultimaBuscaDjenBruta, null, 2)], {
                       type: "application/json",
                     }),
-                    `djen-bruto-${new Date().toISOString().slice(0, 10)}.json`,
+                    `djen-bruto-${hojeBrasilia()}.json`,
                   )
                 }
               >

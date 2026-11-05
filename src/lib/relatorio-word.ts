@@ -1,5 +1,6 @@
 import JSZip from "jszip";
 
+import { hojeBrasilia } from "@/lib/data-hoje";
 import {
   exibir,
   formatarCNJ,
@@ -205,7 +206,7 @@ export async function gerarDocumentoWord(corpoXml: string, nomeArquivo: string):
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${nomeArquivo}-${new Date().toISOString().slice(0, 10)}.docx`;
+  link.download = `${nomeArquivo}-${hojeBrasilia()}.docx`;
   document.body.appendChild(link);
   link.click();
   link.remove();

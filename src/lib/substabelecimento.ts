@@ -1,5 +1,7 @@
 import * as XLSX from "xlsx";
 
+import { hojeBrasilia } from "@/lib/data-hoje";
+
 // Cadastro de cliente de substabelecimento -- vem do banco (tabela
 // clientes_substabelecimento), não mais fixo no código. A assinatura é
 // opcional e fica guardada num bucket privado (assinaturas-substabelecimento),
@@ -213,7 +215,7 @@ export function lerPlanilhaSubstabelecimento(buffer: ArrayBuffer): ItemSubstabel
       juizo: compuserJuizo(dados),
       comReserva,
       cidade: texto(dados.cidade) ?? "Rio de Janeiro",
-      data: dataISO(dados.data) ?? new Date().toISOString().slice(0, 10),
+      data: dataISO(dados.data) ?? hojeBrasilia(),
       ciaAereaTexto: texto(dados.ciaAerea),
     });
   }

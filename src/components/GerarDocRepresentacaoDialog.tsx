@@ -29,6 +29,7 @@ import { listarClientesSubstabelecimento } from "@/lib/clientes-substabeleciment
 import { lerPrepostos } from "@/lib/carta-preposicao";
 import { gerarEBaixarPdfSubstabelecimento } from "@/lib/pdf-substabelecimento";
 import { gerarEBaixarPdfCartaPreposicao } from "@/lib/pdf-carta-preposicao";
+import { hojeBrasilia } from "@/lib/data-hoje";
 
 // "Juízo" não existe como campo único no processo -- monta a partir de
 // vara/comarca/uf, igual o padrão já usado na leitura das planilhas de
@@ -54,7 +55,7 @@ export function GerarDocRepresentacaoDialog({ processo }: { processo: Processo }
   const [comReserva, setComReserva] = useState(true);
   const [prepostosTexto, setPrepostosTexto] = useState("");
   const [cidade, setCidade] = useState("Rio de Janeiro");
-  const [data, setData] = useState(() => new Date().toISOString().slice(0, 10));
+  const [data, setData] = useState(() => hojeBrasilia());
   const [gerando, setGerando] = useState(false);
 
   // Tenta já vir com o cliente certo selecionado, casando o nome do

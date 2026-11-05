@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { supabaseSolto } from "@/lib/supabase-solto";
 import { formatarCNJ, exibir, type Processo } from "@/lib/processos";
+import { hojeBrasilia } from "@/lib/data-hoje";
 
 export function NovoPrazoDialog({
   tipo,
@@ -59,7 +60,7 @@ export function NovoPrazoDialog({
 
     const { error } = await supabaseSolto.from("movimentacoes").insert({
       processo_id: processoId,
-      data_movimentacao: new Date().toISOString().slice(0, 10),
+      data_movimentacao: hojeBrasilia(),
       descricao: String(form.get("descricao") ?? "").trim(),
       tipo,
       exige_acao: true,

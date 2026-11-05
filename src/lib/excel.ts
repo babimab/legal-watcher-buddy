@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 
+import { hojeBrasilia } from "@/lib/data-hoje";
 import {
   formatarCNJ,
   exibir,
@@ -111,7 +112,7 @@ export async function baixarPlanilha(workbook: ExcelJS.Workbook, nomeArquivo: st
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${nomeArquivo}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+  link.download = `${nomeArquivo}-${hojeBrasilia()}.xlsx`;
   document.body.appendChild(link);
   link.click();
   link.remove();

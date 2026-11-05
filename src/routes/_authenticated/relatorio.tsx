@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { supabaseSolto } from "@/lib/supabase-solto";
+import { hojeBrasilia, somarDiasData } from "@/lib/data-hoje";
 import {
   categoriaCliente,
   formatarCNJ,
@@ -742,13 +743,9 @@ function RelatorioPage() {
   const periodoFiltrado = aplicarFiltrosRelatorio(periodo.data ?? []);
   const ultimosFiltrados = aplicarFiltrosRelatorio(ultimos.data ?? []);
 
-  const hojeISO = new Date().toISOString().slice(0, 10);
-  const emUmDia = new Date();
-  emUmDia.setDate(emUmDia.getDate() + 1);
-  const emUmDiaISO = emUmDia.toISOString().slice(0, 10);
-  const emSeteDias = new Date();
-  emSeteDias.setDate(emSeteDias.getDate() + 7);
-  const emSeteDiasISO = emSeteDias.toISOString().slice(0, 10);
+  const hojeISO = hojeBrasilia();
+  const emUmDiaISO = somarDiasData(hojeISO, 1);
+  const emSeteDiasISO = somarDiasData(hojeISO, 7);
 
   const pendenciasFiltradas = aplicarFiltrosRelatorio(pendencias.data ?? []).filter((m) => {
     if (urgencia === "todos") return true;

@@ -19,6 +19,7 @@ import {
   tabelaCabecalho,
   tituloSecao,
 } from "@/lib/pdf-base";
+import { hojeBrasilia } from "@/lib/data-hoje";
 
 function linhasIdentificacao(identificacao?: IdentificacaoCalculo) {
   const linhas: Array<[string, string]> = [];
@@ -376,6 +377,6 @@ export async function exportarCalculoPdfDireto(
 
   paginas.forEach((pagina, idx) => rodape(pagina, idx + 1, paginas.length));
   const blob = montarPdf(paginas, { ImLogo: logo, ImWater: watermark });
-  const arquivo = `calculo-${nomeSeguro(nome)}-${new Date().toISOString().slice(0, 10)}.pdf`;
+  const arquivo = `calculo-${nomeSeguro(nome)}-${hojeBrasilia()}.pdf`;
   baixarBlob(blob, arquivo);
 }
