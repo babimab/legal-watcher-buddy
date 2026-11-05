@@ -6,19 +6,29 @@
 // medimos o total real com uma contagem exata (count=exact) ANTES de
 // buscar qualquer linha -- isso não é afetado pelo limite de linhas por
 // página do PostgREST. Se esse total passar do teto de segurança, a
-// consulta é recusada de cara (nunca inicia uma resposta parcial). Ao
-// final, conferimos se o total de linhas realmente buscadas bate com o
-// total medido no início; se vier menor (ex.: alguma página foi cortada
-// por engano, ou uma linha foi removida bem no meio da varredura), isso
-// vira erro explícito -- nunca uma lista incompleta com HTTP 200.
+// consulta é recusada de cara (nunca inicia uma resposta parcial).
 //
-// Também não garante uma "foto" perfeitamente congelada do banco: se
-// novas linhas forem INSERIDAS dentro do período pedido enquanto a
-// varredura está em andamento, elas podem ou não entrar na resposta
-// (a mesma ambiguidade que já existia numa consulta única, sem
-// paginação). O que a checagem acima evita é a lista vir MENOR do que
-// o que já existia no instante da contagem -- essa é a garantia que
-// importa aqui (nunca perder registro que já estava lá).
+// O teto também é reforçado a CADA página buscada, não só nessa
+// contagem inicial -- se o acumulado passar do teto em algum momento da
+// varredura (ex.: registros que passem a casar com o período DEPOIS da
+// contagem, por uma inserção concorrente durante a própria consulta),
+// a operação é interrompida com o mesmo erro explícito, mesmo que a
+// contagem inicial tivesse ficado dentro do limite.
+//
+// Ao final, conferimos se o total de linhas realmente buscadas bate com
+// o total medido no início; se vier menor (ex.: alguma página foi
+// cortada por engano, ou uma linha foi removida bem no meio da
+// varredura), isso também vira erro explícito -- nunca uma lista
+// incompleta com HTTP 200.
+//
+// O que isso NÃO garante é uma "foto" perfeitamente congelada do banco:
+// se novas linhas forem inseridas dentro do período pedido enquanto a
+// varredura está em andamento, e o total final ficar dentro do teto,
+// elas podem ou não entrar na resposta, dependendo de em que ponto da
+// varredura foram inseridas (mesma ambiguidade que já existia numa
+// consulta única, sem paginação). As duas garantias que importam aqui
+// são: nunca devolver menos do que já existia no início, e nunca
+// devolver mais do que o teto permite.
 export type ResultadoPaginacaoInterna<T> =
   | { ok: true; linhas: T[] }
   | { ok: false; motivo: "limite_excedido"; teto: number; total: number }
@@ -43,6 +53,14 @@ export async function buscarTudoComPaginacaoInterna<T extends { id: string }>(ar
   for (;;) {
     const pagina = await buscarPagina(cursor, tamanhoPagina);
     acumulado.push(...pagina);
+    // Reforça o teto a cada página, não só na contagem inicial -- cobre o
+    // caso de registros que passem a casar com o período DEPOIS da
+    // contagem (ex.: inserção dentro do período pedido, durante a própria
+    // varredura). Sem isso, o teto só protegia contra o volume medido no
+    // início, não contra o volume de verdade acumulado até o fim.
+    if (acumulado.length > teto) {
+      return { ok: false, motivo: "limite_excedido", teto, total: acumulado.length };
+    }
     if (pagina.length < tamanhoPagina) break;
     const ultima = pagina[pagina.length - 1]!;
     cursor = { valor: valorOrdenacaoDe(ultima), id: ultima.id };
