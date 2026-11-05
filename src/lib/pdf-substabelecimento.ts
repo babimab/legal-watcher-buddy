@@ -89,10 +89,25 @@ function carregarLogo() {
 
 // Sem cache por URL: a URL assinada do Storage muda a cada chamada
 // (token com validade curta), então reaproveitar por URL nunca ia bater.
+//
+// Se o arquivo da assinatura não existir mais no Storage (cadastro
+// desatualizado, arquivo removido por fora do sistema), não trava a
+// geração do documento inteiro por causa de uma imagem decorativa --
+// sai sem assinatura, igual ao caso de cliente sem assinatura
+// cadastrada, só avisando no console pra dar pra rastrear qual cliente
+// precisa recadastrar.
 async function carregarAssinatura(cliente: ClienteSubstabelecimento): Promise<ImagemPdf | null> {
   if (!cliente.assinaturaCaminho) return null;
-  const url = await obterUrlAssinaturaCliente(cliente.assinaturaCaminho);
-  return imagemComoJpeg(url, CORES.white);
+  try {
+    const url = await obterUrlAssinaturaCliente(cliente.assinaturaCaminho);
+    return await imagemComoJpeg(url, CORES.white);
+  } catch (e) {
+    console.warn(
+      `Assinatura cadastrada de "${cliente.nome}" não encontrada no Storage -- documento sai sem assinatura. Recadastre em Clientes e assinaturas.`,
+      e,
+    );
+    return null;
+  }
 }
 
 async function construirPaginaSubstabelecimento(

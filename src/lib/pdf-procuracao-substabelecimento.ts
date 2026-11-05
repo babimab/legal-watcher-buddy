@@ -73,7 +73,20 @@ export async function gerarPdfProcuracaoPreenchida(
       `"${cliente.nome}" não tem o PDF de Substabelecimento cadastrado em "Clientes e assinaturas".`,
     );
   }
-  const url = await obterUrlSubstabelecimentoModeloCliente(cliente.substabelecimentoModeloCaminho);
+  // Diferente da assinatura (decorativa, dá pra sair sem), esse PDF É o
+  // documento -- sem ele não tem o que gerar, então aqui o erro precisa
+  // mesmo interromper, só com uma mensagem clara em vez do erro cru do
+  // Storage ("Object not found") quando o cadastro aponta pra um
+  // arquivo que não existe mais.
+  let url: string;
+  try {
+    url = await obterUrlSubstabelecimentoModeloCliente(cliente.substabelecimentoModeloCaminho);
+  } catch (e) {
+    throw new Error(
+      `O PDF de Substabelecimento cadastrado para "${cliente.nome}" não foi encontrado -- recadastre em "Clientes e assinaturas".`,
+      { cause: e },
+    );
+  }
   const pdf = await carregarPdf(url);
   if (pdf.getPageCount() < 2) {
     throw new Error(`O PDF de Substabelecimento de "${cliente.nome}" não tem uma segunda página.`);

@@ -40,10 +40,24 @@ function carregarLogo() {
   return logoCache;
 }
 
+// Se o arquivo da assinatura não existir mais no Storage (cadastro
+// desatualizado, arquivo removido por fora do sistema), não trava a
+// geração do documento inteiro por causa de uma imagem decorativa --
+// sai sem assinatura, igual ao caso de modelo sem assinatura cadastrada,
+// só avisando no console pra dar pra rastrear qual modelo precisa
+// recadastrar.
 async function carregarAssinatura(modelo: ModeloCorrespondente): Promise<ImagemPdf | null> {
   if (!modelo.assinaturaCaminho) return null;
-  const url = await obterUrlAssinaturaModeloCorrespondente(modelo.assinaturaCaminho);
-  return imagemComoJpeg(url, CORES.white);
+  try {
+    const url = await obterUrlAssinaturaModeloCorrespondente(modelo.assinaturaCaminho);
+    return await imagemComoJpeg(url, CORES.white);
+  } catch (e) {
+    console.warn(
+      `Assinatura cadastrada do modelo de correspondente "${modelo.estado}" não encontrada no Storage -- documento sai sem assinatura. Recadastre o modelo.`,
+      e,
+    );
+    return null;
+  }
 }
 
 // Abaixo disso quebra pra próxima página -- deixa uma folga antes do
