@@ -297,6 +297,34 @@ export function processosSemPasta(processos: Processo[]): ProcessoSemPasta[] {
     }));
 }
 
+// --- Processos sem responsável ---
+// Não filtra por status de propósito -- "sem responsável" importa
+// mesmo em processo suspenso/arquivado, e a tela deixa filtrar por
+// situação em vez de esconder metade dos casos de cara.
+export type ProcessoSemResponsavel = Pick<
+  Processo,
+  "id" | "numero_cnj" | "cliente" | "numero_cliente" | "numero_interno" | "pasta_id" | "status"
+>;
+
+export function processosSemResponsavel(processos: Processo[]): ProcessoSemResponsavel[] {
+  return processos
+    .filter((p) => !p.responsavel)
+    .map((p) => ({
+      id: p.id,
+      numero_cnj: p.numero_cnj,
+      cliente: p.cliente,
+      numero_cliente: p.numero_cliente,
+      numero_interno: p.numero_interno,
+      pasta_id: p.pasta_id,
+      status: p.status,
+    }));
+}
+
+export async function definirResponsavel(processoId: string, responsavel: string): Promise<void> {
+  const { error } = await supabase.from("processos").update({ responsavel }).eq("id", processoId);
+  if (error) throw error;
+}
+
 // --- Processos sem número de cliente ou de caso ---
 // Desdobramento não tem (nem deveria ter) número de caso próprio -- ele
 // mostra/herda o do processo principal (ver ProcessoDialog/processos

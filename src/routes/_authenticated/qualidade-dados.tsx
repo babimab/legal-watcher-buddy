@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -20,13 +21,16 @@ import {
   categoriaCliente,
   exibir,
   formatarCNJ,
+  OUTROS_ADVOGADOS_CONHECIDOS,
+  STATUS_OPCOES,
   TIPOS_DESDOBRAMENTO,
 } from "@/lib/processos";
-import { listarGrupos, listarPastas } from "@/lib/grupos";
+import { listarGrupos, listarPastas, type Pasta } from "@/lib/grupos";
 import { exportarGruposParteAdversaExcel, exportarSemClienteOuCasoExcel } from "@/lib/excel";
 import {
   cnjsDuplicados,
   corrigirAcento,
+  definirResponsavel,
   desdobramentosNaoVinculados,
   excluirDuplicatasSegurasAcento,
   gruposPorParteAdversa,
@@ -36,8 +40,10 @@ import {
   primeirasMovimentacoesDe,
   processosSemClienteOuCaso,
   processosSemPasta,
+  processosSemResponsavel,
   type GrupoDesdobramentoNaoVinculado,
   type ProblemaAcento,
+  type ProcessoSemResponsavel,
 } from "@/lib/saude";
 
 export const Route = createFileRoute("/_authenticated/qualidade-dados")({
@@ -74,6 +80,7 @@ function QualidadeDadosPage() {
   const [exportandoSemClienteOuCaso, setExportandoSemClienteOuCaso] = useState(false);
 
   const semPasta = processos.data ? processosSemPasta(processos.data) : [];
+  const semResponsavel = processos.data ? processosSemResponsavel(processos.data) : [];
   const semClienteOuCaso = processos.data ? processosSemClienteOuCaso(processos.data) : [];
   const duplicados = processos.data ? cnjsDuplicados(processos.data) : [];
   const desdobramentos = useMemo(
@@ -148,6 +155,7 @@ function QualidadeDadosPage() {
   const semProblemas =
     !carregando &&
     semPasta.length === 0 &&
+    semResponsavel.length === 0 &&
     semClienteOuCaso.length === 0 &&
     duplicados.length === 0 &&
     desdobramentos.length === 0 &&
@@ -278,6 +286,10 @@ function QualidadeDadosPage() {
             </div>
           </CardContent>
         </Card>
+      ) : null}
+
+      {semResponsavel.length > 0 ? (
+        <SemResponsavelCard itens={semResponsavel} pastas={pastas.data ?? []} />
       ) : null}
 
       {semClienteOuCaso.length > 0 ? (
@@ -585,6 +597,192 @@ function QualidadeDadosPage() {
         </Card>
       ) : null}
     </div>
+  );
+}
+
+function SemResponsavelCard({
+  itens,
+  pastas,
+}: {
+  itens: ProcessoSemResponsavel[];
+  pastas: Pasta[];
+}) {
+  const queryClient = useQueryClient();
+  const [filtroCliente, setFiltroCliente] = useState("todos");
+  const [filtroPasta, setFiltroPasta] = useState("todas");
+  const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [salvando, setSalvando] = useState<Set<string>>(new Set());
+  const [rascunho, setRascunho] = useState<Record<string, string>>({});
+
+  const clientes = useMemo(
+    () =>
+      [...new Set(itens.map((p) => p.cliente).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, "pt-BR"),
+      ),
+    [itens],
+  );
+  const pastasComItem = useMemo(() => {
+    const idsComItem = new Set(itens.map((p) => p.pasta_id).filter(Boolean));
+    return pastas
+      .filter((pa) => idsComItem.has(pa.id))
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  }, [itens, pastas]);
+  const pastaNome = (id: string | null) => pastas.find((pa) => pa.id === id)?.nome ?? null;
+
+  const filtrados = itens.filter((p) => {
+    if (filtroCliente !== "todos" && p.cliente !== filtroCliente) return false;
+    if (filtroPasta === "nenhuma" && p.pasta_id) return false;
+    if (filtroPasta !== "todas" && filtroPasta !== "nenhuma" && p.pasta_id !== filtroPasta)
+      return false;
+    if (filtroStatus !== "todos" && p.status !== filtroStatus) return false;
+    return true;
+  });
+
+  const salvar = async (processoId: string) => {
+    const valor = (rascunho[processoId] ?? "").trim();
+    if (!valor) {
+      toast.error("Digite o responsável antes de salvar.");
+      return;
+    }
+    setSalvando((s) => new Set(s).add(processoId));
+    try {
+      await definirResponsavel(processoId, valor);
+      toast.success("Responsável salvo.");
+      await queryClient.invalidateQueries({ queryKey: ["processos-saude"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não consegui salvar.");
+    } finally {
+      setSalvando((s) => {
+        const novo = new Set(s);
+        novo.delete(processoId);
+        return novo;
+      });
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <CardTitle className="flex items-center gap-2 font-serif text-lg">
+              <AlertTriangle className="size-5 text-amber-500" />
+              {itens.length} processo(s) sem responsável
+            </CardTitle>
+            <CardDescription>
+              Sem responsável, o processo não aparece nos painéis "meus processos" de ninguém.
+              Preencha aqui mesmo, sem precisar abrir cada processo.
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {clientes.length > 1 ? (
+              <Select value={filtroCliente} onValueChange={setFiltroCliente}>
+                <SelectTrigger className="h-8 w-48 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os clientes</SelectItem>
+                  {clientes.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {exibir(c)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
+            {pastasComItem.length > 1 ? (
+              <Select value={filtroPasta} onValueChange={setFiltroPasta}>
+                <SelectTrigger className="h-8 w-48 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas as pastas</SelectItem>
+                  <SelectItem value="nenhuma">Sem pasta</SelectItem>
+                  {pastasComItem.map((pa) => (
+                    <SelectItem key={pa.id} value={pa.id}>
+                      {exibir(pa.nome)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
+            <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+              <SelectTrigger className="h-8 w-40 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas as situações</SelectItem>
+                {STATUS_OPCOES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto rounded-md border border-border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted">
+              <tr>
+                <th className="p-2 text-left">Processo</th>
+                <th className="p-2 text-left">Cliente</th>
+                <th className="p-2 text-left">Pasta</th>
+                <th className="p-2 text-left">Situação</th>
+                <th className="p-2 text-left">Responsável</th>
+                <th className="w-20 p-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtrados.map((p) => (
+                <tr key={p.id} className="border-t border-border">
+                  <td className="p-2 font-mono text-xs">
+                    <Link to="/processos/$id" params={{ id: p.id }} className="hover:underline">
+                      {formatarCNJ(p.numero_cnj)}
+                    </Link>
+                  </td>
+                  <td className="p-2">{exibir(p.cliente)}</td>
+                  <td className="p-2 text-xs text-muted-foreground">
+                    {exibir(pastaNome(p.pasta_id)) ?? "—"}
+                  </td>
+                  <td className="p-2">
+                    <Badge variant={p.status === "ativo" ? "default" : "secondary"}>
+                      {p.status}
+                    </Badge>
+                  </td>
+                  <td className="p-2">
+                    <Input
+                      value={rascunho[p.id] ?? ""}
+                      onChange={(e) => setRascunho((r) => ({ ...r, [p.id]: e.target.value }))}
+                      list="responsaveis-sugeridos-qualidade"
+                      placeholder="Sigla"
+                      className="h-8 w-28 text-xs"
+                    />
+                  </td>
+                  <td className="p-2 text-right">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={salvando.has(p.id)}
+                      onClick={() => void salvar(p.id)}
+                    >
+                      {salvando.has(p.id) ? "Salvando..." : "Salvar"}
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <datalist id="responsaveis-sugeridos-qualidade">
+          {OUTROS_ADVOGADOS_CONHECIDOS.map((a) => (
+            <option key={a} value={a} />
+          ))}
+        </datalist>
+      </CardContent>
+    </Card>
   );
 }
 
