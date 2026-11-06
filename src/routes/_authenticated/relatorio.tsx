@@ -54,6 +54,7 @@ import {
 } from "@/lib/processos";
 import { listarGrupos, listarPastas } from "@/lib/grupos";
 import { linkTribunalEfetivo } from "@/lib/tribunais";
+import { levantarSuspensosSouzaCruz } from "@/lib/suspensao-souza-cruz";
 import {
   estilizarCabecalho,
   centralizarLinhas,
@@ -1688,6 +1689,10 @@ function RelatorioPage() {
         </>
       )}
 
+      {!ehModoEncerramentos && aba !== "pendencias" ? (
+        <SuspensosSouzaCruzCard processos={processos.data ?? []} />
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle className="font-serif text-lg">Envio automático por e-mail</CardTitle>
@@ -2041,6 +2046,131 @@ function ListaBaixaClientePendente({ processos }: { processos: Processo[] }) {
           </li>
         ))}
       </ol>
+    </div>
+  );
+}
+
+// Levantamento pedido pela BDR: processos ativos da Souza Cruz suspensos
+// por acordo aguardando quitação ou por execução suspensa após não
+// localização de bens penhoráveis. Classificação por palavra-chave
+// (ver suspensao-souza-cruz.ts) -- sempre pré-triagem, não substitui
+// revisão jurídica. Fica escondido por padrão (card recolhido) pra não
+// disputar espaço com os relatórios de andamentos do dia a dia.
+function SuspensosSouzaCruzCard({ processos }: { processos: Processo[] }) {
+  const [aberto, setAberto] = useState(false);
+  const levantamento = useMemo(() => levantarSuspensosSouzaCruz(processos), [processos]);
+  const total =
+    levantamento.acordoAguardandoQuitacao.length +
+    levantamento.execucaoSuspensaSemBens.length +
+    levantamento.ambiguo.length +
+    levantamento.semPadraoIdentificado.length;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-4">
+        <div>
+          <CardTitle className="font-serif text-lg">Suspensos Souza Cruz (levantamento)</CardTitle>
+          <CardDescription>
+            Processos ativos da Souza Cruz suspensos por acordo celebrado aguardando quitação
+            integral, ou por execução suspensa após tentativa frustrada de localizar bens
+            penhoráveis. Classificação automática por palavra-chave nas observações/objeto do
+            processo -- use como ponto de partida, revise antes de considerar definitivo.
+          </CardDescription>
+        </div>
+        <Button type="button" variant="outline" size="sm" onClick={() => setAberto((a) => !a)}>
+          {aberto ? "Recolher" : `Ver (${total})`}
+        </Button>
+      </CardHeader>
+      {aberto ? (
+        <CardContent className="space-y-6">
+          <GrupoSuspensaoSouzaCruz
+            titulo="Acordo aguardando quitação"
+            processos={levantamento.acordoAguardandoQuitacao}
+            nomeArquivo="souza-cruz-acordo-aguardando-quitacao"
+          />
+          <GrupoSuspensaoSouzaCruz
+            titulo="Execução suspensa (bens não localizados)"
+            processos={levantamento.execucaoSuspensaSemBens}
+            nomeArquivo="souza-cruz-execucao-suspensa-sem-bens"
+          />
+          {levantamento.ambiguo.length > 0 ? (
+            <GrupoSuspensaoSouzaCruz
+              titulo="Bateu os dois padrões -- revisar manualmente"
+              processos={levantamento.ambiguo}
+              nomeArquivo="souza-cruz-suspensao-ambigua"
+            />
+          ) : null}
+          <GrupoSuspensaoSouzaCruz
+            titulo="Suspenso, mas sem motivo identificado no texto"
+            processos={levantamento.semPadraoIdentificado}
+            nomeArquivo="souza-cruz-suspenso-sem-padrao"
+          />
+        </CardContent>
+      ) : null}
+    </Card>
+  );
+}
+
+function GrupoSuspensaoSouzaCruz({
+  titulo,
+  processos,
+  nomeArquivo,
+}: {
+  titulo: string;
+  processos: Processo[];
+  nomeArquivo: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-serif text-base font-semibold">
+          {titulo} ({processos.length})
+        </h3>
+        {processos.length > 0 ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              void exportarProcessosExcel(processos, nomeArquivo).catch(() =>
+                toast.error("Não consegui gerar o Excel."),
+              )
+            }
+          >
+            <Download className="size-4" /> Exportar Excel
+          </Button>
+        ) : null}
+      </div>
+      {processos.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nenhum processo encontrado.</p>
+      ) : (
+        <ol className="space-y-2">
+          {processos.map((p) => (
+            <li key={p.id} className="rounded-lg border border-border bg-card p-3 text-sm">
+              <div className="flex flex-wrap items-center gap-3">
+                <Link
+                  to="/processos/$id"
+                  params={{ id: p.id }}
+                  className="font-mono text-xs underline-offset-4 hover:underline"
+                >
+                  {formatarCNJ(p.numero_cnj)}
+                </Link>
+                <span className="font-medium">{exibir(p.cliente)}</span>
+                {p.parte_contraria ? (
+                  <span className="text-muted-foreground">x {p.parte_contraria}</span>
+                ) : null}
+                <Badge variant="outline">{p.status}</Badge>
+                {p.responsavel ? <Badge variant="secondary">{p.responsavel}</Badge> : null}
+              </div>
+              {p.observacoes || p.detalhamento_objeto ? (
+                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                  {p.observacoes || p.detalhamento_objeto}
+                </p>
+              ) : null}
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   );
 }
